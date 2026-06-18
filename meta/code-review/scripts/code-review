@@ -1,0 +1,254 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: code-review [options]
+
+Strict, budget-conscious code review helper.
+
+Options:
+  --mode auto|branch|local|commit   Review target mode (default: auto)
+  --base REF                        Base ref for branch mode (default: PR base or origin/main)
+  --commit REF                      Commit ref for commit mode (default: HEAD)
+  --engine auto|pi|claude|codex     Reviewer engine (default: CODE_REVIEW_ENGINE or auto)
+  --model MODEL                     Override model for selected engine
+  --thinking LEVEL                  Override thinking level when supported
+  --prompt-file PATH                Append extra review context
+  -h, --help                        Show this help
+
+Default lightweight models:
+  pi:     CODE_REVIEW_PI_MODEL or opencode-go/deepseek-v4-flash, thinking low
+  claude: CODE_REVIEW_CLAUDE_MODEL or sonnet
+  codex:  CODE_REVIEW_CODEX_MODEL or gpt-5.4-mini
+EOF
+}
+
+mode="auto"
+base=""
+commit="HEAD"
+engine="${CODE_REVIEW_ENGINE:-auto}"
+model=""
+thinking=""
+prompt_file=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mode) mode="${2:?}"; shift 2 ;;
+    --base) base="${2:?}"; shift 2 ;;
+    --commit) commit="${2:?}"; shift 2 ;;
+    --engine) engine="${2:?}"; shift 2 ;;
+    --model) model="${2:?}"; shift 2 ;;
+    --thinking) thinking="${2:?}"; shift 2 ;;
+    --prompt-file) prompt_file="${2:?}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+case "$mode" in auto|branch|local|commit) ;; *) echo "invalid --mode: $mode" >&2; exit 2 ;; esac
+case "$engine" in auto|pi|claude|codex) ;; *) echo "invalid --engine: $engine" >&2; exit 2 ;; esac
+
+repo=$(git rev-parse --show-toplevel)
+cd "$repo"
+
+has_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+select_engine() {
+  if [[ "$engine" != "auto" ]]; then
+    echo "$engine"
+    return
+  fi
+  if has_cmd pi; then echo pi; return; fi
+  if has_cmd claude; then echo claude; return; fi
+  if has_cmd codex; then echo codex; return; fi
+  echo "no supported review engine found: install pi, claude, or codex" >&2
+  exit 127
+}
+
+resolve_base() {
+  if [[ -n "$base" ]]; then
+    echo "$base"
+    return
+  fi
+  if has_cmd gh && gh pr view --json baseRefName --jq .baseRefName >/tmp/code-review-base.$$ 2>/dev/null; then
+    local pr_base
+    pr_base=$(cat /tmp/code-review-base.$$)
+    rm -f /tmp/code-review-base.$$
+    if [[ -n "$pr_base" ]]; then
+      echo "origin/$pr_base"
+      return
+    fi
+  fi
+  rm -f /tmp/code-review-base.$$
+  echo origin/main
+}
+
+has_dirty_work() {
+  [[ -n "$(git status --porcelain)" ]]
+}
+
+if [[ "$mode" == "auto" ]]; then
+  if has_dirty_work; then
+    mode="local"
+  else
+    mode="branch"
+  fi
+fi
+
+review_engine=$(select_engine)
+review_model="$model"
+review_thinking="$thinking"
+case "$review_engine" in
+  pi)
+    review_model="${review_model:-${CODE_REVIEW_PI_MODEL:-opencode-go/deepseek-v4-flash}}"
+    review_thinking="${review_thinking:-${CODE_REVIEW_PI_THINKING:-low}}"
+    ;;
+  claude)
+    review_model="${review_model:-${CODE_REVIEW_CLAUDE_MODEL:-sonnet}}"
+    ;;
+  codex)
+    review_model="${review_model:-${CODE_REVIEW_CODEX_MODEL:-gpt-5.4-mini}}"
+    review_thinking="${review_thinking:-${CODE_REVIEW_CODEX_THINKING:-low}}"
+    ;;
+esac
+
+bundle=$(mktemp)
+prompt=$(mktemp)
+cleanup() { rm -f "$bundle" "$prompt"; }
+trap cleanup EXIT
+
+{
+  echo "# Repository"
+  echo "$(basename "$repo")"
+  echo
+  echo "# Git status"
+  git status --short --branch || true
+  echo
+
+  case "$mode" in
+    branch)
+      resolved_base=$(resolve_base)
+      echo "# Target"
+      echo "mode: branch"
+      echo "base: $resolved_base"
+      echo "head: HEAD"
+      echo
+      echo "# Diff stat"
+      git diff --find-renames --stat "$resolved_base...HEAD"
+      echo
+      echo "# Changed files"
+      git diff --find-renames --name-status "$resolved_base...HEAD"
+      echo
+      echo "# Diff"
+      git diff --find-renames "$resolved_base...HEAD"
+      ;;
+    local)
+      echo "# Target"
+      echo "mode: local"
+      echo
+      echo "# Diff stat (unstaged)"
+      git diff --stat
+      echo
+      echo "# Diff stat (staged)"
+      git diff --cached --stat
+      echo
+      echo "# Untracked files"
+      git ls-files --others --exclude-standard
+      echo
+      echo "# Diff (unstaged)"
+      git diff --find-renames
+      echo
+      echo "# Diff (staged)"
+      git diff --cached --find-renames
+      ;;
+    commit)
+      echo "# Target"
+      echo "mode: commit"
+      echo "commit: $commit"
+      echo
+      echo "# Commit"
+      git show --find-renames --stat --oneline --decorate --no-ext-diff "$commit"
+      echo
+      echo "# Diff"
+      git show --find-renames --format=fuller --no-ext-diff "$commit"
+      ;;
+  esac
+} > "$bundle"
+
+{
+  cat <<'EOF'
+You are a strict code reviewer. Review the supplied change bundle.
+
+Mandatory rules:
+- Review correctness, regression risk, security, and maintainability.
+- Always apply a high structural-quality bar.
+- Assume this is running on a lightweight cost-conscious model. Do not expand into speculation. Report only high-confidence findings grounded in the diff or readable code.
+- Do not report cosmetic nits, style preferences, or speculative risks.
+- Use read-only inspection only. Do not modify code.
+- If there are no actionable findings, explicitly state that there are no accepted/actionable findings, in the language required by the active agent instructions.
+
+Always-on review rubric:
+1. Correctness regressions, broken runtime paths, migration/order mistakes.
+2. Security regressions, secret exposure, permission-boundary breaks.
+3. Structural code-quality regressions.
+4. Spaghetti growth: ad-hoc conditionals, special-case branches, or local exceptions bolted onto existing flows.
+5. Abstraction quality: thin wrappers, unnecessary indirection, and magical generic mechanisms.
+6. Code judo: ways to preserve behavior while deleting concepts, branches, helper layers, or incidental complexity.
+7. Ownership boundaries: whether logic lives in the right layer, package, module, or helper.
+8. Typed boundaries: whether casts, optionality, any, or unknown hide the real invariant.
+9. File size and decomposition: especially changes that push a file past 1000 lines.
+10. Orchestration quality: avoidable sequential work or non-atomic updates that make the implementation harder to reason about.
+
+Preferred output shape when findings exist:
+
+## Findings
+
+### [severity] title
+- Target: path:line
+- Problem: what breaks or what becomes harder to maintain
+- Evidence: facts from the diff, existing code, or documented behavior
+- Suggested fix: the smallest appropriate fix at the right ownership boundary
+EOF
+
+  if [[ -n "$prompt_file" ]]; then
+    echo
+    echo "# Additional context"
+    cat "$prompt_file"
+  fi
+
+  echo
+  echo "# Review metadata"
+  echo "engine: $review_engine"
+  echo "model: $review_model"
+  if [[ -n "$review_thinking" ]]; then echo "thinking: $review_thinking"; fi
+  echo
+  echo "# Change bundle"
+  echo '```'
+  cat "$bundle"
+  echo '```'
+} > "$prompt"
+
+printf 'code-review target: %s\n' "$mode" >&2
+printf 'engine: %s\n' "$review_engine" >&2
+printf 'model: %s\n' "$review_model" >&2
+if [[ -n "$review_thinking" ]]; then printf 'thinking: %s\n' "$review_thinking" >&2; fi
+
+case "$review_engine" in
+  pi)
+    if ! has_cmd pi; then echo "pi not found" >&2; exit 127; fi
+    pi_args=(--no-session --tools read,grep,find,ls --model "$review_model")
+    if [[ -n "$review_thinking" ]]; then pi_args+=(--thinking "$review_thinking"); fi
+    pi "${pi_args[@]}" -p < "$prompt"
+    ;;
+  claude)
+    if ! has_cmd claude; then echo "claude not found" >&2; exit 127; fi
+    claude --print --no-session-persistence --model "$review_model" < "$prompt"
+    ;;
+  codex)
+    if ! has_cmd codex; then echo "codex not found" >&2; exit 127; fi
+    codex_args=(--ask-for-approval never --model "$review_model")
+    if [[ -n "$review_thinking" ]]; then codex_args+=(-c "model_reasoning_effort=\"$review_thinking\""); fi
+    codex "${codex_args[@]}" exec --ephemeral -C "$repo" -s read-only - < "$prompt"
+    ;;
+esac
