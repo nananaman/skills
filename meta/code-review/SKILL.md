@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: 現在の diff、branch、commit、PR に対して、厳しめかつコストを抑えたコードレビューを実行する。コードレビュー、PR レビュー、autoreview、別モデルレビュー、thermo-nuclear review、特に厳しい保守性レビューを依頼されたときに使う。
+description: 現在の diff、branch、commit、PR を対象に、correctness・security・maintainability と構造品質を厳しめにレビューする。コードレビュー、PR レビュー、autoreview、別モデルレビュー、保守性レビューを依頼されたときに使う。
 ---
 
 # Code Review
