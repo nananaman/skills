@@ -12,8 +12,17 @@ APM で agent skill を管理・更新するときの運用手順です。
 - グローバルに入れる skill 一覧は dotfiles の `apm/apm.yml` で管理する。
 - 自作 reusable skill 本体は `nananaman/skills` を source of truth にする。
 - 外部 repo / 自作 repo の skill は full SHA で pin する。
-- `apm.lock.yaml` と `apm_modules/` は commit しない。
+- global skill 管理では、`apm.lock.yaml` と `apm_modules/` は commit しない。
 - project 固有 skill は、その project 配下に置く。汎用化できるものだけ `nananaman/skills` に移す。
+
+## global skill と project-local skill
+
+APM では、常時有効にする global skill と、特定 repo でだけ使う project-local skill を分けて管理する。
+
+| 用途 | manifest | install | 展開先 |
+|---|---|---|---|
+| 全 repo で常時使う skill | dotfiles の `apm/apm.yml` | `apm install -g` | `~/.claude/skills`, `~/.agents/skills` |
+| 特定 repo でだけ使う skill | repo root の `apm.yml` | `apm install --target claude,agent-skills` | `<repo>/.claude/skills`, `<repo>/.agents/skills` |
 
 ## `apm.yml` の基本形
 
@@ -56,6 +65,25 @@ git rev-parse HEAD
 apm install -g
 ```
 
+## project-local skill の導入
+
+特定 repo の作業でだけ使う skill は、repo root の `apm.yml` で管理する。
+GitHub 上の skill は、`fetch_content` や手動コピーではなく APM で導入する。
+
+```sh
+apm install <owner/repo/path#full-sha> --target claude,agent-skills
+```
+
+例：
+
+```sh
+apm install \
+  anthropics/skills/skills/skill-creator#<full-sha> \
+  --target claude,agent-skills
+```
+
+このコマンドは repo root の `apm.yml` と `apm.lock.yaml` を更新し、`.claude/skills/` と `.agents/skills/` に skill を展開する。
+
 ## local path skill と GitHub skill の使い分け
 
 ### local path skill
@@ -78,14 +106,21 @@ dependencies:
     - nananaman/skills/meta/example#<full-sha>
 ```
 
-## dotfiles 側に残すもの
+## dotfiles の manifest
+
+dotfiles repo では、二つの APM manifest を区別する。
+
+- `apm/apm.yml`：user-scope の global skill を管理する。
+- repo root の `apm.yml`：dotfiles repo 自体で使う project-local skill を管理する。
+
+## global skill で dotfiles 側に残すもの
 
 ```text
 apm/apm.yml
 apm/.gitignore
 ```
 
-skill 本体は dotfiles に置かない。
+global skill 本体は dotfiles に置かない。
 
 ## 確認コマンド
 
