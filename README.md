@@ -33,7 +33,6 @@ dependencies:
 - `writing/` — 文章執筆、編集、技術文書の推敲など。
 - `meta/` — skill 管理、APM 運用、skill 作成など、このリポジトリや skill エコシステムを扱うもの。
 
-今は `skills/` ルート、カテゴリ別 `README.md`、`in-progress/`、`deprecated/` は作りません。実験中・廃止予定の skill は、この README または各 skill 本文で注記します。
 
 ## Skills
 
