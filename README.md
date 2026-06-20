@@ -30,6 +30,8 @@ dependencies:
 | --- | --- | --- |
 | apm-usage | `meta/apm-usage` | APM で agent skill を管理・更新する手順。 |
 | code-review | `meta/code-review` | 軽量モデル優先の厳しめコードレビュー支援。 |
+| skill-creator | `meta/skill-creator` | agent skill の作成・改善・評価と品質基準。 |
+| grill-me | `productivity/grill-me` | 計画や設計を着手前に容赦なく質問して詰める。 |
 
 ## 運用
 
