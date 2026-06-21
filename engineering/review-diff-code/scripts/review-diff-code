@@ -11,7 +11,7 @@ Options:
   --mode auto|branch|local|commit    Review target mode (default: auto)
   --base REF                         Base ref for branch mode (default: PR base or origin/main)
   --commit REF                       Commit ref for commit mode (default: HEAD)
-  --engine auto|codex|claude         Reviewer engine (default: REVIEW_DIFF_CODE_ENGINE or auto)
+  --engine auto|codex|claude         Reviewer engine (default: REVIEW_DIFF_CODE_ENGINE or codex)
   --model MODEL                      Override model for selected engine
   --thinking LEVEL                   Override thinking level when supported
   --prompt-file PATH                 Append extra review context
@@ -26,7 +26,7 @@ EOF
 mode="auto"
 base=""
 commit="HEAD"
-engine="${REVIEW_DIFF_CODE_ENGINE:-auto}"
+engine="${REVIEW_DIFF_CODE_ENGINE:-codex}"
 model=""
 thinking=""
 prompt_file=""

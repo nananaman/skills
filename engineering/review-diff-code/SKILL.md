@@ -79,7 +79,7 @@ engine / model を明示する。
 
 ## Engine / Model Override
 
-通常は helper の既定を使う。ユーザーが engine / model / thinking を指定した場合だけ override する。
+通常は helper の既定を使う。ユーザーが engine / model / thinking を指定した場合だけ override する。`--engine auto` を指定した場合だけ、利用可能な engine を順に選ぶ。
 
 ```bash
 REVIEW_DIFF_CODE_ENGINE=codex
