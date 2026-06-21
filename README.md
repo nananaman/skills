@@ -39,7 +39,7 @@ dependencies:
 
 | Skill | Path | Description |
 | --- | --- | --- |
-| review-code-diff | `engineering/review-code-diff` | Codex 既定の差分レビュー支援。 |
+| review-code-diff | `engineering/review-code-diff` | 現在の差分を厳しめにレビューする。 |
 | create-pr | `engineering/create-pr` | 現在の branch からレビューしやすい GitHub draft PR を作成する。 |
 | chouge-git | `personal/chouge-git` | chouge 個人の Git/GitHub 運用規約。 |
 | chouge-changelog | `personal/chouge-changelog` | CHANGES.md が存在する repo で変更履歴を書く。 |
