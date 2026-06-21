@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: review-code-diff [options]
+Usage: review-diff-code [options]
 
 Strict, diff-focused, budget-conscious code review helper.
 
@@ -11,22 +11,22 @@ Options:
   --mode auto|branch|local|commit    Review target mode (default: auto)
   --base REF                         Base ref for branch mode (default: PR base or origin/main)
   --commit REF                       Commit ref for commit mode (default: HEAD)
-  --engine auto|codex|claude         Reviewer engine (default: REVIEW_CODE_DIFF_ENGINE or auto)
+  --engine auto|codex|claude         Reviewer engine (default: REVIEW_DIFF_CODE_ENGINE or auto)
   --model MODEL                      Override model for selected engine
   --thinking LEVEL                   Override thinking level when supported
   --prompt-file PATH                 Append extra review context
   -h, --help                         Show this help
 
 Default models:
-  codex:  REVIEW_CODE_DIFF_CODEX_MODEL or gpt-5.4-mini, thinking low
-  claude: REVIEW_CODE_DIFF_CLAUDE_MODEL or sonnet
+  codex:  REVIEW_DIFF_CODE_CODEX_MODEL or gpt-5.4-mini, thinking low
+  claude: REVIEW_DIFF_CODE_CLAUDE_MODEL or sonnet
 EOF
 }
 
 mode="auto"
 base=""
 commit="HEAD"
-engine="${REVIEW_CODE_DIFF_ENGINE:-auto}"
+engine="${REVIEW_DIFF_CODE_ENGINE:-auto}"
 model=""
 thinking=""
 prompt_file=""
@@ -129,11 +129,11 @@ review_model="$model"
 review_thinking="$thinking"
 case "$review_engine" in
   codex)
-    review_model="${review_model:-${REVIEW_CODE_DIFF_CODEX_MODEL:-gpt-5.4-mini}}"
-    review_thinking="${review_thinking:-${REVIEW_CODE_DIFF_CODEX_THINKING:-low}}"
+    review_model="${review_model:-${REVIEW_DIFF_CODE_CODEX_MODEL:-gpt-5.4-mini}}"
+    review_thinking="${review_thinking:-${REVIEW_DIFF_CODE_CODEX_THINKING:-low}}"
     ;;
   claude)
-    review_model="${review_model:-${REVIEW_CODE_DIFF_CLAUDE_MODEL:-sonnet}}"
+    review_model="${review_model:-${REVIEW_DIFF_CODE_CLAUDE_MODEL:-sonnet}}"
     ;;
 esac
 
@@ -257,7 +257,7 @@ EOF
   echo '```'
 } > "$prompt"
 
-printf 'review-code-diff target: %s\n' "$mode" >&2
+printf 'review-diff-code target: %s\n' "$mode" >&2
 printf 'engine: %s\n' "$review_engine" >&2
 printf 'model: %s\n' "$review_model" >&2
 if [[ -n "$review_thinking" ]]; then printf 'thinking: %s\n' "$review_thinking" >&2; fi
