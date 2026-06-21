@@ -3,31 +3,30 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: code-review [options]
+Usage: review-code-diff [options]
 
-Strict, budget-conscious code review helper.
+Strict, diff-focused, budget-conscious code review helper.
 
 Options:
-  --mode auto|branch|local|commit   Review target mode (default: auto)
-  --base REF                        Base ref for branch mode (default: PR base or origin/main)
-  --commit REF                      Commit ref for commit mode (default: HEAD)
-  --engine auto|pi|claude|codex     Reviewer engine (default: CODE_REVIEW_ENGINE or auto)
-  --model MODEL                     Override model for selected engine
-  --thinking LEVEL                  Override thinking level when supported
-  --prompt-file PATH                Append extra review context
-  -h, --help                        Show this help
+  --mode auto|branch|local|commit    Review target mode (default: auto)
+  --base REF                         Base ref for branch mode (default: PR base or origin/main)
+  --commit REF                       Commit ref for commit mode (default: HEAD)
+  --engine auto|codex|claude         Reviewer engine (default: REVIEW_CODE_DIFF_ENGINE or auto)
+  --model MODEL                      Override model for selected engine
+  --thinking LEVEL                   Override thinking level when supported
+  --prompt-file PATH                 Append extra review context
+  -h, --help                         Show this help
 
-Default lightweight models:
-  pi:     CODE_REVIEW_PI_MODEL or opencode-go/deepseek-v4-flash, thinking low
-  claude: CODE_REVIEW_CLAUDE_MODEL or sonnet
-  codex:  CODE_REVIEW_CODEX_MODEL or gpt-5.4-mini
+Default models:
+  codex:  REVIEW_CODE_DIFF_CODEX_MODEL or gpt-5.4-mini, thinking low
+  claude: REVIEW_CODE_DIFF_CLAUDE_MODEL or sonnet
 EOF
 }
 
 mode="auto"
 base=""
 commit="HEAD"
-engine="${CODE_REVIEW_ENGINE:-auto}"
+engine="${REVIEW_CODE_DIFF_ENGINE:-auto}"
 model=""
 thinking=""
 prompt_file=""
@@ -47,7 +46,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$mode" in auto|branch|local|commit) ;; *) echo "invalid --mode: $mode" >&2; exit 2 ;; esac
-case "$engine" in auto|pi|claude|codex) ;; *) echo "invalid --engine: $engine" >&2; exit 2 ;; esac
+case "$engine" in auto|codex|claude) ;; *) echo "invalid --engine: $engine" >&2; exit 2 ;; esac
 
 repo=$(git rev-parse --show-toplevel)
 cd "$repo"
@@ -59,10 +58,9 @@ select_engine() {
     echo "$engine"
     return
   fi
-  if has_cmd pi; then echo pi; return; fi
-  if has_cmd claude; then echo claude; return; fi
   if has_cmd codex; then echo codex; return; fi
-  echo "no supported review engine found: install pi, claude, or codex" >&2
+  if has_cmd claude; then echo claude; return; fi
+  echo "no supported review engine found: install codex or claude" >&2
   exit 127
 }
 
@@ -71,21 +69,51 @@ resolve_base() {
     echo "$base"
     return
   fi
-  if has_cmd gh && gh pr view --json baseRefName --jq .baseRefName >/tmp/code-review-base.$$ 2>/dev/null; then
+  local tmp
+  tmp=$(mktemp)
+  if has_cmd gh && gh pr view --json baseRefName --jq .baseRefName >"$tmp" 2>/dev/null; then
     local pr_base
-    pr_base=$(cat /tmp/code-review-base.$$)
-    rm -f /tmp/code-review-base.$$
+    pr_base=$(cat "$tmp")
+    rm -f "$tmp"
     if [[ -n "$pr_base" ]]; then
       echo "origin/$pr_base"
       return
     fi
   fi
-  rm -f /tmp/code-review-base.$$
+  rm -f "$tmp"
   echo origin/main
 }
 
 has_dirty_work() {
   [[ -n "$(git status --porcelain)" ]]
+}
+
+emit_untracked_file_contents() {
+  local max_bytes=200000
+  local path size
+
+  git ls-files --others --exclude-standard -z | while IFS= read -r -d '' path; do
+    [[ -f "$path" ]] || continue
+    size=$(wc -c <"$path" | tr -d '[:space:]')
+
+    echo
+    echo "## Untracked file: $path"
+    echo "size: $size bytes"
+
+    if [[ "$size" -gt "$max_bytes" ]]; then
+      echo "skipped: file is larger than $max_bytes bytes"
+      continue
+    fi
+
+    if ! grep -Iq . "$path"; then
+      echo "skipped: binary file"
+      continue
+    fi
+
+    echo '```'
+    cat "$path"
+    echo '```'
+  done
 }
 
 if [[ "$mode" == "auto" ]]; then
@@ -100,16 +128,12 @@ review_engine=$(select_engine)
 review_model="$model"
 review_thinking="$thinking"
 case "$review_engine" in
-  pi)
-    review_model="${review_model:-${CODE_REVIEW_PI_MODEL:-opencode-go/deepseek-v4-flash}}"
-    review_thinking="${review_thinking:-${CODE_REVIEW_PI_THINKING:-low}}"
+  codex)
+    review_model="${review_model:-${REVIEW_CODE_DIFF_CODEX_MODEL:-gpt-5.4-mini}}"
+    review_thinking="${review_thinking:-${REVIEW_CODE_DIFF_CODEX_THINKING:-low}}"
     ;;
   claude)
-    review_model="${review_model:-${CODE_REVIEW_CLAUDE_MODEL:-sonnet}}"
-    ;;
-  codex)
-    review_model="${review_model:-${CODE_REVIEW_CODEX_MODEL:-gpt-5.4-mini}}"
-    review_thinking="${review_thinking:-${CODE_REVIEW_CODEX_THINKING:-low}}"
+    review_model="${review_model:-${REVIEW_CODE_DIFF_CLAUDE_MODEL:-sonnet}}"
     ;;
 esac
 
@@ -161,6 +185,9 @@ trap cleanup EXIT
       echo
       echo "# Diff (staged)"
       git diff --cached --find-renames
+      echo
+      echo "# Untracked file contents"
+      emit_untracked_file_contents
       ;;
     commit)
       echo "# Target"
@@ -178,14 +205,15 @@ trap cleanup EXIT
 
 {
   cat <<'EOF'
-You are a strict code reviewer. Review the supplied change bundle.
+You are a strict code reviewer. Review the supplied change bundle as a diff review, not as a general repository audit.
 
 Mandatory rules:
 - Review correctness, regression risk, security, and maintainability.
 - Always apply a high structural-quality bar.
-- Assume this is running on a lightweight cost-conscious model. Do not expand into speculation. Report only high-confidence findings grounded in the diff or readable code.
-- Do not report cosmetic nits, style preferences, or speculative risks.
+- Report only high-confidence findings grounded in the diff, readable adjacent code, or documented behavior.
+- Do not report cosmetic nits, style preferences, speculative risks, or broad rewrites.
 - Use read-only inspection only. Do not modify code.
+- Do not invoke built-in code review commands, nested reviewers, or reviewer panels.
 - If there are no actionable findings, explicitly state that there are no accepted/actionable findings, in the language required by the active agent instructions.
 
 Always-on review rubric:
@@ -229,26 +257,20 @@ EOF
   echo '```'
 } > "$prompt"
 
-printf 'code-review target: %s\n' "$mode" >&2
+printf 'review-code-diff target: %s\n' "$mode" >&2
 printf 'engine: %s\n' "$review_engine" >&2
 printf 'model: %s\n' "$review_model" >&2
 if [[ -n "$review_thinking" ]]; then printf 'thinking: %s\n' "$review_thinking" >&2; fi
 
 case "$review_engine" in
-  pi)
-    if ! has_cmd pi; then echo "pi not found" >&2; exit 127; fi
-    pi_args=(--no-session --tools read,grep,find,ls --model "$review_model")
-    if [[ -n "$review_thinking" ]]; then pi_args+=(--thinking "$review_thinking"); fi
-    pi "${pi_args[@]}" -p < "$prompt"
-    ;;
-  claude)
-    if ! has_cmd claude; then echo "claude not found" >&2; exit 127; fi
-    claude --print --no-session-persistence --model "$review_model" < "$prompt"
-    ;;
   codex)
     if ! has_cmd codex; then echo "codex not found" >&2; exit 127; fi
     codex_args=(--ask-for-approval never --model "$review_model")
     if [[ -n "$review_thinking" ]]; then codex_args+=(-c "model_reasoning_effort=\"$review_thinking\""); fi
     codex "${codex_args[@]}" exec --ephemeral -C "$repo" -s read-only - < "$prompt"
+    ;;
+  claude)
+    if ! has_cmd claude; then echo "claude not found" >&2; exit 127; fi
+    claude --print --no-session-persistence --model "$review_model" < "$prompt"
     ;;
 esac
