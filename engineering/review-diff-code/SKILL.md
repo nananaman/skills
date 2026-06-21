@@ -79,12 +79,14 @@ engine / model を明示する。
 
 ## Engine / Model Override
 
-通常は helper の既定を使う。ユーザーが engine / model / thinking を指定した場合だけ override する。`--engine auto` を指定した場合だけ、利用可能な engine を順に選ぶ。
+通常は helper の既定を使う。ユーザーが engine / model / thinking を指定した場合だけ override する。`--engine auto` は利用可能な engine を `codex`、`pi`、`claude` の順に選ぶ。`pi` fallback では model を固定しない。
 
 ```bash
-REVIEW_DIFF_CODE_ENGINE=codex
+REVIEW_DIFF_CODE_ENGINE=auto
 REVIEW_DIFF_CODE_CODEX_MODEL=gpt-5.4-mini
 REVIEW_DIFF_CODE_CODEX_THINKING=low
+REVIEW_DIFF_CODE_PI_MODEL=<optional>
+REVIEW_DIFF_CODE_PI_THINKING=low
 REVIEW_DIFF_CODE_CLAUDE_MODEL=sonnet
 ```
 

@@ -11,7 +11,7 @@ Options:
   --mode auto|branch|local|commit    Review target mode (default: auto)
   --base REF                         Base ref for branch mode (default: PR base or origin/main)
   --commit REF                       Commit ref for commit mode (default: HEAD)
-  --engine auto|codex|claude         Reviewer engine (default: REVIEW_DIFF_CODE_ENGINE or codex)
+  --engine auto|codex|pi|claude      Reviewer engine (default: REVIEW_DIFF_CODE_ENGINE or auto)
   --model MODEL                      Override model for selected engine
   --thinking LEVEL                   Override thinking level when supported
   --prompt-file PATH                 Append extra review context
@@ -19,6 +19,7 @@ Options:
 
 Default models:
   codex:  REVIEW_DIFF_CODE_CODEX_MODEL or gpt-5.4-mini, thinking low
+  pi:     REVIEW_DIFF_CODE_PI_MODEL or pi default model
   claude: REVIEW_DIFF_CODE_CLAUDE_MODEL or sonnet
 EOF
 }
@@ -26,7 +27,7 @@ EOF
 mode="auto"
 base=""
 commit="HEAD"
-engine="${REVIEW_DIFF_CODE_ENGINE:-codex}"
+engine="${REVIEW_DIFF_CODE_ENGINE:-auto}"
 model=""
 thinking=""
 prompt_file=""
@@ -46,7 +47,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$mode" in auto|branch|local|commit) ;; *) echo "invalid --mode: $mode" >&2; exit 2 ;; esac
-case "$engine" in auto|codex|claude) ;; *) echo "invalid --engine: $engine" >&2; exit 2 ;; esac
+case "$engine" in auto|codex|pi|claude) ;; *) echo "invalid --engine: $engine" >&2; exit 2 ;; esac
 
 repo=$(git rev-parse --show-toplevel)
 cd "$repo"
@@ -59,8 +60,9 @@ select_engine() {
     return
   fi
   if has_cmd codex; then echo codex; return; fi
+  if has_cmd pi; then echo pi; return; fi
   if has_cmd claude; then echo claude; return; fi
-  echo "no supported review engine found: install codex or claude" >&2
+  echo "no supported review engine found: install codex, pi, or claude" >&2
   exit 127
 }
 
@@ -131,6 +133,10 @@ case "$review_engine" in
   codex)
     review_model="${review_model:-${REVIEW_DIFF_CODE_CODEX_MODEL:-gpt-5.4-mini}}"
     review_thinking="${review_thinking:-${REVIEW_DIFF_CODE_CODEX_THINKING:-low}}"
+    ;;
+  pi)
+    review_model="${review_model:-${REVIEW_DIFF_CODE_PI_MODEL:-}}"
+    review_thinking="${review_thinking:-${REVIEW_DIFF_CODE_PI_THINKING:-low}}"
     ;;
   claude)
     review_model="${review_model:-${REVIEW_DIFF_CODE_CLAUDE_MODEL:-sonnet}}"
@@ -259,7 +265,7 @@ EOF
 
 printf 'review-diff-code target: %s\n' "$mode" >&2
 printf 'engine: %s\n' "$review_engine" >&2
-printf 'model: %s\n' "$review_model" >&2
+printf 'model: %s\n' "${review_model:-default}" >&2
 if [[ -n "$review_thinking" ]]; then printf 'thinking: %s\n' "$review_thinking" >&2; fi
 
 case "$review_engine" in
@@ -268,6 +274,13 @@ case "$review_engine" in
     codex_args=(--ask-for-approval never --model "$review_model")
     if [[ -n "$review_thinking" ]]; then codex_args+=(-c "model_reasoning_effort=\"$review_thinking\""); fi
     codex "${codex_args[@]}" exec --ephemeral -C "$repo" -s read-only - < "$prompt"
+    ;;
+  pi)
+    if ! has_cmd pi; then echo "pi not found" >&2; exit 127; fi
+    pi_args=(--no-session --tools read,grep,find,ls)
+    if [[ -n "$review_model" ]]; then pi_args+=(--model "$review_model"); fi
+    if [[ -n "$review_thinking" ]]; then pi_args+=(--thinking "$review_thinking"); fi
+    pi "${pi_args[@]}" -p < "$prompt"
     ;;
   claude)
     if ! has_cmd claude; then echo "claude not found" >&2; exit 127; fi
