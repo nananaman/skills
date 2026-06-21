@@ -29,6 +29,7 @@ dependencies:
 利用者が探しやすい用途別分類を主軸にします。
 
 - `engineering/` — コード作業、設計、レビュー、デバッグなど。
+- `personal/` — chouge 個人の運用デフォルトや作業規約。
 - `productivity/` — 汎用的な作業フロー、思考補助、引き継ぎ、学習支援など。
 - `writing/` — 文章執筆、編集、技術文書の推敲など。
 - `meta/` — skill 管理、APM 運用、skill 作成など、このリポジトリや skill エコシステムを扱うもの。
@@ -40,6 +41,7 @@ dependencies:
 | --- | --- | --- |
 | code-review | `engineering/code-review` | 軽量モデル優先の厳しめコードレビュー支援。 |
 | create-pr | `engineering/create-pr` | 現在の branch からレビューしやすい GitHub draft PR を作成する。 |
+| chouge-git | `personal/chouge-git` | chouge 個人の Git/GitHub 運用規約。 |
 | apm-usage | `meta/apm-usage` | APM で agent skill を管理・更新する手順。 |
 | skill-creator | `meta/skill-creator` | agent skill の作成・改善・評価と品質基準。 |
 | grill-me | `productivity/grill-me` | 計画や設計を着手前に容赦なく質問して詰める。 |
