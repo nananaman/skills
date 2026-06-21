@@ -46,6 +46,7 @@ dependencies:
 | apm-usage | `meta/apm-usage` | APM で agent skill を管理・更新する手順。 |
 | skill-creator | `meta/skill-creator` | agent skill の作成・改善・評価と品質基準。 |
 | grill-me | `productivity/grill-me` | 計画や設計を着手前に容赦なく質問して詰める。 |
+| teach | `productivity/teach` | 現在のディレクトリを学習 workspace として使い、複数セッションで教える。 |
 | japanese-tech-writing | `writing/japanese-tech-writing` | 日本語の技術文書・書籍原稿の文章規範。 |
 
 ## 運用
