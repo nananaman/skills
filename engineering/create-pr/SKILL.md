@@ -1,0 +1,139 @@
+---
+name: create-pr
+description: 現在の branch からレビューしやすい GitHub draft PR を作成する。既存の PR template があれば尊重し、diff・commit・テスト状況を整理した title/body を生成して gh pr create --draft を実行する。
+---
+
+# Create PR
+
+現在の branch から、reviewer がすぐ読める GitHub draft PR を作成する。既存 PR がある場合は重複作成せず、更新または中止を提案する。
+
+## 原則
+
+- 作成する PR は常に draft にする。`gh pr create` には必ず `--draft` を付ける。
+- project に PR template がある場合は、その構成を優先して body を作る。
+- PR body は実際の diff、commit、テスト状況と一致させる。
+- uncommitted changes、未 push、base branch 不明、既存 PR などの状態を確認してから作成する。
+- history rewrite、force push、commit 整理はこの skill の責務外。必要なら別作業として提案する。
+
+## Workflow
+
+1. 現在の repository 状態を確認する。
+
+   ```bash
+   git status --short
+   git branch --show-current
+   git remote -v
+   gh repo view --json nameWithOwner,defaultBranchRef
+   ```
+
+2. base branch を決める。
+   - 既存 PR がある場合は `gh pr view --json baseRefName,headRefName,url,state,isDraft,title,body` を見る。
+   - 既存 PR がなければ GitHub default branch を使う。
+   - ユーザーが base を指定している場合はそれを優先する。
+
+3. branch の差分を読む。
+
+   ```bash
+   git fetch origin <base>
+   git log --oneline --decorate origin/<base>..HEAD
+   git diff --stat origin/<base>...HEAD
+   git diff --name-status origin/<base>...HEAD
+   ```
+
+4. PR template を探す。
+
+   優先順は GitHub の慣習に合わせる。
+
+   ```text
+   .github/pull_request_template.md
+   .github/PULL_REQUEST_TEMPLATE.md
+   .github/PULL_REQUEST_TEMPLATE/*.md
+   docs/pull_request_template.md
+   docs/PULL_REQUEST_TEMPLATE.md
+   pull_request_template.md
+   PULL_REQUEST_TEMPLATE.md
+   ```
+
+   複数 template がある場合は、変更内容に最も近いものを選ぶ。判断できなければ候補を示してユーザーに確認する。
+
+5. 必要に応じて変更内容を読む。
+   - PR body に書く必要がある主要ファイルを読む。
+   - generated file、lockfile、機械的変更、テストだけの変更は分類して明示する。
+   - 大きすぎる PR なら、draft 作成前に split を提案する。
+
+6. PR title / body を作る。
+   - template がある場合は見出しや checklist を保ち、空欄を実 diff に基づいて埋める。
+   - template がない場合は次の構成を使う。
+
+   ```md
+   ## Summary
+   - 
+
+   ## Changes
+   - 
+
+   ## Tests
+   - 
+
+   ## Review notes
+   - 
+   ```
+
+   `Tests` には、実行したコマンドを書く。未実行なら `未実行` と理由を書く。推測で「テスト済み」と書かない。
+
+7. draft PR を作成する。
+   - 既存 PR がない場合だけ作成する。
+   - body は一時ファイルに書き出し、`--body-file` を使う。
+   - head branch が remote にない場合は push する。push 前に remote と branch 名を確認する。
+
+   ```bash
+   gh pr create \
+     --draft \
+     --base <base> \
+     --head <branch> \
+     --title "<title>" \
+     --body-file <body-file>
+   ```
+
+8. 作成後に URL と reviewer 向け要点を報告する。
+
+## Existing PR Handling
+
+同じ branch に既存 PR がある場合は、重複作成しない。
+
+```bash
+gh pr view --json url,state,isDraft,title,body,baseRefName,headRefName
+```
+
+- 既存 PR が draft なら、必要に応じて `gh pr edit --title ... --body-file ...` で更新する。
+- 既存 PR が ready for review なら、draft に戻せない前提で扱い、更新してよいか確認する。
+- closed PR しかない場合は、新規作成してよいか確認する。
+
+## Template Handling
+
+template を使うときは、次を守る。
+
+- checklist を削除しない。該当しない項目は未チェックのまま理由を書く。
+- issue link、screenshot、migration、rollout など project 固有の欄を勝手に省略しない。
+- template の文言と矛盾する内容を書かない。
+- template の要求情報が diff から分からない場合は、PR 作成前にユーザーへ質問する。
+
+## Safety Checks
+
+次の場合は自動作成せず、状況と次の選択肢を提示する。
+
+- working tree に未 commit の変更があり、それが PR に含まれるべきか判断できない。
+- base branch が確定できない。
+- PR template の必須項目が埋められない。
+- diff に secret、credential、private URL らしきものがある。
+- 変更が複数の無関係な目的を含み、1つの PR として説明しづらい。
+
+## Closeout Report
+
+完了報告には次を含める。
+
+- 作成または更新した PR URL。
+- draft であること。
+- base / head branch。
+- 使用した PR template。なければ `template なし`。
+- 実行したテスト。未実行ならその理由。
