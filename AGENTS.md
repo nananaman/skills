@@ -14,10 +14,19 @@
 利用者が探しやすい用途別分類を主軸にする。
 
 - `engineering/`: コード作業、設計、レビュー、デバッグなど。
+- `sakura-cloud/`: さくらのクラウド関連サービスの作業ランブック。
 - `personal/`: chouge 個人の運用デフォルトや作業規約。
 - `productivity/`: 汎用的な作業フロー、思考補助、引き継ぎ、学習支援など。
 - `writing/`: 文章執筆、編集、技術文書の推敲など。
 - `meta/`: skill 管理、APM 運用、skill 作成など、このリポジトリや skill エコシステムを扱うもの。
+
+## skill 名
+
+通常は skill ディレクトリ名と `SKILL.md` frontmatter の `name:` を一致させる。
+provider や product で namespace を切る場合、leaf directory は短いサービス名にしてよい。
+その場合でも `name:` は衝突を避けるため `provider-service` 形式にする。
+
+例: `sakura-cloud/eventbus` + `name: sakura-cloud-eventbus`
 
 
 ## 更新手順

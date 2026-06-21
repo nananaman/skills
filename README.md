@@ -29,6 +29,7 @@ dependencies:
 利用者が探しやすい用途別分類を主軸にします。
 
 - `engineering/` — コード作業、設計、レビュー、デバッグなど。
+- `sakura-cloud/` — さくらのクラウド関連サービスの作業ランブック。
 - `personal/` — chouge 個人の運用デフォルトや作業規約。
 - `productivity/` — 汎用的な作業フロー、思考補助、引き継ぎ、学習支援など。
 - `writing/` — 文章執筆、編集、技術文書の推敲など。
@@ -41,6 +42,9 @@ dependencies:
 | --- | --- | --- |
 | review-diff-code | `engineering/review-diff-code` | 現在の差分を厳しめにレビューする。 |
 | create-pr | `engineering/create-pr` | 現在の branch からレビューしやすい GitHub draft PR を作成する。 |
+| sakura-cloud-eventbus | `sakura-cloud/eventbus` | さくらのクラウド EventBus の実行設定、スケジュール、イベントトリガーを扱う。 |
+| sakura-cloud-webaccel | `sakura-cloud/webaccel` | さくらのウェブアクセラレータのサイト追加、キャッシュ削除、SSL、オリジンガードを扱う。 |
+| sakura-cloud-workflows | `sakura-cloud/workflows` | さくらのクラウド Workflows の YAML 作成、デバッグ、実行履歴確認を扱う。 |
 | chouge-git | `personal/chouge-git` | chouge 個人の Git/GitHub 運用規約。 |
 | chouge-changelog | `personal/chouge-changelog` | CHANGES.md が存在する repo で変更履歴を書く。 |
 | apm-usage | `meta/apm-usage` | APM で agent skill を管理・更新する手順。 |
