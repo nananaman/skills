@@ -23,7 +23,8 @@
 ## 更新手順
 
 1. skill を編集する。
-2. commit / push する。
-3. commit SHA を取得する。
-4. dotfiles の `apm/apm.yml` の参照 SHA を更新する。
-5. `apm install -g` で展開する。
+2. `review-diff-skill` で差分レビューする。
+3. actionable finding がなく、ユーザーが明示依頼した場合だけ commit / push する。
+4. commit SHA を取得する。
+5. ユーザーが明示依頼した場合だけ、dotfiles の `apm/apm.yml` の参照 SHA を更新する。
+6. ユーザーが明示依頼した場合だけ、`apm install -g` で展開する。

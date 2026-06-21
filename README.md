@@ -44,7 +44,10 @@ dependencies:
 | chouge-git | `personal/chouge-git` | chouge 個人の Git/GitHub 運用規約。 |
 | chouge-changelog | `personal/chouge-changelog` | CHANGES.md が存在する repo で変更履歴を書く。 |
 | apm-usage | `meta/apm-usage` | APM で agent skill を管理・更新する手順。 |
-| skill-creator | `meta/skill-creator` | agent skill の作成・改善・評価と品質基準。 |
+| create-skill | `meta/create-skill` | agent skill の作成・改善 draft を行う。 |
+| reviewing-skills | `meta/reviewing-skills` | agent skill レビューの共通 rubric。 |
+| review-diff-skill | `meta/review-diff-skill` | skill 変更 diff を commit / push / pin / install 前にレビューする。 |
+| review-skill | `meta/review-skill` | skill 全体を棚卸しして課題を洗い出す。 |
 | grill-me | `productivity/grill-me` | 計画や設計を着手前に容赦なく質問して詰める。 |
 | teach | `productivity/teach` | 現在のディレクトリを学習 workspace として使い、複数セッションで教える。 |
 | japanese-tech-writing | `writing/japanese-tech-writing` | 日本語の技術文書・書籍原稿の文章規範。 |
@@ -53,4 +56,4 @@ dependencies:
 
 - dotfiles 側には `apm/apm.yml` だけを残し、skill 本体はこのリポジトリを source of truth にする。
 - dotfiles から参照するときは full SHA で pin する。
-- skill 更新後は、このリポジトリで commit / push してから dotfiles 側の SHA を更新する。
+- skill 更新後に配布する場合は、`review-diff-skill` を通してから、このリポジトリで commit / push し、dotfiles 側の SHA を更新する。commit / push / pin 更新はユーザーが明示依頼した場合だけ行う。
