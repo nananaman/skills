@@ -6,20 +6,22 @@ usage() {
 Usage: review-diff-code [options]
 
 Strict, diff-focused, budget-conscious code review helper.
+Runs five focused reviewers in parallel against the same change bundle.
 
 Options:
   --mode auto|branch|local|commit    Review target mode (default: auto)
   --base REF                         Base ref for branch mode (default: PR base or origin/main)
   --commit REF                       Commit ref for commit mode (default: HEAD)
-  --engine auto|codex|pi|claude      Reviewer engine (default: REVIEW_DIFF_CODE_ENGINE or auto)
+  --engine auto|pi|codex|claude      Reviewer engine (default: REVIEW_DIFF_CODE_ENGINE or auto)
   --model MODEL                      Override model for selected engine
   --thinking LEVEL                   Override thinking level when supported
-  --prompt-file PATH                 Append extra review context
+  --timeout-sec SEC                  Per-reviewer timeout (default: REVIEW_DIFF_CODE_TIMEOUT_SEC or 600)
+  --prompt-file PATH                 Append extra review context to every perspective
   -h, --help                         Show this help
 
 Default models:
+  pi:     REVIEW_DIFF_CODE_PI_MODEL or pi default model, thinking low
   codex:  REVIEW_DIFF_CODE_CODEX_MODEL or gpt-5.4-mini, thinking low
-  pi:     REVIEW_DIFF_CODE_PI_MODEL or pi default model
   claude: REVIEW_DIFF_CODE_CLAUDE_MODEL or sonnet
 EOF
 }
@@ -30,6 +32,7 @@ commit="HEAD"
 engine="${REVIEW_DIFF_CODE_ENGINE:-auto}"
 model=""
 thinking=""
+timeout_sec="${REVIEW_DIFF_CODE_TIMEOUT_SEC:-600}"
 prompt_file=""
 
 while [[ $# -gt 0 ]]; do
@@ -40,6 +43,7 @@ while [[ $# -gt 0 ]]; do
     --engine) engine="${2:?}"; shift 2 ;;
     --model) model="${2:?}"; shift 2 ;;
     --thinking) thinking="${2:?}"; shift 2 ;;
+    --timeout-sec) timeout_sec="${2:?}"; shift 2 ;;
     --prompt-file) prompt_file="${2:?}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -47,7 +51,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$mode" in auto|branch|local|commit) ;; *) echo "invalid --mode: $mode" >&2; exit 2 ;; esac
-case "$engine" in auto|codex|pi|claude) ;; *) echo "invalid --engine: $engine" >&2; exit 2 ;; esac
+case "$engine" in auto|pi|codex|claude) ;; *) echo "invalid --engine: $engine" >&2; exit 2 ;; esac
+case "$timeout_sec" in ''|*[!0-9]*) echo "invalid --timeout-sec: $timeout_sec" >&2; exit 2 ;; esac
+if [[ "$timeout_sec" -le 0 ]]; then echo "invalid --timeout-sec: $timeout_sec" >&2; exit 2; fi
+if [[ -n "$prompt_file" && ! -f "$prompt_file" ]]; then echo "prompt file not found: $prompt_file" >&2; exit 2; fi
 
 repo=$(git rev-parse --show-toplevel)
 cd "$repo"
@@ -59,10 +66,10 @@ select_engine() {
     echo "$engine"
     return
   fi
-  if has_cmd codex; then echo codex; return; fi
   if has_cmd pi; then echo pi; return; fi
+  if has_cmd codex; then echo codex; return; fi
   if has_cmd claude; then echo claude; return; fi
-  echo "no supported review engine found: install codex, pi, or claude" >&2
+  echo "no supported review engine found: install pi, codex, or claude" >&2
   exit 127
 }
 
@@ -130,23 +137,24 @@ review_engine=$(select_engine)
 review_model="$model"
 review_thinking="$thinking"
 case "$review_engine" in
-  codex)
-    review_model="${review_model:-${REVIEW_DIFF_CODE_CODEX_MODEL:-gpt-5.4-mini}}"
-    review_thinking="${review_thinking:-${REVIEW_DIFF_CODE_CODEX_THINKING:-low}}"
-    ;;
   pi)
     review_model="${review_model:-${REVIEW_DIFF_CODE_PI_MODEL:-}}"
     review_thinking="${review_thinking:-${REVIEW_DIFF_CODE_PI_THINKING:-low}}"
+    ;;
+  codex)
+    review_model="${review_model:-${REVIEW_DIFF_CODE_CODEX_MODEL:-gpt-5.4-mini}}"
+    review_thinking="${review_thinking:-${REVIEW_DIFF_CODE_CODEX_THINKING:-low}}"
     ;;
   claude)
     review_model="${review_model:-${REVIEW_DIFF_CODE_CLAUDE_MODEL:-sonnet}}"
     ;;
 esac
 
-bundle=$(mktemp)
-prompt=$(mktemp)
-cleanup() { rm -f "$bundle" "$prompt"; }
+tmpdir=$(mktemp -d)
+cleanup() { rm -rf "$tmpdir"; }
 trap cleanup EXIT
+
+bundle="$tmpdir/change-bundle.md"
 
 {
   echo "# Repository"
@@ -209,33 +217,98 @@ trap cleanup EXIT
   esac
 } > "$bundle"
 
-{
-  cat <<'EOF'
-You are a strict code reviewer. Review the supplied change bundle as a diff review, not as a general repository audit.
+perspective_ids=(correctness security maintainability simplification types)
+
+perspective_title() {
+  case "$1" in
+    correctness) echo "Correctness / Regression" ;;
+    security) echo "Security / Safety" ;;
+    maintainability) echo "Maintainability / Structure" ;;
+    simplification) echo "Simplification / Code Judo" ;;
+    types) echo "Type / API / Contract" ;;
+    *) echo "$1" ;;
+  esac
+}
+
+perspective_rubric() {
+  case "$1" in
+    correctness)
+      cat <<'EOF'
+Focus on behavioral correctness and regressions introduced by the diff.
+Look for broken runtime paths, boundary cases, ordering mistakes, migration mistakes, state inconsistencies, and changed assumptions.
+Check whether the changed code still satisfies adjacent callers and existing invariants.
+Do not report pre-existing issues unless the diff worsens, exposes, depends on, or removes safeguards around them.
+EOF
+      ;;
+    security)
+      cat <<'EOF'
+Focus on security and safety risks introduced by the diff.
+Look for secret exposure, authn/authz regressions, permission-boundary breaks, injection paths, unsafe file/network/process access, and removed validation or safety checks.
+Report only concrete, actionable risks grounded in the diff or adjacent code.
+Do not report pre-existing issues unless the diff worsens, exposes, depends on, or removes safeguards around them.
+EOF
+      ;;
+    maintainability)
+      cat <<'EOF'
+Focus on maintainability, structure, and ownership boundaries.
+Look for logic placed in the wrong layer/module/helper, local exceptions bolted onto existing flows, hidden coupling, unclear lifecycle or orchestration, and changes that make future edits error-prone.
+Prefer findings that identify the smallest better ownership boundary.
+Do not report pre-existing issues unless the diff worsens, exposes, depends on, or removes safeguards around them.
+EOF
+      ;;
+    simplification)
+      cat <<'EOF'
+Focus on simplification and code judo.
+Look for unnecessary branches, helper layers, wrappers, generic mechanisms, duplicate concepts, over-abstracted AI-generated complexity, and behavior-preserving deletions.
+Only report simplifications that reduce real maintenance risk or reasoning cost.
+Do not report pre-existing issues unless the diff worsens, exposes, depends on, or removes safeguards around them.
+EOF
+      ;;
+    types)
+      cat <<'EOF'
+Focus on type, API, and contract boundaries.
+Look for casts, any/unknown, optionality, nullability, schema/API incompatibilities, undocumented contract changes, and places where the implementation hides a required invariant.
+Check whether callers, public APIs, serialization formats, and documented behavior still match the change.
+Do not report pre-existing issues unless the diff worsens, exposes, depends on, or removes safeguards around them.
+EOF
+      ;;
+  esac
+}
+
+write_prompt() {
+  local id="$1"
+  local title
+  title=$(perspective_title "$id")
+  local prompt="$tmpdir/$id.prompt.md"
+
+  {
+    cat <<EOF
+You are a strict code reviewer for the "$title" perspective.
+Review the supplied change bundle as a diff review, not as a general repository audit.
 
 Mandatory rules:
-- Review correctness, regression risk, security, and maintainability.
-- Always apply a high structural-quality bar.
-- Report only high-confidence findings grounded in the diff, readable adjacent code, or documented behavior.
-- Do not report cosmetic nits, style preferences, speculative risks, or broad rewrites.
-- Use read-only inspection only. Do not modify code.
-- Do not invoke built-in code review commands, nested reviewers, or reviewer panels.
-- If there are no actionable findings, explicitly state that there are no accepted/actionable findings, in the language required by the active agent instructions.
+- Focus on the assigned perspective.
+- Review only the supplied diff and necessary adjacent code. Use read-only inspection only.
+- Do not modify code, run formatters, run tests, use network access, or invoke nested reviewers/reviewer panels.
+- Report only findings grounded in the diff, readable adjacent code, or documented behavior.
+- Do not report cosmetic nits, pure style preferences, speculative risks, or broad rewrites.
+- Do not report pre-existing issues unless the diff worsens, exposes, depends on, or removes safeguards around them.
+- Output in English.
+- Output findings only. Do not include a summary, preface, execution log, or checklist.
+- If there are no actionable findings, output exactly: No actionable findings.
 
-Always-on review rubric:
-1. Correctness regressions, broken runtime paths, migration/order mistakes.
-2. Security regressions, secret exposure, permission-boundary breaks.
-3. Structural code-quality regressions.
-4. Spaghetti growth: ad-hoc conditionals, special-case branches, or local exceptions bolted onto existing flows.
-5. Abstraction quality: thin wrappers, unnecessary indirection, and magical generic mechanisms.
-6. Code judo: ways to preserve behavior while deleting concepts, branches, helper layers, or incidental complexity.
-7. Ownership boundaries: whether logic lives in the right layer, package, module, or helper.
-8. Typed boundaries: whether casts, optionality, any, or unknown hide the real invariant.
-9. File size and decomposition: especially changes that push a file past 1000 lines.
-10. Orchestration quality: avoidable sequential work or non-atomic updates that make the implementation harder to reason about.
+Perspective rubric:
+EOF
+    perspective_rubric "$id"
+    cat <<'EOF'
 
-Preferred output shape when findings exist:
+Severity labels:
+- [critical]: likely severe production breakage, data loss, security breach, or incompatible public contract break.
+- [high]: likely user-visible regression, security weakness, or significant maintainability/contract risk.
+- [medium]: actionable issue with moderate regression or maintenance risk.
+- [low]: small but actionable issue; avoid cosmetic-only comments.
 
+Finding format:
 ## Findings
 
 ### [severity] title
@@ -245,45 +318,203 @@ Preferred output shape when findings exist:
 - Suggested fix: the smallest appropriate fix at the right ownership boundary
 EOF
 
-  if [[ -n "$prompt_file" ]]; then
-    echo
-    echo "# Additional context"
-    cat "$prompt_file"
-  fi
+    if [[ -n "$prompt_file" ]]; then
+      echo
+      echo "# Additional context"
+      cat "$prompt_file"
+    fi
 
-  echo
-  echo "# Review metadata"
-  echo "engine: $review_engine"
-  echo "model: $review_model"
-  if [[ -n "$review_thinking" ]]; then echo "thinking: $review_thinking"; fi
-  echo
-  echo "# Change bundle"
-  echo '```'
-  cat "$bundle"
-  echo '```'
-} > "$prompt"
+    echo
+    echo "# Review metadata"
+    echo "perspective: $title"
+    echo "engine: $review_engine"
+    echo "model: $review_model"
+    if [[ -n "$review_thinking" ]]; then echo "thinking: $review_thinking"; fi
+    echo
+    echo "# Change bundle"
+    echo '```'
+    cat "$bundle"
+    echo '```'
+  } > "$prompt"
+
+  echo "$prompt"
+}
+
+run_engine() {
+  local prompt="$1"
+  local stdout_file="$2"
+  local stderr_file="$3"
+
+  case "$review_engine" in
+    pi)
+      if ! has_cmd pi; then echo "pi not found" >&2; return 127; fi
+      local pi_args
+      pi_args=(--no-session --tools read,grep,find,ls)
+      if [[ -n "$review_model" ]]; then pi_args+=(--model "$review_model"); fi
+      if [[ -n "$review_thinking" ]]; then pi_args+=(--thinking "$review_thinking"); fi
+      pi "${pi_args[@]}" -p < "$prompt" > "$stdout_file" 2> "$stderr_file"
+      ;;
+    codex)
+      if ! has_cmd codex; then echo "codex not found" >&2; return 127; fi
+      local codex_args
+      codex_args=(--ask-for-approval never --model "$review_model")
+      if [[ -n "$review_thinking" ]]; then codex_args+=(-c "model_reasoning_effort=\"$review_thinking\""); fi
+      codex "${codex_args[@]}" exec --ephemeral -C "$repo" -s read-only - < "$prompt" > "$stdout_file" 2> "$stderr_file"
+      ;;
+    claude)
+      if ! has_cmd claude; then echo "claude not found" >&2; return 127; fi
+      claude --print --no-session-persistence --model "$review_model" < "$prompt" > "$stdout_file" 2> "$stderr_file"
+      ;;
+  esac
+}
+
+run_reviewer() {
+  local id="$1"
+  local prompt stdout_file stderr_file rc_file status_file started_at pid elapsed rc
+  prompt=$(write_prompt "$id")
+  stdout_file="$tmpdir/$id.stdout"
+  stderr_file="$tmpdir/$id.stderr"
+  rc_file="$tmpdir/$id.rc"
+  status_file="$tmpdir/$id.status"
+
+  export -f run_engine has_cmd
+  export review_engine review_model review_thinking repo
+  if has_cmd setsid; then
+    setsid bash -c 'run_engine "$1" "$2" "$3"' _ "$prompt" "$stdout_file" "$stderr_file" &
+  else
+    perl -e 'setpgrp(0, 0); exec @ARGV' bash -c 'run_engine "$1" "$2" "$3"' _ "$prompt" "$stdout_file" "$stderr_file" &
+  fi
+  pid=$!
+  started_at=$(date +%s)
+
+  while kill -0 "$pid" 2>/dev/null; do
+    elapsed=$(( $(date +%s) - started_at ))
+    if [[ "$elapsed" -ge "$timeout_sec" ]]; then
+      kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+      sleep 2
+      kill -KILL "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      echo 124 > "$rc_file"
+      echo timeout > "$status_file"
+      return 0
+    fi
+    sleep 1
+  done
+
+  set +e
+  wait "$pid"
+  rc=$?
+  set -e
+  echo "$rc" > "$rc_file"
+  if [[ "$rc" -eq 0 ]]; then
+    echo success > "$status_file"
+  else
+    echo "failed($rc)" > "$status_file"
+  fi
+}
+
+pids=()
+for id in "${perspective_ids[@]}"; do
+  run_reviewer "$id" &
+  pids+=("$!")
+done
+
+for pid in "${pids[@]}"; do
+  wait "$pid" || true
+done
+
+success_count=0
+failure_count=0
+for id in "${perspective_ids[@]}"; do
+  status=$(cat "$tmpdir/$id.status" 2>/dev/null || echo failed)
+  if [[ "$status" == success ]]; then
+    success_count=$((success_count + 1))
+  else
+    failure_count=$((failure_count + 1))
+  fi
+done
+
+if [[ "$success_count" -eq 0 ]]; then
+  overall_status="failed"
+elif [[ "$failure_count" -gt 0 ]]; then
+  overall_status="partial_failure"
+else
+  overall_status="success"
+fi
 
 printf 'review-diff-code target: %s\n' "$mode" >&2
 printf 'engine: %s\n' "$review_engine" >&2
 printf 'model: %s\n' "${review_model:-default}" >&2
 if [[ -n "$review_thinking" ]]; then printf 'thinking: %s\n' "$review_thinking" >&2; fi
+printf 'overall_status: %s\n' "$overall_status" >&2
 
-case "$review_engine" in
-  codex)
-    if ! has_cmd codex; then echo "codex not found" >&2; exit 127; fi
-    codex_args=(--ask-for-approval never --model "$review_model")
-    if [[ -n "$review_thinking" ]]; then codex_args+=(-c "model_reasoning_effort=\"$review_thinking\""); fi
-    codex "${codex_args[@]}" exec --ephemeral -C "$repo" -s read-only - < "$prompt"
-    ;;
-  pi)
-    if ! has_cmd pi; then echo "pi not found" >&2; exit 127; fi
-    pi_args=(--no-session --tools read,grep,find,ls)
-    if [[ -n "$review_model" ]]; then pi_args+=(--model "$review_model"); fi
-    if [[ -n "$review_thinking" ]]; then pi_args+=(--thinking "$review_thinking"); fi
-    pi "${pi_args[@]}" -p < "$prompt"
-    ;;
-  claude)
-    if ! has_cmd claude; then echo "claude not found" >&2; exit 127; fi
-    claude --print --no-session-persistence --model "$review_model" < "$prompt"
-    ;;
-esac
+cat <<EOF
+# Review Summary
+
+overall_status: $overall_status
+engine: $review_engine
+model: ${review_model:-default}
+thinking: ${review_thinking:-none}
+timeout_sec: $timeout_sec
+mode: $mode
+prompt_file: ${prompt_file:-none}
+
+| Perspective | Status |
+| --- | --- |
+EOF
+
+for id in "${perspective_ids[@]}"; do
+  title=$(perspective_title "$id")
+  status=$(cat "$tmpdir/$id.status" 2>/dev/null || echo failed)
+  echo "| $title | $status |"
+done
+
+cat <<'EOF'
+
+# Findings by Perspective
+EOF
+
+for id in "${perspective_ids[@]}"; do
+  title=$(perspective_title "$id")
+  status=$(cat "$tmpdir/$id.status" 2>/dev/null || echo failed)
+  echo
+  echo "## $title"
+  echo
+  echo "status: $status"
+  echo
+  if [[ -s "$tmpdir/$id.stdout" ]]; then
+    cat "$tmpdir/$id.stdout"
+  else
+    echo "No output."
+  fi
+  echo
+done
+
+has_diagnostics=0
+for id in "${perspective_ids[@]}"; do
+  if [[ -s "$tmpdir/$id.stderr" ]]; then
+    has_diagnostics=1
+  fi
+done
+
+if [[ "$has_diagnostics" -eq 1 ]]; then
+  cat <<'EOF'
+# Diagnostics
+EOF
+  for id in "${perspective_ids[@]}"; do
+    if [[ -s "$tmpdir/$id.stderr" ]]; then
+      title=$(perspective_title "$id")
+      echo
+      echo "## $title stderr"
+      echo
+      echo '```'
+      cat "$tmpdir/$id.stderr"
+      echo '```'
+    fi
+  done
+fi
+
+if [[ "$success_count" -eq 0 ]]; then
+  exit 1
+fi
+exit 0
