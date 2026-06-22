@@ -1,17 +1,11 @@
 # nananaman/skills
 
-nananaman の個人用 agent skills 集です。APM で配布・インストールする前提で管理します。
+nananaman の個人用 agent skills 集です。
+APM で配布・インストールし、dotfiles から full SHA で pin して使います。
 
-## Install
+## インストール
 
-個別に入れる場合:
-
-```sh
-apm install -g nananaman/skills/meta/apm-usage#<full-sha>
-apm install -g nananaman/skills/engineering/review-diff-code#<full-sha>
-```
-
-`apm.yml` で管理する場合:
+この repository の skill は、`apm.yml` で依存として管理する運用を主導線にします。
 
 ```yaml
 name: my-agent-context
@@ -24,40 +18,107 @@ dependencies:
     - nananaman/skills/engineering/review-diff-code#<full-sha>
 ```
 
-## Directory Policy
+その後、対象の APM project で install します。
+
+```sh
+apm install -g
+```
+
+個別に試す場合は、full SHA を指定して install します。
+
+```sh
+apm install -g nananaman/skills/meta/apm-usage#<full-sha>
+```
+
+## ディレクトリ方針
 
 利用者が探しやすい用途別分類を主軸にします。
 
-- `engineering/` — コード作業、設計、レビュー、デバッグなど。
-- `sakura-cloud/` — さくらのクラウド関連サービスの作業ランブック。
+- `engineering/` — コード作業、設計、レビュー、PR 作成など。
+- `meta/` — skill 管理、APM 運用、skill 作成・レビューなど。
 - `personal/` — chouge 個人の運用デフォルトや作業規約。
 - `productivity/` — 汎用的な作業フロー、思考補助、引き継ぎ、学習支援など。
+- `sakura-cloud/` — さくらのクラウド関連サービスの作業ランブック。
 - `writing/` — 文章執筆、編集、技術文書の推敲など。
-- `meta/` — skill 管理、APM 運用、skill 作成など、このリポジトリや skill エコシステムを扱うもの。
 
+## Skill の種類
 
-## Skills
+- `user-invoked`: ユーザーが明示的に呼ぶ skill。作業フローを組み立てる orchestration を担う。
+- `model-invoked`: ユーザーが明示して呼ぶことも、タスクに合うと agent が自動参照することもある skill。再利用可能な discipline、policy、domain runbook を持つ。
+- `user-invoked` skill は `model-invoked` skill を参照してよいが、別の `user-invoked` skill を内部から起動しない。
 
-| Skill | Path | Description |
-| --- | --- | --- |
-| review-diff-code | `engineering/review-diff-code` | 現在の差分を厳しめにレビューする。 |
-| create-pr | `engineering/create-pr` | 現在の branch からレビューしやすい GitHub draft PR を作成する。 |
-| sakura-cloud-eventbus | `sakura-cloud/eventbus` | さくらのクラウド EventBus の実行設定、スケジュール、イベントトリガーを扱う。 |
-| sakura-cloud-webaccel | `sakura-cloud/webaccel` | さくらのウェブアクセラレータのサイト追加、キャッシュ削除、SSL、オリジンガードを扱う。 |
-| sakura-cloud-workflows | `sakura-cloud/workflows` | さくらのクラウド Workflows の YAML 作成、デバッグ、実行履歴確認を扱う。 |
-| chouge-git | `personal/chouge-git` | chouge 個人の Git/GitHub 運用規約。 |
-| chouge-changelog | `personal/chouge-changelog` | CHANGES.md が存在する repo で変更履歴を書く。 |
-| apm-usage | `meta/apm-usage` | APM で agent skill を管理・更新する手順。 |
-| create-skill | `meta/create-skill` | agent skill の作成・改善 draft を行う。 |
-| reviewing-skills | `meta/reviewing-skills` | agent skill レビューの共通 rubric。 |
-| review-diff-skill | `meta/review-diff-skill` | skill 変更 diff を commit / push / pin / install 前にレビューする。 |
-| review-skill | `meta/review-skill` | skill 全体を棚卸しして課題を洗い出す。 |
-| grill-me | `productivity/grill-me` | 計画や設計を着手前に容赦なく質問して詰める。 |
-| teach | `productivity/teach` | 現在のディレクトリを学習 workspace として使い、複数セッションで教える。 |
-| japanese-tech-writing | `writing/japanese-tech-writing` | 日本語の技術文書・書籍原稿の文章規範。 |
+## Skill 一覧
+
+### Engineering
+
+- **[`create-pr`](./engineering/create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
+  - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
+  - Type: `user-invoked`
+- **[`review-diff-code`](./engineering/review-diff-code/SKILL.md)** — 現在の diff / branch diff / PR diff を厳しめにレビューする。
+  - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー
+  - Type: `model-invoked`
+
+### Meta
+
+- **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
+  - Use when: apm.yml 更新、SHA pin 更新、global install / dotfiles 連携
+  - Type: `model-invoked`
+- **[`create-skill`](./meta/create-skill/SKILL.md)** — agent skill の新規作成・既存 skill の draft 改善を行う。
+  - Use when: 新規 skill 作成、既存 skill の draft 改善、配置や起動方式の整理
+  - Type: `user-invoked`
+- **[`review-diff-skill`](./meta/review-diff-skill/SKILL.md)** — skill 変更 diff を配布前にレビューする。
+  - Use when: skill 差分レビュー、commit / push 前確認、APM pin / install 前確認
+  - Type: `user-invoked`
+- **[`review-skill`](./meta/review-skill/SKILL.md)** — skill 全体を棚卸しして構造・責務・発火条件を見直す。
+  - Use when: skill の大幅変更、新規 skill の全体レビュー、責務過多や誤発火の調査
+  - Type: `user-invoked`
+- **[`reviewing-skills`](./meta/reviewing-skills/SKILL.md)** — agent skill の品質をレビューする共通 rubric。
+  - Use when: description / 本文整合確認、完了条件の確認、failure modes / safety の確認
+  - Type: `model-invoked`
+
+### Personal
+
+- **[`chouge-changelog`](./personal/chouge-changelog/SKILL.md)** — CHANGES.md が存在する repository で変更履歴を書く。
+  - Use when: CHANGES.md 更新、release note 下書き、PR / commit 内容の変更履歴化
+  - Type: `user-invoked`
+- **[`chouge-git`](./personal/chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
+  - Use when: commit、branch、push、PR 作成・更新
+  - Type: `model-invoked`
+
+### Productivity
+
+- **[`grill-me`](./productivity/grill-me/SKILL.md)** — 計画や設計を着手前に容赦なく質問して詰める。
+  - Use when: plan / design の stress-test、実装前の懸念洗い出し、判断分岐の解消
+  - Type: `user-invoked`
+- **[`handoff`](./productivity/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
+  - Use when: セッション引き継ぎ、長い会話の圧縮、別 agent への作業移管
+  - Type: `user-invoked`
+- **[`teach`](./productivity/teach/SKILL.md)** — 現在のディレクトリを学習 workspace として使い、複数セッションで教える。
+  - Use when: 新しい概念の学習、技術・技能の継続学習、学習記録の管理
+  - Type: `user-invoked`
+
+### Sakura Cloud
+
+- **[`sakura-cloud-eventbus`](./sakura-cloud/eventbus/SKILL.md)** — EventBus の実行設定、スケジュール、イベントトリガーを扱う。
+  - Use when: EventBus 設計、Schedule / Trigger 作成、SimpleMQ / シンプル通知連携
+  - Type: `model-invoked`
+- **[`sakura-cloud-webaccel`](./sakura-cloud/webaccel/SKILL.md)** — ウェブアクセラレータのサイト設定・運用を扱う。
+  - Use when: サイト追加、独自ドメイン / SSL 設定、キャッシュ削除 / オリジンガード
+  - Type: `model-invoked`
+- **[`sakura-cloud-workflows`](./sakura-cloud/workflows/SKILL.md)** — Workflows の YAML 作成、デバッグ、API 操作を扱う。
+  - Use when: YAML 作成、式のデバッグ、実行履歴確認 / キャンセル
+  - Type: `model-invoked`
+
+### Writing
+
+- **[`japanese-tech-writing`](./writing/japanese-tech-writing/SKILL.md)** — 日本語の技術文書・書籍原稿の文章規範。
+  - Use when: 技術書・記事の執筆、草稿の推敲、日本語技術文書の構成レビュー
+  - Type: `model-invoked`
 
 ## 運用
 
-- dotfiles 側には `apm/apm.yml` だけを残し、skill 本体はこのリポジトリを source of truth にする。
+- dotfiles 側には global skill の install 一覧として `apm/apm.yml` だけを置く。
+- skill 本体はこの repository を source of truth にする。
 - dotfiles から参照するときは full SHA で pin する。
-- skill 更新後に配布する場合は、`review-diff-skill` を通してから、このリポジトリで commit / push し、dotfiles 側の SHA を更新する。commit / push / pin 更新はユーザーが明示依頼した場合だけ行う。
+- skill 更新後に配布する場合は、`review-diff-skill` を通してから、この repository で commit / push し、dotfiles 側の SHA を更新する。
+- commit / push / pin 更新 / `apm install -g` はユーザーが明示依頼した場合だけ行う。
