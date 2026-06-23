@@ -111,6 +111,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`sakura-cloud-eventbus`](./sakura-cloud/eventbus/SKILL.md)** — EventBus の実行設定、スケジュール、イベントトリガーを扱う。
   - Use when: EventBus 設計、Schedule / Trigger 作成、SimpleMQ / シンプル通知連携
   - Type: `model-invoked`
+- **[`sakura-terraform-v3-migration`](./sakura-cloud/sakura-terraform-v3-migration/SKILL.md)** — さくらのクラウド Terraform Provider v2 から v3 への移行を扱う。
+  - Use when: `sacloud/sakuracloud` から `sacloud/sakura` への移行、State/import 計画、Provider schema 確認
+  - Type: `user-invoked`
 - **[`sakura-cloud-webaccel`](./sakura-cloud/webaccel/SKILL.md)** — ウェブアクセラレータのサイト設定・運用を扱う。
   - Use when: サイト追加、独自ドメイン / SSL 設定、キャッシュ削除 / オリジンガード
   - Type: `model-invoked`
