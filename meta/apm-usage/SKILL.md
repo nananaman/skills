@@ -87,6 +87,8 @@ git rev-parse HEAD
 apm install -g
 ```
 
+pin 更新後に content hash mismatch が出た場合は、まず `readlink ~/.apm`、`realpath ~/.apm/apm.yml`、該当 pin を再確認する。manifest が意図した full SHA を指しており、変更を受け入れる判断ができる場合だけ、lock 更新として `apm install -g --update` を実行する。`apm.lock.yaml` と `apm_modules/` は user-scope の cache / lock として扱い、dotfiles へ commit しない。
+
 ## project-local skill の導入
 
 特定 repo の作業でだけ使う skill は、repo root の `apm.yml` で管理する。

@@ -41,6 +41,8 @@ description: 現在の branch からレビューしやすい GitHub draft PR を
    git diff --name-status origin/<base>...HEAD
    ```
 
+   `origin/<base>...HEAD` が今回の目的だけを含むことを確認する。既に merge 済みの commit、別目的の変更、古い base 由来の差分が混ざる場合は、PR 作成へ進まず、最新 base へ載せ替える案または branch 分割案を提示してユーザーに確認する。history rewrite が必要なら `chouge-git` の History Rewrite に委譲し、共有済み branch では `--force-with-lease` を使う前に明示確認を取る。
+
 4. PR template を探す。
 
    優先順は GitHub の慣習に合わせる。
