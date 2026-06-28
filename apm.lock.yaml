@@ -1,0 +1,15 @@
+lockfile_version: '1'
+generated_at: '2026-06-28T01:40:16.400095+00:00'
+apm_version: 0.14.2
+dependencies:
+- repo_url: nananaman/skills
+  host: github.com
+  resolved_commit: 00f3c9511c3deb2dcbd4023af018287dc30147cf
+  resolved_ref: 00f3c9511c3deb2dcbd4023af018287dc30147cf
+  virtual_path: meta/audit-skills
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/audit-skills
+  - .claude/skills/audit-skills
+  content_hash: sha256:342a894f9aa19416f4e21db8cbc3dc4f38ecbd87bf3ce474a67fb7932316df22
