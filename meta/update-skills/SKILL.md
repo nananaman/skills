@@ -21,8 +21,9 @@ APM で管理している agent skill dependency を、source-of-truth と実利
 - 変更前に `git status --short` を確認し、既存の未コミット変更を user-owned として扱う。
 - 既存変更があるファイルを変更する場合は、必ず差分の所有者と意図を確認する。
 - `apm.lock.yaml` と `apm_modules/` は commit 対象にしない。
-- `apm install`、`apm install -g`、`--update` 付き install は、ユーザーが install まで求めている場合だけ実行する。
-- content hash mismatch が出た場合、manifest が意図した full SHA を指していることを確認し、ユーザーが lock 更新を受け入れる判断をしてから `--update` を提案または実行する。
+- update-skills は通常、pin 更新から install までを 1 セットとして扱う。ユーザーが「更新して」「global」「project-local」など更新依頼をした場合は install まで求めているものとして扱い、install 実行前に追加確認しない。
+- install を実行しないのは、ユーザーが「install はしない」「manifest だけ」「dry-run」などを明示した場合、またはレビュー finding / 取得失敗などで安全に進めない場合だけにする。
+- `--update` 付き install は lock 内容の受け入れを伴うため、content hash mismatch が出た場合だけ、manifest が意図した full SHA を指していることを確認し、ユーザーが lock 更新を受け入れる判断をしてから提案または実行する。
 - commit / push は、この skill の通常完了条件に含めない。ユーザーが明示した場合は `chouge-git` の規約に従う。
 
 ## Workflow
@@ -73,7 +74,8 @@ git ls-remote https://github.com/<owner>/<repo>.git HEAD
    - actionable finding が残る場合は install へ進まない。
    - この skill 自身では review finding を無視して進めない。
 
-7. 必要な場合だけ install する。
+7. install する。
+   - ユーザーが install 不要を明示していない限り、pin 更新後に install まで実行する。
    - global 更新なら次を使う。
 
 ```sh
