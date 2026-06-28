@@ -6,6 +6,7 @@ agent skill の作成、改善、レビュー、APM 配布に使う skill 群で
 ## どの Skill を使うか
 
 - 新しい skill を作る、または既存 skill の draft を改善する → [`create-skill`](./create-skill/SKILL.md)
+- skill inventory を定期棚卸しし、横断的な重複・衝突・肥大化を検出する → [`audit-skills`](./audit-skills/SKILL.md)
 - skill の変更差分を commit / push / pin / install 前に確認する → [`review-diff-skill`](./review-diff-skill/SKILL.md)
 - skill 全体の責務や発火条件を棚卸しする → [`review-skill`](./review-skill/SKILL.md)
 - skill レビューの観点を確認する → [`reviewing-skills`](./reviewing-skills/SKILL.md)
@@ -25,6 +26,9 @@ agent skill の作成、改善、レビュー、APM 配布に使う skill 群で
   - Type: `model-invoked`
 - **[`create-skill`](./create-skill/SKILL.md)** — agent skill の新規作成・既存 skill の draft 改善を行う。
   - Use when: 新規 skill 作成、既存 skill の draft 改善、配置や起動方式の整理
+  - Type: `user-invoked`
+- **[`audit-skills`](./audit-skills/SKILL.md)** — skill inventory を定期棚卸しし、横断的な重複・衝突・肥大化を検出する。
+  - Use when: 定期棚卸し、routing conflict、責務重複、single source of truth 破れ、粒度問題の検出
   - Type: `user-invoked`
 - **[`review-diff-skill`](./review-diff-skill/SKILL.md)** — skill 変更 diff を配布前にレビューする。
   - Use when: skill 差分レビュー、commit / push 前確認、APM pin / install 前確認
