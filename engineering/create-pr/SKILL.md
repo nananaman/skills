@@ -1,19 +1,21 @@
 ---
 name: create-pr
-description: 現在の branch からレビューしやすい GitHub draft PR を作成する。既存の PR template があれば尊重し、diff・commit・テスト状況を整理した title/body を生成して gh pr create --draft を実行する。
+description: 現在の branch から GitHub PR を作成する。通常は draft にし、ready PR はユーザー明示指示時だけ許可する。PR template、diff、commit、テスト状況を整理する。
 ---
 
 # Create PR
 
-現在の branch から、reviewer がすぐ読める GitHub draft PR を作成する。既存 PR がある場合は重複作成せず、更新または中止を提案する。
+現在の branch から、reviewer がすぐ読める GitHub PR を作成する。通常は draft PR にし、ready PR はユーザーが明示的に指示した場合だけ許可する。既存 PR がある場合は重複作成せず、更新または中止を提案する。
 
 ## 原則
 
-- 作成する PR は常に draft にする。`gh pr create` には必ず `--draft` を付ける。
+- PR 方針は `chouge-git` の Pull Request 節に従う。
+- 作成する PR は通常 draft にする。ready PR で作成するのは、ユーザーが明示的に ready PR 作成を指示した場合だけにする。
+- project 規則が ready PR 作成を求めていても、ユーザーの明示指示がなければ draft で作成する。
 - project に PR template がある場合は、その構成を優先して body を作る。
 - PR body は実際の diff、commit、テスト状況、review gate の結果と一致させる。
 - uncommitted changes、未 push、base branch 不明、既存 PR などの状態を確認してから作成する。
-- push または draft PR 作成の前に、変更種別に応じた review gate が通っていることを確認する。
+- push または PR 作成の前に、変更種別に応じた review gate が通っていることを確認する。
 - history rewrite、force push、commit 整理はこの skill の責務外。必要なら別作業として提案する。
 
 ## Workflow
@@ -62,7 +64,7 @@ description: 現在の branch からレビューしやすい GitHub draft PR を
 5. 必要に応じて変更内容を読む。
    - PR body に書く必要がある主要ファイルを読む。
    - generated file、lockfile、機械的変更、テストだけの変更は分類して明示する。
-   - 大きすぎる PR なら、draft 作成前に split を提案する。
+   - 大きすぎる PR なら、PR 作成前に split を提案する。
 
 6. PR title / body の下書きを作る。
    - template がある場合は見出しや checklist を保ち、空欄を実 diff に基づいて埋める。
@@ -91,14 +93,15 @@ description: 現在の branch からレビューしやすい GitHub draft PR を
    - code / config / test / CI / runtime behavior に影響する変更を含むなら `review-diff-code` を使う。既定は `~/.agents/skills/review-diff-code/scripts/review-diff-code --mode branch --base origin/<base>`。dirty worktree を含める必要がある場合は `--mode local` を使う。
    - 既に同じ base / head diff に対して review 済みなら再実行しなくてよい。
    - 会話、直近の作業ログ、PR body の `Review notes` などで review 済みと確認できなければ、未実施として扱う。
-   - 未実施なら push 前に実行する。push が不要な場合でも、draft PR 作成前に実行する。
+   - 未実施なら push 前に実行する。push が不要な場合でも、PR 作成前に実行する。
    - actionable finding が残る場合は、push / PR 作成へ進まない。
    - review gate の実行または確認後、PR body の `Review notes` を結果に合わせて更新する。
 
-8. draft PR を作成する。
+8. PR を作成する。
    - 既存 PR がない場合だけ作成する。
    - body は一時ファイルに書き出し、`--body-file` を使う。
    - head branch が remote にない場合は push する。push 前に remote と branch 名を確認する。
+   - ユーザーが明示的に ready PR 作成を指示していない場合は `--draft` を付ける。
 
    ```bash
    gh pr create \
@@ -108,6 +111,8 @@ description: 現在の branch からレビューしやすい GitHub draft PR を
      --title "<title>" \
      --body-file <body-file>
    ```
+
+   ユーザーが明示的に ready PR 作成を指示した場合だけ、`--draft` を外してよい。
 
 9. 作成後に URL と reviewer 向け要点を報告する。
 
@@ -148,7 +153,7 @@ template を使うときは、次を守る。
 完了報告には次を含める。
 
 - 作成または更新した PR URL。
-- draft であること。
+- draft / ready のどちらで作成・更新したか。ready の場合はユーザーの明示指示。
 - base / head branch。
 - 使用した PR template。なければ `template なし`。
 - 実行したテスト。未実行ならその理由。

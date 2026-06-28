@@ -94,14 +94,7 @@ server / backend では、service / handler / usecase / repository などの pub
 
 文言、表示データ、translation table のみの変更では、新規テストを原則追加しない。
 テストすべきなのは表示文字列そのものではなく、文字列を選ぶ元になる contract である。
-
-- validation なら error message ではなく error type / field / code。
-- empty state なら表示文言ではなく empty state の種別。
-- CTA ならラベルではなく route / href / action / tracking contract。
-- legal / disclaimer なら本文ではなく required key / URL / structured requirement。
-- i18n なら翻訳文ではなく key の存在、fallback、formatting rule。
-
-文字列を直接検証するのは、その文字列自体が外部契約・法務要件・公開 API 互換性であり、別の構造化 contract として表現できない場合に限る。
+詳細な判断は `test-writing-style` の「表示文字列ではなく元の契約を検証する」に従う。
 
 ## Refactoring
 
@@ -116,9 +109,7 @@ server / backend では、service / handler / usecase / repository などの pub
 
 ## Mocking boundaries
 
-- mock / fake は外部 API、時刻、乱数、filesystem、必要な DB 境界など system boundary に限定する。
-- 自分たちが制御する内部 collaborator は、できるだけ実物を使う。
-- 呼び出し順、private method、内部関数の分割など、実装詳細だけを検証しない。
+mock / fake の詳細な判断は `test-writing-style` の外部依存隔離と副作用検証の観点に従う。
 
 ## Per-cycle checklist
 
