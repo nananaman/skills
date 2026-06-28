@@ -17,6 +17,7 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
 - diff / branch diff / PR diff を厳しめに見る → [`review-diff-code`](./review-diff-code/SKILL.md)
 - sandbox runtime 起因の ghost dotfiles、mount artifact、workflow scope 不足を診断する → [`sandbox-runtime`](./sandbox-runtime/SKILL.md)
+- ast-grep を project-local な構造 lint / rewrite として運用する → [`ast-grep-practice`](./ast-grep-practice/SKILL.md)
 
 ## 典型フロー
 
@@ -61,6 +62,9 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
   - Type: `model-invoked`
 - **[`sandbox-runtime`](./sandbox-runtime/SKILL.md)** — Anthropic Sandbox Runtime 起因の ghost dotfiles や mount artifact を診断する。
   - Use when: sandbox 実行後の想定外 untracked files、read-only filesystem、workflow scope 不足、gh auth refresh 失敗の診断
+  - Type: `model-invoked`
+- **[`ast-grep-practice`](./ast-grep-practice/SKILL.md)** — ast-grep を project-local な構造 lint / rewrite として運用する。
+  - Use when: 既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンド、kind 名・rule 例の確認
   - Type: `model-invoked`
 - **[`tdd`](./tdd/SKILL.md)** — Red → Green → Refactor を public contract 単位で実行する。
   - Use when: 機能追加、バグ修正、仕様変更、リファクタリング、よほどの微修正ではないコード変更
