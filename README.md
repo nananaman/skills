@@ -51,6 +51,27 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Engineering
 
+- **[`setup-engineering-flow`](./engineering/setup-engineering-flow/SKILL.md)** — リポジトリごとの engineering flow を初期設定する。
+  - Use when: issue tracker、PRD / Design Doc 配置、local markdown issue 採番、AGENTS.md / CLAUDE.md 参照 block の設定
+  - Type: `user-invoked`
+- **[`draft-prd`](./engineering/draft-prd/SKILL.md)** — 新機能・仕様変更の PRD draft を作成する。
+  - Use when: 一言アイデア、メモ、会話ログ、既存 issue から PRD の仮説と TODO(polish) を置く
+  - Type: `model-invoked`
+- **[`polish-prd`](./engineering/polish-prd/SKILL.md)** — PRD draft を作る価値・範囲・成功条件を判断できる文書へ磨く。
+  - Use when: PRD の対象ユーザー、やらないこと、作るもの、成功条件、受け入れ条件を詰める
+  - Type: `model-invoked`
+- **[`draft-design-doc`](./engineering/draft-design-doc/SKILL.md)** — 技術改善・設計変更の Design Doc draft を作成する。
+  - Use when: 技術・設計上の問題、PRD 実現に必要な設計判断、複数案の比較検討
+  - Type: `model-invoked`
+- **[`polish-design-doc`](./engineering/polish-design-doc/SKILL.md)** — Design Doc draft を設計判断と issue 分割へ進める文書へ磨く。
+  - Use when: 採用案の決定、詳細設計、リスク評価、代替案、issue 分割前の設計 gate
+  - Type: `model-invoked`
+- **[`draft-issue`](./engineering/draft-issue/SKILL.md)** — 実装前の issue draft を作成する。
+  - Use when: polished PRD / Design Doc またはユーザー説明から、仮説と TODO(polish) 付き issue を作る
+  - Type: `model-invoked`
+- **[`polish-issue`](./engineering/polish-issue/SKILL.md)** — issue を実装設計契約に磨く。
+  - Use when: issue だけで実装に入れるように、目的、現状、設計方針、変更対象、テスト方針、完了条件を詰める
+  - Type: `model-invoked`
 - **[`create-pr`](./engineering/create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`
@@ -96,7 +117,10 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Productivity
 
-- **[`grill-me`](./productivity/grill-me/SKILL.md)** — 計画や設計を着手前に容赦なく質問して詰める。
+- **[`grilling`](./productivity/grilling/SKILL.md)** — 計画、設計、PRD、Design Doc、issue を一問ずつ詰める reusable discipline。
+  - Use when: 他 skill から曖昧さ、未決定、依存する判断を一つずつ解消する
+  - Type: `model-invoked`
+- **[`grill-me`](./productivity/grill-me/SKILL.md)** — ユーザーが明示的に grill したい計画や設計を `grilling` session に渡す。
   - Use when: plan / design の stress-test、実装前の懸念洗い出し、判断分岐の解消
   - Type: `user-invoked`
 - **[`handoff`](./productivity/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
