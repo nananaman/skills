@@ -96,6 +96,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`create-skill`](./meta/create-skill/SKILL.md)** — agent skill の新規作成・既存 skill の draft 改善を行う。
   - Use when: 新規 skill 作成、既存 skill の draft 改善、配置や起動方式の整理
   - Type: `user-invoked`
+- **[`audit-skills`](./meta/audit-skills/SKILL.md)** — skill inventory を定期棚卸しし、横断的な重複・衝突・肥大化を検出する。
+  - Use when: 定期棚卸し、routing conflict、責務重複、single source of truth 破れ、粒度問題の検出
+  - Type: `user-invoked`
 - **[`review-diff-skill`](./meta/review-diff-skill/SKILL.md)** — skill 変更 diff を配布前にレビューする。
   - Use when: skill 差分レビュー、commit / push 前確認、APM pin / install 前確認
   - Type: `user-invoked`
