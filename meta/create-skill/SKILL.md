@@ -35,6 +35,7 @@ agent skill を、予測可能に動く小さな部品として draft する。
 
 5. draft を書く。
    - `SKILL.md` は agent が実行する手順を中心に置く。
+   - `SKILL.md` の本文には、agent の判断・手順・停止条件・出力形式を変える情報だけを置く。実行に効かない情報は、削除するか、PR body、commit message、review note などに分離する。
    - `SKILL.md` は通常 500 行未満に保つ。超える場合は情報設計を見直す。
    - 長い説明・用語・例・評価手順は `references/` や `GLOSSARY.md` に逃がす。
    - テンプレート、schema、静的素材は `assets/` に置き、必要になった時点で読む指示を書く。
