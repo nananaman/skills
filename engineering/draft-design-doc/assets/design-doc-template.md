@@ -64,22 +64,24 @@
 {{delivery_and_operations}}
 <!-- TODO(polish): 実装難度、レビューしやすさ、運用負荷、属人性、release timing への影響を書く。考慮不要な場合も理由を書く。 -->
 
-## 代替案
+## 検討した案
 
-### {{alternative_title}}
+### {{option_title}}
 
-{{alternative_description}}
-<!-- TODO(polish): draft では検討中の案をすべて書く。polish 後は採用しなかった案を残す。 -->
+{{option_description}}
+<!-- TODO(polish): 案の説明を書く。draft では未検証事項や確認したい前提を一時的にここへ書いてよい。 -->
 
 #### Pros
 
-{{alternative_pros}}
+{{option_pros}}
+<!-- TODO(polish): 採用案との比較として利点を書く。draft では未確定のままでよい。 -->
 
 #### Cons
 
-{{alternative_cons}}
+{{option_cons}}
+<!-- TODO(polish): 採用案との比較として欠点を書く。draft では未確定のままでよい。 -->
 
 #### Conclusion
 
-{{alternative_conclusion}}
-<!-- TODO(polish): draft では「未決。polish で検証する」でよい。polish 後は採用 / 不採用と理由を書く。 -->
+{{option_conclusion}}
+<!-- TODO(polish): 採用 / 不採用と理由を書く。draft では未決のままでよい。 -->

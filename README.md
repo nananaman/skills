@@ -64,7 +64,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Use when: 技術・設計上の問題、PRD 実現に必要な設計判断、複数案の比較検討
   - Type: `model-invoked`
 - **[`polish-design-doc`](./engineering/polish-design-doc/SKILL.md)** — Design Doc draft を設計判断と issue 分割へ進める文書へ磨く。
-  - Use when: 採用案の決定、詳細設計、リスク評価、代替案、issue 分割前の設計 gate
+  - Use when: 採用案の決定、詳細設計、リスク評価、検討した案、issue 分割前の設計 gate
   - Type: `model-invoked`
 - **[`draft-issue`](./engineering/draft-issue/SKILL.md)** — 実装前の issue draft を作成する。
   - Use when: polished PRD / Design Doc またはユーザー説明から、仮説と TODO(polish) 付き issue を作る

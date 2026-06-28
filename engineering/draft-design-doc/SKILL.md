@@ -1,6 +1,6 @@
 ---
 name: draft-design-doc
-description: 技術改善・設計変更、または PRD 後に必要な大きい変更について Design Doc draft を作る。複数の設計案を代替案に並べ、仮説と TODO(polish) を置く。PRD 作成、Design Doc polish、issue 作成、実装、レビューだけの依頼では使わない。
+description: 技術改善・設計変更、または PRD 後に必要な大きい変更について Design Doc draft を作る。複数の設計案を検討した案に並べ、仮説と TODO(polish) を置く。PRD 作成、Design Doc polish、issue 作成、実装、レビューだけの依頼では使わない。
 ---
 
 # Draft Design Doc
@@ -37,9 +37,9 @@ Design Doc は、技術・設計上の問題を解くための設計判断文書
 - 目的を数行で端的に置く。
 - 技術設計としてのやらないことを仮置きする。
 - 背景・制約・用語を仮置きする。
-- `代替案` に検討中の設計案を複数書く。
-- 各案に Pros / Cons / Conclusion を書く。
-- 未検証の前提は事実扱いせず、`TODO(polish)` を残す。
+- `検討した案` に検討中の設計案を複数書く。
+- 各案には Pros / Cons / Conclusion の見出しを残すが、draft では TODO のままでよい。
+- 未検証の前提は事実扱いせず、案の説明や TODO に一時的に残す。
 - 採用案を無理に確定しない。
 
 ## Safety
@@ -82,7 +82,7 @@ Design Doc は次のような場合に使う。
 
 - 指定された PRD / issue / docs
 - 関連する既存 Design Doc / ADR
-- 代替案を出すために必要な周辺コード
+- 検討案を出すために必要な周辺コード
 
 大きな検証や設計確定はしない。それは `polish-design-doc` の責務である。
 
@@ -92,8 +92,9 @@ Design Doc は次のような場合に使う。
 
 - 見出しは日本語にする。
 - `状態: Draft` にする。
-- `代替案` に検討中の案を複数書く。
-- draft の Conclusion は `未決。polish で検証する。` でよい。
+- `検討した案` に検討中の案を複数書く。
+- draft の Pros / Cons / Conclusion は TODO のままでよい。
+- 未検証事項がある場合は、案の説明に一時的に書いてよい。
 - 概要 / 詳細設計は採用案が未決なら TODO のままでよい。
 - Mermaid 図はどの章でも使ってよい。概要・詳細設計では特に推奨する。
 - 状態を持つ設計では、概要または詳細設計に状態遷移図を書く TODO を残す。
@@ -109,7 +110,7 @@ Design Doc は次のような場合に使う。
 
 - 作成した Design Doc location
 - draft であること
-- 検討中の代替案
+- 検討中の案
 - 主要な TODO(polish)
 - 次に実行すべき skill: `polish-design-doc`
 - commit / push / APM pin 更新 / install は未実行であること

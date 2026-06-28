@@ -1,6 +1,6 @@
 ---
 name: polish-design-doc
-description: Design Doc draft を、人間がこの設計で進めてよいか判断でき、issue 分割へ進める文書へ磨く。複数案を調査・比較し、採用案を概要/詳細設計へ昇格し、リスク評価と代替案を完成させる。PRD 作成、issue 作成、通常実装、diff review だけの依頼では使わない。
+description: Design Doc draft を、人間がこの設計で進めてよいか判断でき、issue 分割へ進める文書へ磨く。複数案を調査・比較し、採用案を概要/詳細設計へ昇格し、リスク評価と検討した案を完成させる。PRD 作成、issue 作成、通常実装、diff review だけの依頼では使わない。
 ---
 
 # Polish Design Doc
@@ -23,7 +23,7 @@ polished Design Doc は、次を満たす。
 - 落とし穴が設計上の既知の問題として書かれている。
 - セキュリティ / プライバシー / 負荷・コスト / 信頼性 / 開発・運用への影響が評価されている。
 - リスク評価系の章が「なし」だけで終わっていない。
-- 代替案が Pros / Cons / Conclusion 付きで比較されている。
+- 検討した案が Pros / Cons / Conclusion 付きで比較されている。
 - `TODO(polish)` が残っていない。
 - issue 分割に進める。
 
@@ -97,10 +97,10 @@ git status --short --untracked-files=all
 
 ### 4. Decide adopted design
 
-`代替案` にある候補を比較し、採用案を決める。
+`検討した案` にある候補を比較し、採用案を決める。
 
-- 採用案は `概要` と `詳細設計` に昇格する。
-- 不採用案は `代替案` に残す。
+- 採用案は `概要` と `詳細設計` に反映する。
+- `検討した案` には、採用案と不採用案の比較を残す。
 - 各案の `Conclusion` には採用 / 不採用と理由を書く。
 - 採用案が決められない場合は polished にせず blocked として報告する。
 
@@ -125,7 +125,7 @@ git status --short --untracked-files=all
 - 落とし穴が既知の問題・限界として honest に書かれているか。
 - セキュリティ / プライバシー / 負荷・コスト / 信頼性 / 開発・運用への影響が評価されているか。
 - リスク評価系の章が「なし」だけで終わっていないか。
-- 代替案が Pros / Cons / Conclusion 付きで比較されているか。
+- 検討した案が Pros / Cons / Conclusion 付きで比較されているか。
 - `TODO(polish)` が残っていないか。
 - issue 分割に進めるか。
 
@@ -139,7 +139,7 @@ polished body をユーザーへ提示し、確認後だけ Design Doc を更新
 
 - polished Design Doc location
 - 採用案と採用理由
-- 不採用案と理由
+- 検討した案ごとの採用 / 不採用と理由
 - 実行した test / typecheck / proof
 - issue 分割へ進めるか、blocked か
 - 次に進むべき flow: `draft-issue`
