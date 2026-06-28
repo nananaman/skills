@@ -6,3 +6,7 @@ _build/
 
 # APM dependencies
 apm_modules/
+
+# APM-managed generated skill targets
+.agents/
+.claude/
