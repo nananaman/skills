@@ -10,6 +10,7 @@ agent skill の作成、改善、レビュー、APM 配布に使う skill 群で
 - skill 全体の責務や発火条件を棚卸しする → [`review-skill`](./review-skill/SKILL.md)
 - skill レビューの観点を確認する → [`reviewing-skills`](./reviewing-skills/SKILL.md)
 - APM の pin、install、dotfiles 連携を扱う → [`apm-usage`](./apm-usage/SKILL.md)
+- 試行錯誤で得た知見を ast-grep rule、skill、AGENTS.md rule へ固定する → [`retrospective-codify`](./retrospective-codify/SKILL.md)
 
 ## 典型フロー
 
@@ -34,3 +35,6 @@ agent skill の作成、改善、レビュー、APM 配布に使う skill 群で
 - **[`reviewing-skills`](./reviewing-skills/SKILL.md)** — agent skill の品質をレビューする共通 rubric。
   - Use when: description / 本文整合確認、完了条件の確認、failure modes / safety の確認
   - Type: `model-invoked`
+- **[`retrospective-codify`](./retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
+  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
+  - Type: `user-invoked`

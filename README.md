@@ -105,6 +105,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`reviewing-skills`](./meta/reviewing-skills/SKILL.md)** — agent skill の品質をレビューする共通 rubric。
   - Use when: description / 本文整合確認、完了条件の確認、failure modes / safety の確認
   - Type: `model-invoked`
+- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
+  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
+  - Type: `user-invoked`
 
 ### Personal
 
