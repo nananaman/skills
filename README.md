@@ -135,6 +135,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`handoff`](./productivity/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
   - Use when: セッション引き継ぎ、長い会話の圧縮、別 agent への作業移管
   - Type: `user-invoked`
+- **[`herdr`](./productivity/herdr/SKILL.md)** — Herdr pane 内で workspace / tab / pane を操作する。
+  - Use when: Herdr-managed pane で隣接 pane の出力確認、pane 分割、長時間 command / helper agent 起動、出力待ち
+  - Type: `model-invoked`
 - **[`teach`](./productivity/teach/SKILL.md)** — 現在のディレクトリを学習 workspace として使い、複数セッションで教える。
   - Use when: 新しい概念の学習、技術・技能の継続学習、学習記録の管理
   - Type: `user-invoked`
