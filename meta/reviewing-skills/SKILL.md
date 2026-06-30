@@ -1,6 +1,6 @@
 ---
 name: reviewing-skills
-description: agent skill の品質をレビューする共通 protocol。metadata discoverability、positive / negative trigger、description / 本文整合、progressive disclosure、deterministic resources、smoke check、runtime smoke、failure modes、safety を確認するときに使う。
+description: agent skill の品質をレビューする共通 protocol。archetype fit、metadata discoverability、positive / negative trigger、description / 本文整合、progressive disclosure、deterministic resources、reference / diagnostic quality、smoke check、runtime smoke、failure modes、safety を確認するときに使う。
 ---
 
 agent skill を、予測可能に動く小さな部品としてレビューするための共通 protocol。
@@ -15,6 +15,11 @@ skill review は、作者の静的読解だけで終えない。
 コードに対するテストと同じように、自然な入力から fresh agent がどの `SKILL.md` を読んでどう実行したかを smoke check で確認する。
 
 ## Review Axes
+
+0. archetype fit
+   - skill が workflow / reference / diagnostic / rubric / wrapper のどれを主目的にするか、本文から分かるか。
+   - archetype に対して本文構造が合っているか。workflow は手順と停止条件、reference は利用者向け地図と実用断片、diagnostic は症状から確認・対処への分岐、rubric は評価軸、wrapper は委譲先と境界を中心にしているか。
+   - 複数 archetype が混ざる場合、主責務と補助責務が明確で、別 skill に分けるべき責務過多になっていないか。
 
 1. metadata / discoverability
    - `name:` が skill ディレクトリ名と一致しているか。
@@ -36,7 +41,8 @@ skill review は、作者の静的読解だけで終えない。
 
 4. progressive disclosure / information hierarchy
    - すぐ必要な手順が `SKILL.md` にあるか。
-   - `SKILL.md` が通常 500 行未満で、routing 後すぐ読むべき情報に絞られているか。
+   - workflow / rubric / wrapper skill では、`SKILL.md` が通常 500 行未満で、routing 後すぐ読むべき情報に絞られているか。
+   - reference / diagnostic skill では、通常 path で必要な command map、頻出 recipe、制限、確認手順、troubleshooting が本文にあり、網羅資料や長い背景だけが外部参照に分離されているか。
    - 詳細、例、用語、長い評価表だけが references / GLOSSARY に逃がされているか。
    - template、schema、静的素材は assets に逃がされ、必要時に読む指示があるか。
    - references / assets / scripts が不必要に深い階層になっていないか。
@@ -72,6 +78,15 @@ skill review は、作者の静的読解だけで終えない。
    - ユーザーの明示依頼が必要な操作が明示されているか。
    - 「完了条件」が永続化操作の自動実行を誘発しないか。
 
+10. reference / diagnostic quality
+   - 対象 tool / product / API、利用者、対象外領域が冒頭と description で一致しているか。
+   - バージョン、OS、architecture、provider、権限、課金、本番影響など、挙動が変わる前提が条件付きで書かれているか。
+   - command / API / config の quick reference と詳細説明が矛盾していないか。
+   - copy-paste 可能な例が安全で、destructive command や永続変更には確認条件・注意・dry-run 相当の確認手順があるか。
+   - troubleshooting が「症状 → 確認 → 原因候補 → 対処 → まだ駄目な場合」の順でたどれるか。
+   - 外部資料由来の内容では、upstream URL、取得日、license / attribution、更新時の確認方法が必要に応じて残っているか。
+   - 古くなりやすい情報に `--help`、`version`、公式 docs などの再確認手段があるか。
+
 ## Review Protocol
 
 レビューでは、対象に応じて次の checks を組み合わせる。
@@ -88,6 +103,7 @@ skill review は、作者の静的読解だけで終えない。
 - description の各 trigger branch が本文の workflow に対応しているか。
 - 本文にある重要手順へ description から到達できるか。
 - workflow、分岐条件、停止条件、出力形式が agent に判定可能か。
+- skill archetype と本文構造が一致しているか。
 - scope gap があれば、smoke check より先に description か本文の修正を提案する。
 
 ### Smoke check
@@ -131,6 +147,14 @@ Discovery smoke は、model-invoked skill の description / trigger を評価す
 - Input: user prompt、repo 状況、diff summary、harness が実際に discovery する skill 配置など。
 - Expected behavior: 外部から観測できる期待結果。skill 名や実装意図から逆算させない。
 - Pass / fail criteria: どの出力・判断・停止条件なら pass か。
+
+対象 skill の archetype に応じて次の case set を含める。
+
+- workflow: median task で手順、停止条件、出力形式が守られる case。
+- reference: 対象 tool / API の使い方を尋ねる positive usage case と、対象外の内部実装・ソース修正へ逸れない out-of-scope negative case。
+- diagnostic: 典型症状から確認コマンド、原因候補、対処、escalation へ進む case。
+- rubric: 評価対象に対して finding の採否と根拠を出す case。
+- wrapper: 委譲先 skill / command の選択と、責務外で止まる case。
 
 Execution smoke では、対象 skill が選択済みであることを前提として `SKILL.md` を読ませてよい。
 Discovery smoke では、対象 skill 本文は最初から渡さない。
@@ -232,6 +256,7 @@ smoke check で skill を直す場合は、反復単位を固定する。
 - smoke case の critical な Expected を落とす問題は、原則 high severity として扱う。
 - speculative risk、cosmetic nit、好み、過剰な rewrite は rejected にする。
 - finding は最小修正につながる形で書く。
+- reference / diagnostic skill の finding では、情報の欠落そのものではなく、その欠落が誤回答、危険な command 実行、条件差分の見落とし、troubleshooting の行き止まりをどう起こすかを示す。
 
 ## Output Shape
 
@@ -240,6 +265,7 @@ smoke check で skill を直す場合は、反復単位を固定する。
 - Static contract check: 実施結果の要約
 - Smoke check: 実施 case、pass/fail、fresh agent / subagent を使ったか
 - Runtime smoke check: 実施した / 不要 / 実施不能と理由
+- Archetype: 判定した archetype と、その構造が妥当か
 - Accepted findings: 件数と要約
 - Rejected findings: 件数と理由
 
@@ -253,7 +279,7 @@ smoke check で skill を直す場合は、反復単位を固定する。
 
 ### [severity] title
 - Target: path:line
-- Axis: metadata / description / predictability / hierarchy / deterministic resources / completion / pruning / failure modes / safety
+- Axis: archetype fit / metadata / description / predictability / hierarchy / deterministic resources / completion / pruning / reference / diagnostic quality / failure modes / safety
 - Problem: agent がどう誤作動するか、または何が保守しづらくなるか
 - Evidence: 対象本文、関連ファイル、smoke 結果からの根拠
 - Suggested fix: 最小修正
