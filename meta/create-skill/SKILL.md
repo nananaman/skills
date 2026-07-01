@@ -44,7 +44,7 @@ agent skill を、予測可能に動く小さな部品として draft する。
    - `references/`、`assets/`、`scripts/` は原則 1 階層に保ち、本文中の path は forward slash の相対 path で書く。
    - README、CHANGELOG、INSTALLATION guide など人間向け文書は、agent の実行に必要でない限り skill 内に作らない。
 
-6. 自己点検してから止める。
+6. 自己点検する。
    - skill ディレクトリ名と frontmatter の `name:` が一致しているか確認する。
    - description の各 trigger branch が本文の手順に対応しているか確認する。
    - negative trigger が過発火しやすい近接領域を明示しているか確認する。
@@ -52,19 +52,28 @@ agent skill を、予測可能に動く小さな部品として draft する。
    - 完了条件が agent に判定可能か確認する。
    - 勝手に commit / push / pin / install へ進む文言がないか確認する。
 
-7. レビューへ渡す。
-   - draft 作成後は `review-diff-skill` で差分レビューする。
-   - skill 全体の責務・構造・発火条件を見直す場合は `review-skill` を使う。
+7. self-review を実行する。
+   - ユーザーが明示的に「レビュー不要」「ここで止めて」と指示していない限り、draft 作成後は作業の一部として self-review を実行する。
+   - 新規 skill は `review-skill` で全体レビューする。
+   - 既存 skill の差分改善は `review-diff-skill` で差分レビューする。
+   - README、APM manifest、周辺導線など skill 本体以外も同じ変更に含む場合は、その差分に対して `review-diff-skill` を実行する。
+   - どちらかの review で escalate 条件に当たった場合だけ、もう一方も実行する。
+   - actionable finding があれば修正し、該当する self-review を再実行する。この修正と再レビューを、actionable finding がなくなるまで繰り返す。
+   - review を実行できない場合は、実行不能理由と残リスクを報告する。
    - `git commit`、push、APM pin 更新、`apm install -g` はこの skill では実行しない。
 
 ## Done Criteria
 
-create-skill の完了は「レビュー可能な draft ができた」状態である。
-次を満たしたら止めて、レビュー結果または次のレビュー手順をユーザーへ報告する。
+create-skill の完了は「self-review と修正の loop を回し、actionable finding が残っていない draft ができた」状態である。
+次を満たしたら止めて、レビュー結果をユーザーへ報告する。
 
 - 目的、起動条件、negative trigger、期待出力が本文から読める。
 - 起動方式と配置が明確である。
 - `name:` と配置ディレクトリが一致し、metadata が routing 情報として機能する。
 - `SKILL.md` が手順中心で、参照情報・テンプレート・deterministic script と分離されている。
 - 通常 path で不要な context を読ませない progressive disclosure になっている。
+- 新規 skill では `review-skill` を実行済みで、actionable finding が残っていない。実行できない場合は理由と残リスクを報告している。
+- 既存 skill の差分改善では `review-diff-skill` を実行済みで、actionable finding が残っていない。実行できない場合は理由と残リスクを報告している。
+- skill 本体以外の README / APM manifest / 周辺導線も変更した場合は、該当 diff に対する `review-diff-skill` を実行済みで、actionable finding が残っていない。
+- review で escalate した場合は、指示された追加 review も実行済みで、actionable finding が残っていない。
 - commit / push / pin / install を実行していない。
