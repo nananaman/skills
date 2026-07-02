@@ -64,6 +64,7 @@ description: 現在の branch から GitHub PR を作成する。通常は draft
 5. 必要に応じて変更内容を読む。
    - PR body に書く必要がある主要ファイルを読む。
    - generated file、lockfile、機械的変更、テストだけの変更は分類して明示する。
+   - PR body で local markdown issue / Design Doc / changelog などの repository 内 artifact を参照する場合は、その artifact が base branch に既に存在するか、今回の branch diff に含まれているかを確認する。存在しない artifact を参照する PR body は作らない。
    - 大きすぎる PR なら、PR 作成前に split を提案する。
 
 6. PR title / body の下書きを作る。
@@ -144,6 +145,7 @@ template を使うときは、次を守る。
 - working tree に未 commit の変更があり、それが PR に含まれるべきか判断できない。
 - base branch が確定できない。
 - PR template の必須項目が埋められない。
+- PR body で参照する repository 内 artifact が base branch にも branch diff にも存在しない。
 - 必要な review gate が未実施、または actionable finding が残っている。
 - diff に secret、credential、private URL らしきものがある。
 - 変更が複数の無関係な目的を含み、1つの PR として説明しづらい。
