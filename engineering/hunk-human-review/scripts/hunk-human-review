@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+"""Deterministic helper for the hunk-human-review skill."""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, Optional
+
+
+USAGE = """Usage: hunk-human-review <subcommand>
+
+Subcommands:
+  preflight          Emit JSON describing repo state and reviewability
+  comments           Collect Hunk comments with --type all and user fallback
+  snapshot           Compare current diff file set with Hunk session file set
+  request-markdown   Print a Markdown review request seed
+"""
+
+
+class CommandError(Exception):
+    def __init__(self, command: list[str], returncode: int, stdout: str, stderr: str):
+        super().__init__(f"command failed ({returncode}): {' '.join(command)}")
+        self.command = command
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def run(command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+    proc = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if check and proc.returncode != 0:
+        raise CommandError(command, proc.returncode, proc.stdout, proc.stderr)
+    return proc
+
+
+def emit_json(payload: dict[str, Any], *, status: int = 0) -> None:
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    raise SystemExit(status)
+
+
+def command_failure_payload(error: CommandError) -> dict[str, Any]:
+    return {
+        "command": error.command,
+        "returncode": error.returncode,
+        "stdout": error.stdout,
+        "stderr": error.stderr,
+    }
+
+
+def git_root() -> Path:
+    return Path(run(["git", "rev-parse", "--show-toplevel"]).stdout.strip())
+
+
+def current_branch() -> str:
+    branch = run(["git", "branch", "--show-current"], check=False).stdout.strip()
+    if branch:
+        return branch
+    return run(["git", "rev-parse", "--short", "HEAD"]).stdout.strip()
+
+
+def git_status_lines() -> list[str]:
+    out = run(["git", "status", "--short", "--untracked-files=all"]).stdout
+    return [line for line in out.splitlines() if line]
+
+def untracked_paths() -> list[str]:
+    proc = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if proc.returncode != 0:
+        return []
+    return [path.decode("utf-8", errors="surrogateescape") for path in proc.stdout.split(b"\0") if path]
+
+
+
+def classify_status(lines: list[str]) -> dict[str, int]:
+    staged = 0
+    unstaged = 0
+    untracked = 0
+    for line in lines:
+        if line.startswith("??"):
+            untracked += 1
+            continue
+        if len(line) >= 2:
+            if line[0] not in (" ", "?"):
+                staged += 1
+            if line[1] not in (" ", "?"):
+                unstaged += 1
+    return {"staged": staged, "unstaged": unstaged, "untracked": untracked}
+
+
+def diff_stat() -> str:
+    return run(["git", "diff", "--stat"], check=False).stdout.strip()
+
+
+def preflight_payload() -> dict[str, Any]:
+    hunk_path = shutil.which("hunk")
+    repo = git_root()
+    os.chdir(repo)
+    status = git_status_lines()
+    counts = classify_status(status)
+    review_ready = counts["unstaged"] > 0
+    reviewable = review_ready or counts["untracked"] > 0
+    return {
+        "ok": hunk_path is not None and reviewable,
+        "hunk": {"available": hunk_path is not None, "path": hunk_path},
+        "repo": str(repo),
+        "branch": current_branch(),
+        "status": {"lines": status, "counts": counts, "untracked_paths": untracked_paths()},
+        "reviewable": reviewable,
+        "review_ready": review_ready,
+        "needs_intent_to_add": counts["untracked"] > 0,
+        "staged_out_of_scope": counts["staged"] > 0,
+        "diff_stat": diff_stat(),
+        "stop_reasons": stop_reasons(hunk_path, reviewable, counts),
+    }
+
+
+def stop_reasons(hunk_path: Optional[str], reviewable: bool, counts: dict[str, int]) -> list[str]:
+    reasons: list[str] = []
+    if hunk_path is None:
+        reasons.append("hunk command not found")
+    if not reviewable:
+        reasons.append("no unstaged or untracked changes")
+    if counts["staged"] > 0 and counts["unstaged"] == 0 and counts["untracked"] == 0:
+        reasons.append("only staged changes are present; Hunk target is unstaged diff only")
+    return reasons
+
+
+def cmd_preflight() -> None:
+    try:
+        emit_json(preflight_payload(), status=0)
+    except CommandError as error:
+        print(str(error), file=sys.stderr)
+        emit_json({"ok": False, "error": command_failure_payload(error)}, status=1)
+
+
+def is_suspicious_comment_output(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return True
+    lowered = stripped.lower()
+    return "no live comments" in lowered or "no review notes" in lowered or "no comments" == lowered
+
+
+def parse_comment_lines(raw: str, source: str) -> list[dict[str, str]]:
+    comments: list[dict[str, str]] = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.lower().startswith(("no live comments", "no review notes")):
+            continue
+        comments.append({"source": source, "raw": line})
+    return comments
+
+
+def cmd_comments() -> None:
+    try:
+        repo = git_root()
+        os.chdir(repo)
+        session = run(["hunk", "session", "get", "--repo", "."])
+    except FileNotFoundError:
+        emit_json({"ok": False, "state": "hunk_missing", "error": "hunk command not found"}, status=127)
+    except CommandError as error:
+        print("hunk session is not available; keep any Hunk tab open and inspect manually", file=sys.stderr)
+        emit_json({"ok": False, "state": "no_session", "error": command_failure_payload(error)}, status=1)
+
+    commands = [["hunk", "session", "get", "--repo", "."]]
+    all_proc = run(["hunk", "session", "comment", "list", "--repo", ".", "--type", "all"], check=False)
+    commands.append(["hunk", "session", "comment", "list", "--repo", ".", "--type", "all"])
+    if all_proc.returncode != 0:
+        emit_json(
+            {
+                "ok": False,
+                "state": "comment_list_failed",
+                "session_raw": session.stdout,
+                "commands": commands,
+                "error": {
+                    "command": commands[-1],
+                    "returncode": all_proc.returncode,
+                    "stdout": all_proc.stdout,
+                    "stderr": all_proc.stderr,
+                },
+            },
+            status=1,
+        )
+
+    fallback_used = is_suspicious_comment_output(all_proc.stdout)
+    user_stdout = ""
+    user_error: Optional[dict[str, Any]] = None
+    if fallback_used:
+        user_proc = run(["hunk", "session", "comment", "list", "--repo", ".", "--type", "user"], check=False)
+        commands.append(["hunk", "session", "comment", "list", "--repo", ".", "--type", "user"])
+        user_stdout = user_proc.stdout
+        if user_proc.returncode != 0:
+            user_error = {
+                "command": commands[-1],
+                "returncode": user_proc.returncode,
+                "stdout": user_proc.stdout,
+                "stderr": user_proc.stderr,
+            }
+
+    parsed = parse_comment_lines(all_proc.stdout, "all")
+    if user_stdout:
+        parsed.extend(parse_comment_lines(user_stdout, "user"))
+
+    emit_json(
+        {
+            "ok": user_error is None,
+            "state": "comments_present" if parsed else "no_comments",
+            "session_raw": session.stdout,
+            "commands": commands,
+            "fallback_user_used": fallback_used,
+            "raw": {"all": all_proc.stdout, "user": user_stdout},
+            "comments": parsed,
+            "comment_count": len(parsed),
+            "user_fallback_error": user_error,
+            "close_guard": "Do not close the Hunk tab until comments are presented and next action is confirmed.",
+        },
+        status=0 if user_error is None else 1,
+    )
+
+
+def current_diff_files() -> list[str]:
+    out = run(["git", "diff", "--name-only"], check=False).stdout
+    return sorted(line for line in out.splitlines() if line)
+
+
+def file_values_from_review_json(data: Any) -> list[str]:
+    if not isinstance(data, dict):
+        return []
+    files = data.get("files")
+    if not isinstance(files, list):
+        review = data.get("review")
+        files = review.get("files") if isinstance(review, dict) else None
+    if not isinstance(files, list):
+        return []
+
+    values: list[str] = []
+    for item in files:
+        if isinstance(item, str):
+            values.append(item)
+        elif isinstance(item, dict):
+            for key in ("path", "file", "filePath", "filepath", "filename", "oldPath", "newPath", "relativePath"):
+                value = item.get(key)
+                if isinstance(value, str):
+                    values.append(value)
+    return values
+
+
+def is_repo_path(candidate: str, repo: Path) -> bool:
+    if candidate.startswith("/") or "\0" in candidate or ".." in Path(candidate).parts:
+        return False
+    if (repo / candidate).exists():
+        return True
+    return run(["git", "ls-files", "--error-unmatch", "--", candidate], check=False).returncode == 0
+
+
+def existing_repo_paths(values: list[str], repo: Path) -> list[str]:
+    paths: set[str] = set()
+    for value in values:
+        candidate = value
+        if candidate and is_repo_path(candidate, repo):
+            paths.add(candidate)
+    return sorted(paths)
+
+
+def hunk_session_files(repo: Path) -> tuple[list[str], dict[str, Any]]:
+    review = run(["hunk", "session", "review", "--repo", ".", "--json"], check=False)
+    source: dict[str, Any] = {
+        "command": ["hunk", "session", "review", "--repo", ".", "--json"],
+        "returncode": review.returncode,
+        "stdout": review.stdout,
+        "stderr": review.stderr,
+    }
+    if review.returncode == 0 and review.stdout.strip():
+        try:
+            data = json.loads(review.stdout)
+            return existing_repo_paths(file_values_from_review_json(data), repo), source
+        except json.JSONDecodeError:
+            return [], source
+
+    session = run(["hunk", "session", "get", "--repo", "."], check=False)
+    if session.returncode != 0:
+        raise CommandError(["hunk", "session", "get", "--repo", "."], session.returncode, session.stdout, session.stderr)
+    source["session_get"] = {
+        "command": ["hunk", "session", "get", "--repo", "."],
+        "returncode": session.returncode,
+        "stdout": session.stdout,
+        "stderr": session.stderr,
+    }
+    return [], source
+
+
+def cmd_snapshot() -> None:
+    try:
+        repo = git_root()
+        os.chdir(repo)
+        untracked = untracked_paths()
+        current = sorted(set(current_diff_files()) | set(untracked))
+        session_files, source = hunk_session_files(repo)
+    except FileNotFoundError:
+        emit_json({"ok": False, "state": "hunk_missing", "error": "hunk command not found"}, status=127)
+    except CommandError as error:
+        print("hunk session is not available; cannot compare snapshot", file=sys.stderr)
+        emit_json({"ok": False, "state": "no_session", "error": command_failure_payload(error)}, status=1)
+
+    comparable = bool(session_files)
+    missing_from_session = sorted(set(current) - set(session_files)) if comparable else []
+    missing_from_current = sorted(set(session_files) - set(current)) if comparable else []
+    stale = bool(missing_from_session or missing_from_current) if comparable else None
+    emit_json(
+        {
+            "ok": True,
+            "state": "compared" if comparable else "session_files_unknown",
+            "current_files": current,
+            "untracked_paths": untracked,
+            "session_files": session_files,
+            "session_source": source,
+            "comparable": comparable,
+            "stale": stale,
+            "missing_from_session": missing_from_session,
+            "missing_from_current": missing_from_current,
+        }
+    )
+
+
+def yes_no(value: bool) -> str:
+    return "あり" if value else "なし"
+
+
+def cmd_request_markdown() -> None:
+    try:
+        payload = preflight_payload()
+    except CommandError as error:
+        print(str(error), file=sys.stderr)
+        emit_json({"ok": False, "error": command_failure_payload(error)}, status=1)
+
+    counts = payload["status"]["counts"]
+    stat = payload.get("diff_stat") or "（diff stat なし）"
+    print("## Hunk レビュー依頼")
+    print()
+    print("対象: 未ステージ差分")
+    print(f"repo: {payload['repo']}")
+    print(f"branch: {payload['branch']}")
+    print()
+    print("### 変更概要")
+    print("- 以下の diff stat をもとに、変更概要を 3〜5 行へ要約してください。")
+    print("```text")
+    for line in stat.splitlines():
+        print(line.replace("```", "`\\`\\`"))
+    print("```")
+    print()
+    print("### 注意")
+    print(f"- staged 変更: {yes_no(counts['staged'] > 0)}" + ("（Hunk 対象外）" if counts["staged"] > 0 else ""))
+    print(f"- untracked files: {yes_no(counts['untracked'] > 0)}" + ("（必要なら git add -N 済みにしてから Hunk 対象）" if counts["untracked"] > 0 else ""))
+    print("- このレビューは未ステージ差分のみを対象にしています。")
+    if payload["stop_reasons"]:
+        print("- preflight stop reasons: " + "; ".join(payload["stop_reasons"]))
+    print()
+    print("### 見てほしい観点")
+    print("- 変更意図と差分が一致しているか。")
+    print("- 見落とした副作用や削除漏れがないか。")
+    print("- commit 前に直すべき具体的な指摘があるか。")
+    print()
+    print("### レビュー方法")
+    print("Herdr 環境では Hunk 用 tab、Herdr 外では別 terminal の Hunk を見てください。")
+    print("必要な指摘は Hunk 上で `c` note として残してください。")
+    print("終わったら「レビュー完了」と教えてください。")
+
+
+def main(argv: list[str]) -> None:
+    if len(argv) != 2 or argv[1] in {"-h", "--help"}:
+        print(USAGE, end="")
+        raise SystemExit(0 if len(argv) == 2 else 2)
+
+    subcommand = argv[1]
+    if subcommand == "preflight":
+        cmd_preflight()
+        return
+    if subcommand == "comments":
+        cmd_comments()
+        return
+    if subcommand == "snapshot":
+        cmd_snapshot()
+        return
+    if subcommand == "request-markdown":
+        cmd_request_markdown()
+        return
+    print(f"unknown subcommand: {subcommand}", file=sys.stderr)
+    print(USAGE, file=sys.stderr, end="")
+    raise SystemExit(2)
+
+
+if __name__ == "__main__":
+    main(sys.argv)

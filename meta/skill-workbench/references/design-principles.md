@@ -56,6 +56,7 @@ leading word は、agent が作業中に掴める短い概念語である。
 使い方:
 - 同じ意味を長文で何度も説明している箇所を、強い leading word に畳む。
 - description、本文、README の用語を揃え、routing と実行時の思考を接続する。
+- 外部 skill を参考にするときは、upstream の leading word をそのまま残すのではなく、routing に本当に効く語だけを repo の主要言語へ置き換える。
 - 弱い一般語（よく、丁寧に、適切に）ではなく、行動を変える語を使う。
 
 ## Failure Modes

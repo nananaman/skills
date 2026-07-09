@@ -117,11 +117,11 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Productivity
 
-- **[`grilling`](./productivity/grilling/SKILL.md)** — 計画、設計、PRD、Design Doc、issue を一問ずつ詰める reusable discipline。
-  - Use when: 他 skill から曖昧さ、未決定、依存する判断を一つずつ解消する
+- **[`grilling`](./productivity/grilling/SKILL.md)** — 計画や設計の前提、未決定事項、依存する判断を一問ずつ詰める reusable discipline。
+  - Use when: 他 skill から、実装前に曖昧な判断を共有理解まで詰める
   - Type: `model-invoked`
-- **[`grill-me`](./productivity/grill-me/SKILL.md)** — ユーザーが明示的に grill したい計画や設計を `grilling` session に渡す。
-  - Use when: plan / design の stress-test、実装前の懸念洗い出し、判断分岐の解消
+- **[`grill-me`](./productivity/grill-me/SKILL.md)** — ユーザーが明示的に詰めたい計画や設計を `grilling` session に渡す。
+  - Use when: ユーザーが明示的に、計画や設計を着手前に一問ずつ詰めたい場合
   - Type: `user-invoked`
 - **[`handoff`](./productivity/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
   - Use when: セッション引き継ぎ、長い会話の圧縮、別 agent への作業移管

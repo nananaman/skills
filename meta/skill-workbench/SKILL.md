@@ -55,6 +55,7 @@ agent skill の lifecycle workbench。
 5. draft または変更を作る。
    - `name:` は directory 名と一致させる。小文字、数字、単一ハイフンのみ、1〜64 文字。
    - description は positive trigger と negative trigger を含む routing 情報にする。
+   - 外部 skill を参考にする場合、upstream の leading word や例示語をそのまま輸入せず、この repo の主要言語、README 導線、本文用語に合わせる。
    - `SKILL.md` は agent の判断・手順・停止条件・出力形式を変える情報だけを書く。
    - 長い説明、用語、例、評価手順は `references/` へ逃がす。
    - テンプレート、schema、静的素材は `assets/` に置く。
