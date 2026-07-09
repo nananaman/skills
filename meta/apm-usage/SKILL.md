@@ -59,7 +59,7 @@ dependencies:
 
 1. 追加したい skill の repo / path / commit SHA を確認する。
 2. `apm/apm.yml` の `dependencies.apm` 変更案を作る。
-3. `review-diff-skill` で APM manifest / pin 変更をレビューする。
+3. `skill-workbench` の Review diff branch で APM manifest / pin 変更をレビューする。
 4. actionable finding がなく、ユーザーが明示依頼した場合だけ `apm/apm.yml` を更新する。
 5. ユーザーが明示依頼した場合だけインストールする。
 
@@ -70,7 +70,7 @@ apm install -g
 ## 自作 skill の更新
 
 1. `nananaman/skills` で skill を編集する。
-2. `review-diff-skill` で差分レビューする。
+2. `skill-workbench` の Review diff branch で差分レビューする。
 3. actionable finding がなく、ユーザーが明示依頼した場合だけ commit / push する。
 4. full SHA を取得する。
 
@@ -93,7 +93,7 @@ pin 更新後に content hash mismatch が出た場合は、まず `readlink ~/.
 
 特定 repo の作業でだけ使う skill は、repo root の `apm.yml` で管理する。
 GitHub 上の skill は、`fetch_content` や手動コピーではなく APM で導入する。
-導入前に `review-diff-skill` で APM manifest / pin / install 対象をレビューし、actionable finding が残る場合は進まない。
+導入前に `skill-workbench` の Review diff branch で APM manifest / pin / install 対象をレビューし、actionable finding が残る場合は進まない。
 ユーザーが明示依頼した場合だけ、次のような install command を実行する。
 
 ```sh
@@ -104,10 +104,7 @@ apm install <owner/repo/path#full-sha> --target claude,agent-skills
 
 ```sh
 apm install \
-  nananaman/skills/meta/create-skill#<full-sha> \
-  nananaman/skills/meta/reviewing-skills#<full-sha> \
-  nananaman/skills/meta/review-diff-skill#<full-sha> \
-  nananaman/skills/meta/review-skill#<full-sha> \
+  nananaman/skills/meta/skill-workbench#<full-sha> \
   --target claude,agent-skills
 ```
 

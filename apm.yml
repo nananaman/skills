@@ -4,4 +4,4 @@ target: claude,agent-skills
 
 dependencies:
   apm:
-    - nananaman/skills/meta/audit-skills#00f3c9511c3deb2dcbd4023af018287dc30147cf
+    - path: ./meta/skill-workbench

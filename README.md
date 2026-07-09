@@ -99,21 +99,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、SHA pin 更新、global install / dotfiles 連携
   - Type: `model-invoked`
-- **[`create-skill`](./meta/create-skill/SKILL.md)** — agent skill の新規作成・既存 skill の draft 改善を行う。
-  - Use when: 新規 skill 作成、既存 skill の draft 改善、配置や起動方式の整理
+- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・改善・レビュー・棚卸しを 1 つの lifecycle として扱う。
+  - Use when: 新規 skill 作成、既存 skill 改善、skill diff / 全体レビュー、skill inventory audit
   - Type: `user-invoked`
-- **[`audit-skills`](./meta/audit-skills/SKILL.md)** — skill inventory を定期棚卸しし、横断的な重複・衝突・肥大化を検出する。
-  - Use when: 定期棚卸し、routing conflict、責務重複、single source of truth 破れ、粒度問題の検出
-  - Type: `user-invoked`
-- **[`review-diff-skill`](./meta/review-diff-skill/SKILL.md)** — skill 変更 diff を配布前にレビューする。
-  - Use when: skill 差分レビュー、commit / push 前確認、APM pin / install 前確認
-  - Type: `user-invoked`
-- **[`review-skill`](./meta/review-skill/SKILL.md)** — skill 全体を棚卸しして構造・責務・発火条件を見直す。
-  - Use when: skill の大幅変更、新規 skill の全体レビュー、責務過多や誤発火の調査
-  - Type: `user-invoked`
-- **[`reviewing-skills`](./meta/reviewing-skills/SKILL.md)** — agent skill の品質をレビューする共通 rubric。
-  - Use when: description / 本文整合確認、完了条件の確認、failure modes / safety の確認
-  - Type: `model-invoked`
 - **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
   - Type: `user-invoked`
@@ -168,5 +156,5 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - dotfiles 側には global skill の install 一覧として `apm/apm.yml` だけを置く。
 - skill 本体はこの repository を source of truth にする。
 - dotfiles から参照するときは full SHA で pin する。
-- skill 更新後に配布する場合は、`review-diff-skill` を通してから、この repository で commit / push し、dotfiles 側の SHA を更新する。
+- skill 更新後に配布する場合は、`skill-workbench` の Review diff branch を通してから、この repository で commit / push し、dotfiles 側の SHA を更新する。
 - commit / push / pin 更新 / `apm install -g` はユーザーが明示依頼した場合だけ行う。

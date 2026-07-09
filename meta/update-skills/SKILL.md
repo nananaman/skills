@@ -14,7 +14,7 @@ APM で管理している agent skill dependency を、source-of-truth と実利
 - project-local skill 更新では、対象 repo root の `apm.yml` を確認する。
 - GitHub dependency は `owner/repo/path#full-sha` の pin を最新 commit SHA へ更新する。
 - local path dependency は更新対象外として記録する。
-- skill 本文の作成・編集は `create-skill`、差分レビューは `review-diff-skill`、棚卸しは `audit-skills` に委譲する。
+- skill 本文の作成・編集、差分レビュー、棚卸しは `skill-workbench` に委譲する。
 
 ## Safety Rules
 
@@ -70,7 +70,7 @@ git ls-remote https://github.com/<owner>/<repo>.git HEAD
    - 変更後に `git diff -- <manifest>` を確認する。
 
 6. 配布前レビューを行う。
-   - skill dependency / APM manifest の変更は `review-diff-skill` の対象として扱う。
+   - skill dependency / APM manifest の変更は `skill-workbench` の Review diff branch の対象として扱う。
    - actionable finding が残る場合は install へ進まない。
    - この skill 自身では review finding を無視して進めない。
 
@@ -122,7 +122,7 @@ cd <repo-root> && apm install --target <explicit-target> --update
 - `<dependency>`: <reason>
 
 ## Review / Install
-- review-diff-skill: passed / findings / not run (<reason>)
+- skill-workbench Review diff: passed / findings / not run (<reason>)
 - install: run / not run (<reason>)
 - command: `<command or n/a>`
 
@@ -136,5 +136,5 @@ cd <repo-root> && apm install --target <explicit-target> --update
 - APM dependency を分類し、更新対象と対象外を分けた。
 - GitHub dependency の最新 full SHA を取得した。
 - 変更する場合は SHA pin だけを更新し、diff を確認した。
-- `review-diff-skill` の gate を通すか、未実行理由を明示した。
+- `skill-workbench` の Review diff gate を通すか、未実行理由を明示した。
 - install 実行有無と次アクションを報告した。

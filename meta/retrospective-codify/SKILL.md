@@ -67,7 +67,7 @@ commit / push / APM pin 更新 / install は担当しない。
    - **既存と重複（提案不要）**: 既存が同じ知見を完全にカバー済み → 提案ゼロ、ただし提示フォーマットには「重複検出」行を残す（監査可能性のため）。重複検出行には根拠として既存 skill / rule 名 + 該当節名（または行番号）を添える。
    - **判断保留**: agent が重複かどうか判定できない → ユーザーに照合結果を見せて判断を仰ぐ
 7. **提示する**: 後述の「ユーザーへの提示フォーマット」に沿って Retrospective と Proposals を出す。承認前に永続ファイルを編集しない。
-8. **承認後に書き出す**: ユーザーが採用を指示した項目だけを書き出す。skill を編集した場合は `review-diff-skill` を実行し、actionable finding があれば修正して再レビューする。
+8. **承認後に書き出す**: ユーザーが採用を指示した項目だけを書き出す。skill を編集した場合は `skill-workbench` の Review diff branch を実行し、actionable finding があれば修正して再レビューする。
 
 ## 分類判定
 
@@ -124,7 +124,7 @@ digraph classify {
 理由を括弧書きで必ず添える（将来の自分が edge case を判断できるように）。
 
 ### 新規 skill
-`create-skill` の discoverability contract に従う:
+`skill-workbench` の Create / Improve branch の discoverability contract に従う:
 ```markdown
 ---
 name: <kebab-case>
@@ -278,11 +278,10 @@ message: Set/Map のサイズは .size プロパティを使う。
 - 採用候補・重複検出・不採用を、空節を省いた `Retrospective` / `Proposals` 形式で提示している
 - 承認前に永続ファイルを編集していない
 - 編集した場合、対象と理由を報告している
-- skill 変更を行った場合、`review-diff-skill` を実行済みである
+- skill 変更を行った場合、`skill-workbench` の Review diff branch を実行済みである
 - commit / push / APM pin 更新 / install を実行していない
 
 ## 関連 skills
 
-- `create-skill` — 新規 skill / 既存 skill draft 改善の discoverability contract
-- `review-diff-skill` — skill 変更 diff の配布前レビュー
+- `skill-workbench` — 新規 skill / 既存 skill 改善 / skill review / inventory audit
 - `ast-grep-practice` — lint rule と test を書く場合

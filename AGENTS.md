@@ -33,7 +33,7 @@ provider や product で namespace を切る場合、leaf directory は短いサ
 
 1. skill を編集する。
 2. skill を追加・削除・rename した場合は、root `README.md` と該当 category `README.md` の Skill 一覧・導線も同じ PR で更新する。
-3. `review-diff-skill` で差分レビューする。
+3. `skill-workbench` の Review diff branch で差分レビューする。
 4. actionable finding がなく、ユーザーが明示依頼した場合だけ commit / push する。
 5. commit SHA を取得する。
 6. ユーザーが明示依頼した場合だけ、dotfiles の `apm/apm.yml` の参照 SHA を更新する。
