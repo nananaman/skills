@@ -9,7 +9,8 @@ import unittest
 
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
-HELPER = SKILL_DIR / "scripts" / "review-diff-code"
+HELPER = SKILL_DIR / "scripts" / "review-diff-code.py"
+LEGACY_HELPER = SKILL_DIR / "scripts" / "review-diff-code"
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
 
 
@@ -135,6 +136,11 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         matches = list(self.capture.glob(f"{title.replace(' ', '_')}.*.prompt"))
         self.assertEqual(len(matches), 1)
         return matches[0]
+
+    def test_python_entrypoint_is_the_only_review_runner(self) -> None:
+        self.assertTrue(HELPER.is_file())
+        self.assertTrue(os.access(HELPER, os.X_OK))
+        self.assertFalse(LEGACY_HELPER.exists())
 
     def test_panel_option_is_not_part_of_the_public_interface(self) -> None:
         result = self._run("--panel", "legacy")
@@ -351,14 +357,31 @@ print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
         adversarial_args = Path(str(adversarial).removesuffix(".prompt") + ".args").read_text()
         self.assertIn("--tools\n\n", adversarial_args)
 
-    def test_reviewer_prompts_are_standalone_files(self) -> None:
+    def test_reviewer_prompts_are_standalone_japanese_templates(self) -> None:
         self.assertEqual(
             {path.name for path in PROMPT_DIR.glob("*.md")},
             {"behavioral-safety.md", "design-quality.md", "adversarial.md"},
         )
+        for path in PROMPT_DIR.glob("*.md"):
+            template = path.read_text()
+            self.assertRegex(template, r"[ぁ-んァ-ヶ一-龠]")
+            self.assertIn("$reviewer_title", template)
+            self.assertIn("$change_bundle", template)
+
         runner = HELPER.read_text()
         self.assertNotIn("Assume the supplied diff is wrong.", runner)
         self.assertNotIn("You are an independent", runner)
+
+    def test_reviewer_prompt_template_renders_runtime_values(self) -> None:
+        result = self._run("--engine", "pi", "--mode", "branch", "--base", "HEAD~1")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        prompt = self._captured_prompt("Behavioral Safety").read_text()
+        self.assertIn("# レビュー情報", prompt)
+        self.assertIn("reviewer: Behavioral Safety", prompt)
+        self.assertIn("# 変更bundle", prompt)
+        self.assertIn("+second", prompt)
+        self.assertNotRegex(prompt, r"\$[A-Za-z_{]")
 
 
 if __name__ == "__main__":

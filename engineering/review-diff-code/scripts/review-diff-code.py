@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+from string import Template
 
 
 REVIEWERS = (
@@ -215,15 +216,18 @@ def build_prompt(
     thinking: str,
     additional_context: str | None,
 ) -> str:
-    prompt = (PROMPT_DIR / f"{reviewer_id}.md").read_text()
-    sections = [prompt.rstrip()]
+    prompt_template = Template((PROMPT_DIR / f"{reviewer_id}.md").read_text())
+    additional_context_section = ""
     if additional_context and reviewer_id != "adversarial":
-        sections.extend(["# Additional context", additional_context.rstrip()])
-    metadata = ["# Review metadata", f"reviewer: {title}", f"engine: {engine}", f"model: {model or 'default'}"]
-    if thinking:
-        metadata.append(f"thinking: {thinking}")
-    sections.extend(["\n".join(metadata), "# Change bundle\n```\n" + bundle.rstrip() + "\n```"])
-    return "\n\n".join(sections) + "\n"
+        additional_context_section = f"# 追加context\n{additional_context.rstrip()}\n"
+    return prompt_template.substitute(
+        reviewer_title=title,
+        engine=engine,
+        model=model or "default",
+        thinking_line=f"thinking: {thinking}" if thinking else "",
+        additional_context_section=additional_context_section,
+        change_bundle=bundle.rstrip(),
+    ).rstrip() + "\n"
 
 
 def static_codex_command(model: str, thinking: str) -> list[str]:
