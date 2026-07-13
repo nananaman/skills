@@ -12,18 +12,24 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 HELPER = SKILL_DIR / "scripts" / "review-diff-code.py"
 LEGACY_HELPER = SKILL_DIR / "scripts" / "review-diff-code"
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
+ADDITIONAL_CONTEXT_TEMPLATE = SKILL_DIR / "assets" / "additional-context.md"
 
 
 FAKE_ENGINE = r"""#!/usr/bin/env python3
 import os
 from pathlib import Path
-import re
 import sys
 import time
 
 prompt = sys.stdin.read()
-match = re.search(r"^reviewer: (.+)$", prompt, re.MULTILINE)
-title = match.group(1) if match else "unknown"
+first_line = prompt.splitlines()[0]
+title = next(
+    title for marker, title in (
+        ("Behavioral Safety", "Behavioral Safety"),
+        ("Design Quality", "Design Quality"),
+        ("adversarial", "Adversarial"),
+    ) if marker in first_line
+)
 stem = Path(os.environ["FAKE_CAPTURE_DIR"]) / f"{title.replace(' ', '_').replace('/', '_')}.{os.getpid()}"
 Path(str(stem) + ".prompt").write_text(prompt)
 Path(str(stem) + ".cwd").write_text(str(Path.cwd()) + "\n")
@@ -60,14 +66,19 @@ print("No actionable findings.")
 FAKE_BWRAP = r"""#!/usr/bin/env python3
 import os
 from pathlib import Path
-import re
 import sys
 
 prompt = sys.stdin.read()
 capture = Path(os.environ["FAKE_CAPTURE_DIR"])
 (capture / "bwrap.args").write_text("\n".join(sys.argv[1:]) + "\n")
-match = re.search(r"^reviewer: (.+)$", prompt, re.MULTILINE)
-title = match.group(1) if match else "unknown"
+first_line = prompt.splitlines()[0]
+title = next(
+    title for marker, title in (
+        ("Behavioral Safety", "Behavioral Safety"),
+        ("Design Quality", "Design Quality"),
+        ("adversarial", "Adversarial"),
+    ) if marker in first_line
+)
 (capture / f"{title.replace(' ', '_')}.{os.getpid()}.prompt").write_text(prompt)
 print("No actionable findings.")
 """
@@ -343,6 +354,8 @@ print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
         self.assertIn("--unshare-all", bwrap_args)
         self.assertIn(str(codex_home / "auth.json"), bwrap_args)
         self.assertNotIn(str(self.repo), bwrap_args)
+        self.assertIn("gpt-5.6-luna", bwrap_args)
+        self.assertIn('model_reasoning_effort="medium"', bwrap_args)
 
     def test_claude_non_adversarial_reviewers_receive_only_read_tools(self) -> None:
         self._write_executable("claude", FAKE_ENGINE)
@@ -365,23 +378,35 @@ print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
         for path in PROMPT_DIR.glob("*.md"):
             template = path.read_text()
             self.assertRegex(template, r"[ぁ-んァ-ヶ一-龠]")
-            self.assertIn("$reviewer_title", template)
             self.assertIn("$change_bundle", template)
+            self.assertNotIn("fresh context", template)
+            self.assertNotIn("$reviewer_title", template)
+            self.assertNotIn("$engine", template)
+            self.assertNotIn("$model", template)
+            self.assertNotIn("$thinking_line", template)
 
         runner = HELPER.read_text()
         self.assertNotIn("Assume the supplied diff is wrong.", runner)
         self.assertNotIn("You are an independent", runner)
 
-    def test_reviewer_prompt_template_renders_runtime_values(self) -> None:
+    def test_reviewer_prompt_template_renders_bundle_without_runner_metadata(self) -> None:
         result = self._run("--engine", "pi", "--mode", "branch", "--base", "HEAD~1")
 
         self.assertEqual(result.returncode, 0, result.stderr)
         prompt = self._captured_prompt("Behavioral Safety").read_text()
-        self.assertIn("# レビュー情報", prompt)
-        self.assertIn("reviewer: Behavioral Safety", prompt)
         self.assertIn("# 変更bundle", prompt)
         self.assertIn("+second", prompt)
+        self.assertNotIn("# レビュー情報", prompt)
+        self.assertNotIn("engine: pi", prompt)
+        self.assertNotIn("thinking: low", prompt)
         self.assertNotRegex(prompt, r"\$[A-Za-z_{]")
+
+    def test_additional_context_policy_is_a_prompt_asset(self) -> None:
+        template = ADDITIONAL_CONTEXT_TEMPLATE.read_text()
+
+        self.assertIn("$additional_context", template)
+        self.assertIn("未検証", template)
+        self.assertNotIn("未検証の補助情報", HELPER.read_text())
 
 
 if __name__ == "__main__":

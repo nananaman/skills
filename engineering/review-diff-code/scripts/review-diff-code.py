@@ -25,6 +25,7 @@ FINDING_HEADING = re.compile(r"^### \[(critical|high|medium|low)\] .+")
 REQUIRED_FINDING_FIELDS = ("- Target:", "- Problem:", "- Evidence:", "- Suggested fix:")
 SKILL_DIR = Path(__file__).resolve().parent.parent
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
+ADDITIONAL_CONTEXT_TEMPLATE = SKILL_DIR / "assets" / "additional-context.md"
 
 
 @dataclass(frozen=True)
@@ -100,7 +101,7 @@ def engine_settings(engine: str, model: str, thinking: str) -> tuple[str, str]:
     if engine == "pi":
         return model or os.getenv("REVIEW_DIFF_CODE_PI_MODEL", ""), thinking or os.getenv("REVIEW_DIFF_CODE_PI_THINKING", "low")
     if engine == "codex":
-        return model or os.getenv("REVIEW_DIFF_CODE_CODEX_MODEL", "gpt-5.4-mini"), thinking or os.getenv("REVIEW_DIFF_CODE_CODEX_THINKING", "low")
+        return model or os.getenv("REVIEW_DIFF_CODE_CODEX_MODEL", "gpt-5.6-luna"), thinking or os.getenv("REVIEW_DIFF_CODE_CODEX_THINKING", "medium")
     return model or os.getenv("REVIEW_DIFF_CODE_CLAUDE_MODEL", "sonnet"), thinking
 
 
@@ -209,22 +210,16 @@ def create_bundle(repo: Path, mode: str, base: str | None, commit: str) -> tuple
 
 def build_prompt(
     reviewer_id: str,
-    title: str,
     bundle: str,
-    engine: str,
-    model: str,
-    thinking: str,
     additional_context: str | None,
 ) -> str:
     prompt_template = Template((PROMPT_DIR / f"{reviewer_id}.md").read_text())
     additional_context_section = ""
     if additional_context and reviewer_id != "adversarial":
-        additional_context_section = f"# 追加context\n{additional_context.rstrip()}\n"
+        additional_context_section = Template(ADDITIONAL_CONTEXT_TEMPLATE.read_text()).substitute(
+            additional_context=additional_context.rstrip()
+        )
     return prompt_template.substitute(
-        reviewer_title=title,
-        engine=engine,
-        model=model or "default",
-        thinking_line=f"thinking: {thinking}" if thinking else "",
         additional_context_section=additional_context_section,
         change_bundle=bundle.rstrip(),
     ).rstrip() + "\n"
@@ -408,7 +403,7 @@ def main() -> int:
             isolation_root = Path(directory) / "adversarial-root"
             isolation_root.mkdir()
             prompts = {
-                reviewer_id: build_prompt(reviewer_id, title, bundle, engine, model, thinking, context)
+                reviewer_id: build_prompt(reviewer_id, bundle, context)
                 for reviewer_id, title in REVIEWERS
             }
             with ThreadPoolExecutor(max_workers=len(REVIEWERS)) as executor:

@@ -43,7 +43,7 @@ helperはimmutable change bundleを作る1 roundのread-only runnerであり、f
 - `Design Quality`: ownership boundary、maintainability、structure、behavior-preserving simplificationを扱う。必要な周辺コードとdocumented designをread-onlyで確認できる。
 - `Adversarial`: diffが誤っていると仮定し、change bundleだけから具体的で反証可能なfailure modeを探す。
 
-reviewerへのinstructionsは[`assets/reviewer-prompts/`](./assets/reviewer-prompts/)の日本語templateをsource of truthとし、runnerへベタ書きしない。
+reviewerへのinstructionsは[`assets/reviewer-prompts/`](./assets/reviewer-prompts/)と[`assets/additional-context.md`](./assets/additional-context.md)の日本語templateをsource of truthとし、runnerへベタ書きしない。
 
 ### Adversarial isolation
 
