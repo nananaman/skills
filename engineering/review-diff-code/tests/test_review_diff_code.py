@@ -12,10 +12,11 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 HELPER = SKILL_DIR / "scripts" / "review-diff-code.py"
 LEGACY_HELPER = SKILL_DIR / "scripts" / "review-diff-code"
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
-ADDITIONAL_CONTEXT_TEMPLATE = SKILL_DIR / "assets" / "additional-context.md"
+CONTEXT_BUILDER_PROMPT = SKILL_DIR / "assets" / "context-builder.md"
 
 
 FAKE_ENGINE = r"""#!/usr/bin/env python3
+import json
 import os
 from pathlib import Path
 import sys
@@ -25,6 +26,7 @@ prompt = sys.stdin.read()
 first_line = prompt.splitlines()[0]
 title = next(
     title for marker, title in (
+        ("Context Builder", "Context Builder"),
         ("Behavioral Safety", "Behavioral Safety"),
         ("Design Quality", "Design Quality"),
         ("adversarial", "Adversarial"),
@@ -35,6 +37,43 @@ Path(str(stem) + ".prompt").write_text(prompt)
 Path(str(stem) + ".cwd").write_text(str(Path.cwd()) + "\n")
 Path(str(stem) + ".args").write_text("\n".join(sys.argv[1:]) + "\n")
 print("FAKE_ENGINE_STDERR_MARKER", file=sys.stderr)
+if title == "Context Builder":
+    if os.getenv("FAKE_MALFORMED_CONTEXT_BUILDER"):
+        print("not json")
+        raise SystemExit(0)
+    changed_line = next(line for line in prompt.splitlines() if line.startswith("changed_files_json: "))
+    changed_files = json.loads(changed_line.removeprefix("changed_files_json: "))
+    context_files = [path for path in changed_files if "issue" in path.lower()]
+    implementation_files = [path for path in changed_files if path not in context_files]
+    unclassified_files = []
+    if os.getenv("FAKE_UNCLASSIFIED_CONTEXT_BUILDER"):
+        unclassified_files = implementation_files[:1]
+        implementation_files = implementation_files[1:]
+    output = {
+        "implementation_files": implementation_files,
+        "context_files": context_files,
+        "unclassified_files": unclassified_files,
+        "issue_context": [
+            {"path": path, "lines": "1", "summary": "ISSUE_CONTEXT_MARKER", "excerpt": "ISSUE_FILE_CONTENT_MARKER"}
+            for path in context_files
+        ],
+        "related_implementation": [
+            {"path": "example.txt", "lines": "1", "relationship": "caller", "excerpt": "first"}
+        ],
+        "impact_coverage": [
+            {"changed_path": path, "callers": [], "consumers": [], "tests": [], "contracts": [], "status": "complete"}
+            for path in implementation_files
+        ],
+        "unresolved_impact": [],
+    }
+    if os.getenv("FAKE_INVALID_EVIDENCE_CONTEXT_BUILDER"):
+        output["related_implementation"] = [{"relationship": "anything", "excerpt": 7}]
+    if os.getenv("FAKE_MISMATCHED_EVIDENCE_LINES_CONTEXT_BUILDER"):
+        output["related_implementation"][0]["lines"] = "999"
+    if os.getenv("FAKE_UNRESOLVED_IMPACT_CONTEXT_BUILDER"):
+        output["unresolved_impact"] = ["caller search incomplete"]
+    print(json.dumps(output))
+    raise SystemExit(0)
 if os.getenv("FAKE_FAIL_REVIEWER") in (title, "all"):
     print("Error: simulated reviewer failure", file=sys.stderr)
     raise SystemExit(7)
@@ -161,26 +200,103 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         self.assertIn("unrecognized arguments: --panel legacy", result.stderr)
         self.assertNotIn("--panel", help_result.stdout)
 
-    def test_default_workflow_runs_three_reviewers_and_isolates_adversarial_context(self) -> None:
-        context = self.root / "context.md"
-        context.write_text("IMPLEMENTER_REASONING_MARKER\n")
-
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1", "--prompt-file", str(context)
-        )
+    def test_context_builder_runs_first_and_reviewers_are_bundle_only(self) -> None:
+        result = self._run("--engine", "pi", "--mode", "branch", "--base", "HEAD~1")
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("| Behavioral Safety | success |", result.stdout)
         self.assertIn("| Design Quality | success |", result.stdout)
         self.assertIn("| Adversarial | success |", result.stdout)
-        self.assertEqual(len(list(self.capture.glob("*.prompt"))), 3)
-        self.assertIn("IMPLEMENTER_REASONING_MARKER", self._captured_prompt("Behavioral Safety").read_text())
-        self.assertIn("IMPLEMENTER_REASONING_MARKER", self._captured_prompt("Design Quality").read_text())
-        adversarial = self._captured_prompt("Adversarial")
-        self.assertNotIn("IMPLEMENTER_REASONING_MARKER", adversarial.read_text())
-        stem = str(adversarial).removesuffix(".prompt")
-        self.assertNotEqual(Path(stem + ".cwd").read_text().strip(), str(self.repo))
-        self.assertNotIn("read,grep,find,ls", Path(stem + ".args").read_text())
+        self.assertEqual(len(list(self.capture.glob("*.prompt"))), 4)
+        builder = self._captured_prompt("Context Builder")
+        builder_stem = str(builder).removesuffix(".prompt")
+        self.assertEqual(Path(builder_stem + ".cwd").read_text().strip(), str(self.repo))
+        self.assertIn("read,grep,find,ls", Path(builder_stem + ".args").read_text())
+        for title in ("Behavioral Safety", "Design Quality", "Adversarial"):
+            reviewer = self._captured_prompt(title)
+            stem = str(reviewer).removesuffix(".prompt")
+            self.assertNotEqual(Path(stem + ".cwd").read_text().strip(), str(self.repo))
+            self.assertNotIn("read,grep,find,ls", Path(stem + ".args").read_text())
+        self.assertIn('"relationship": "caller"', self._captured_prompt("Behavioral Safety").read_text())
+        self.assertIn('"relationship": "caller"', self._captured_prompt("Design Quality").read_text())
+        self.assertNotIn('"relationship": "caller"', self._captured_prompt("Adversarial").read_text())
+
+    def test_issue_documents_are_routed_only_to_impact_reviewers(self) -> None:
+        issue = self.repo / "docs" / "issues" / "001.md"
+        issue.parent.mkdir(parents=True)
+        issue.write_text("ISSUE_FILE_CONTENT_MARKER\n")
+
+        result = self._run("--engine", "pi", "--mode", "local")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for title in ("Behavioral Safety", "Design Quality"):
+            prompt = self._captured_prompt(title).read_text()
+            self.assertIn("ISSUE_CONTEXT_MARKER", prompt)
+            self.assertIn("ISSUE_FILE_CONTENT_MARKER", prompt)
+            self.assertIn("# Context file diff", prompt)
+        adversarial = self._captured_prompt("Adversarial").read_text()
+        self.assertNotIn("ISSUE_CONTEXT_MARKER", adversarial)
+        self.assertNotIn("ISSUE_FILE_CONTENT_MARKER", adversarial)
+        self.assertNotIn("docs/issues/001.md", adversarial)
+
+    def test_issue_only_commit_does_not_leak_its_diff_to_adversarial(self) -> None:
+        issue = self.repo / "docs" / "issues" / "001.md"
+        issue.parent.mkdir(parents=True)
+        issue.write_text("ISSUE_FILE_CONTENT_MARKER\n")
+        self._git("add", "docs/issues/001.md")
+        self._git("commit", "-qm", "add issue")
+
+        result = self._run("--engine", "pi", "--mode", "commit", "--commit", "HEAD")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        adversarial = self._captured_prompt("Adversarial").read_text()
+        self.assertNotIn("ISSUE_FILE_CONTENT_MARKER", adversarial)
+        self.assertNotIn("docs/issues/001.md", adversarial)
+
+    def test_git_pathspec_magic_cannot_expand_implementation_selection(self) -> None:
+        magic = self.repo / ":(glob)**"
+        magic.write_text("implementation marker\n")
+        issue = self.repo / "docs" / "issues" / "001.md"
+        issue.parent.mkdir(parents=True)
+        issue.write_text("ISSUE_FILE_CONTENT_MARKER\n")
+        self._git("add", ":(glob)**", "docs/issues/001.md")
+
+        cases = (
+            ("local", ("--mode", "local")),
+            ("branch", ("--mode", "branch", "--base", "HEAD~1")),
+            ("commit", ("--mode", "commit", "--commit", "HEAD")),
+        )
+        for name, arguments in cases:
+            if name == "branch":
+                self._git("commit", "-qm", "add implementation and issue")
+            with self.subTest(mode=name):
+                result = self._run("--engine", "pi", *arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                adversarial = self._captured_prompt("Adversarial").read_text()
+                self.assertIn("implementation marker", adversarial)
+                self.assertNotIn("ISSUE_FILE_CONTENT_MARKER", adversarial)
+                self.assertNotIn("docs/issues/001.md", adversarial)
+                for path in self.capture.iterdir():
+                    path.unlink()
+
+    def test_invalid_context_builder_output_blocks_reviewers(self) -> None:
+        for environment in (
+            {"FAKE_MALFORMED_CONTEXT_BUILDER": "1"},
+            {"FAKE_UNCLASSIFIED_CONTEXT_BUILDER": "1"},
+            {"FAKE_INVALID_EVIDENCE_CONTEXT_BUILDER": "1"},
+            {"FAKE_MISMATCHED_EVIDENCE_LINES_CONTEXT_BUILDER": "1"},
+            {"FAKE_UNRESOLVED_IMPACT_CONTEXT_BUILDER": "1"},
+        ):
+            with self.subTest(environment=environment):
+                result = self._run(
+                    "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
+                    extra_env=environment,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("context builder", result.stderr.lower())
+                self.assertEqual(len(list(self.capture.glob("*.prompt"))), 1)
+                for path in self.capture.iterdir():
+                    path.unlink()
 
     def test_local_mode_includes_staged_unstaged_and_untracked_content(self) -> None:
         (self.repo / "example.txt").write_text("first\nsecond\nstaged\n")
@@ -330,7 +446,7 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
 
         self.assertIn("Error: simulated reviewer failure", result.stdout)
 
-    def test_codex_adversarial_uses_read_root_sandbox(self) -> None:
+    def test_codex_reviewers_use_bundle_only_sandbox(self) -> None:
         self._write_executable("codex", FAKE_ENGINE)
         self._write_executable("bwrap", FAKE_BWRAP)
         self._write_executable(
@@ -357,18 +473,19 @@ print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
         self.assertIn("gpt-5.6-luna", bwrap_args)
         self.assertIn('model_reasoning_effort="medium"', bwrap_args)
 
-    def test_claude_non_adversarial_reviewers_receive_only_read_tools(self) -> None:
+    def test_claude_context_builder_gets_read_tools_and_reviewers_get_none(self) -> None:
         self._write_executable("claude", FAKE_ENGINE)
 
         result = self._run("--engine", "claude", "--mode", "branch", "--base", "HEAD~1")
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        behavioral = self._captured_prompt("Behavioral Safety")
-        behavioral_args = Path(str(behavioral).removesuffix(".prompt") + ".args").read_text()
-        self.assertIn("--tools\nRead,Grep,Glob", behavioral_args)
-        adversarial = self._captured_prompt("Adversarial")
-        adversarial_args = Path(str(adversarial).removesuffix(".prompt") + ".args").read_text()
-        self.assertIn("--tools\n\n", adversarial_args)
+        builder = self._captured_prompt("Context Builder")
+        builder_args = Path(str(builder).removesuffix(".prompt") + ".args").read_text()
+        self.assertIn("--tools\nRead,Grep,Glob", builder_args)
+        for title in ("Behavioral Safety", "Design Quality", "Adversarial"):
+            reviewer = self._captured_prompt(title)
+            reviewer_args = Path(str(reviewer).removesuffix(".prompt") + ".args").read_text()
+            self.assertIn("--tools\n\n", reviewer_args)
 
     def test_reviewer_prompts_are_standalone_japanese_templates(self) -> None:
         self.assertEqual(
@@ -401,12 +518,13 @@ print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
         self.assertNotIn("thinking: low", prompt)
         self.assertNotRegex(prompt, r"\$[A-Za-z_{]")
 
-    def test_additional_context_policy_is_a_prompt_asset(self) -> None:
-        template = ADDITIONAL_CONTEXT_TEMPLATE.read_text()
+    def test_context_builder_policy_is_a_prompt_asset(self) -> None:
+        template = CONTEXT_BUILDER_PROMPT.read_text()
 
-        self.assertIn("$additional_context", template)
-        self.assertIn("未検証", template)
-        self.assertNotIn("未検証の補助情報", HELPER.read_text())
+        self.assertIn("$changed_files_json", template)
+        self.assertIn("$raw_change_bundle", template)
+        self.assertIn("untrusted", template)
+        self.assertNotIn("--prompt-file", HELPER.read_text())
 
 
 if __name__ == "__main__":
