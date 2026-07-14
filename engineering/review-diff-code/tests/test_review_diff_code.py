@@ -45,33 +45,17 @@ if title == "Context Builder":
     changed_files = json.loads(changed_line.removeprefix("changed_files_json: "))
     context_files = [path for path in changed_files if "issue" in path.lower()]
     implementation_files = [path for path in changed_files if path not in context_files]
-    unclassified_files = []
-    if os.getenv("FAKE_UNCLASSIFIED_CONTEXT_BUILDER"):
-        unclassified_files = implementation_files[:1]
+    if os.getenv("FAKE_INCOMPLETE_CLASSIFICATION_CONTEXT_BUILDER"):
         implementation_files = implementation_files[1:]
     output = {
         "implementation_files": implementation_files,
         "context_files": context_files,
-        "unclassified_files": unclassified_files,
-        "issue_context": [
-            {"path": path, "lines": "1", "summary": "ISSUE_CONTEXT_MARKER", "excerpt": "ISSUE_FILE_CONTENT_MARKER"}
-            for path in context_files
-        ],
-        "related_implementation": [
-            {"path": "example.txt", "lines": "1", "relationship": "caller", "excerpt": "first"}
-        ],
-        "impact_coverage": [
-            {"changed_path": path, "callers": [], "consumers": [], "tests": [], "contracts": [], "status": "complete"}
-            for path in implementation_files
-        ],
-        "unresolved_impact": [],
+        "related_files": [{"path": "related.txt", "lines": "1"}],
     }
-    if os.getenv("FAKE_INVALID_EVIDENCE_CONTEXT_BUILDER"):
-        output["related_implementation"] = [{"relationship": "anything", "excerpt": 7}]
-    if os.getenv("FAKE_MISMATCHED_EVIDENCE_LINES_CONTEXT_BUILDER"):
-        output["related_implementation"][0]["lines"] = "999"
-    if os.getenv("FAKE_UNRESOLVED_IMPACT_CONTEXT_BUILDER"):
-        output["unresolved_impact"] = ["caller search incomplete"]
+    if os.getenv("FAKE_INVALID_RELATED_FILE_CONTEXT_BUILDER"):
+        output["related_files"] = [{"path": "related.txt", "lines": 1}]
+    if os.getenv("FAKE_INVALID_RELATED_LINES_CONTEXT_BUILDER"):
+        output["related_files"][0]["lines"] = "999"
     print(json.dumps(output))
     raise SystemExit(0)
 if os.getenv("FAKE_FAIL_REVIEWER") in (title, "all"):
@@ -151,7 +135,8 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         self._git("config", "user.name", "Review Test")
         self._git("config", "user.email", "review-test@example.com")
         (self.repo / "example.txt").write_text("first\n")
-        self._git("add", "example.txt")
+        (self.repo / "related.txt").write_text("RELATED_FILE_MARKER\n")
+        self._git("add", "example.txt", "related.txt")
         self._git("commit", "-qm", "first")
         (self.repo / "example.txt").write_text("first\nsecond\n")
         self._git("add", "example.txt")
@@ -217,9 +202,9 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
             stem = str(reviewer).removesuffix(".prompt")
             self.assertNotEqual(Path(stem + ".cwd").read_text().strip(), str(self.repo))
             self.assertNotIn("read,grep,find,ls", Path(stem + ".args").read_text())
-        self.assertIn('"relationship": "caller"', self._captured_prompt("Behavioral Safety").read_text())
-        self.assertIn('"relationship": "caller"', self._captured_prompt("Design Quality").read_text())
-        self.assertNotIn('"relationship": "caller"', self._captured_prompt("Adversarial").read_text())
+        self.assertIn("RELATED_FILE_MARKER", self._captured_prompt("Behavioral Safety").read_text())
+        self.assertIn("RELATED_FILE_MARKER", self._captured_prompt("Design Quality").read_text())
+        self.assertNotIn("RELATED_FILE_MARKER", self._captured_prompt("Adversarial").read_text())
 
     def test_issue_documents_are_routed_only_to_impact_reviewers(self) -> None:
         issue = self.repo / "docs" / "issues" / "001.md"
@@ -231,11 +216,9 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         for title in ("Behavioral Safety", "Design Quality"):
             prompt = self._captured_prompt(title).read_text()
-            self.assertIn("ISSUE_CONTEXT_MARKER", prompt)
             self.assertIn("ISSUE_FILE_CONTENT_MARKER", prompt)
             self.assertIn("# Context file diff", prompt)
         adversarial = self._captured_prompt("Adversarial").read_text()
-        self.assertNotIn("ISSUE_CONTEXT_MARKER", adversarial)
         self.assertNotIn("ISSUE_FILE_CONTENT_MARKER", adversarial)
         self.assertNotIn("docs/issues/001.md", adversarial)
 
@@ -282,10 +265,9 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
     def test_invalid_context_builder_output_blocks_reviewers(self) -> None:
         for environment in (
             {"FAKE_MALFORMED_CONTEXT_BUILDER": "1"},
-            {"FAKE_UNCLASSIFIED_CONTEXT_BUILDER": "1"},
-            {"FAKE_INVALID_EVIDENCE_CONTEXT_BUILDER": "1"},
-            {"FAKE_MISMATCHED_EVIDENCE_LINES_CONTEXT_BUILDER": "1"},
-            {"FAKE_UNRESOLVED_IMPACT_CONTEXT_BUILDER": "1"},
+            {"FAKE_INCOMPLETE_CLASSIFICATION_CONTEXT_BUILDER": "1"},
+            {"FAKE_INVALID_RELATED_FILE_CONTEXT_BUILDER": "1"},
+            {"FAKE_INVALID_RELATED_LINES_CONTEXT_BUILDER": "1"},
         ):
             with self.subTest(environment=environment):
                 result = self._run(
@@ -524,6 +506,15 @@ print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
         self.assertIn("$changed_files_json", template)
         self.assertIn("$raw_change_bundle", template)
         self.assertIn("untrusted", template)
+        self.assertIn('"related_files"', template)
+        for removed_field in (
+            "unclassified_files",
+            "issue_context",
+            "related_implementation",
+            "impact_coverage",
+            "unresolved_impact",
+        ):
+            self.assertNotIn(removed_field, template)
         self.assertNotIn("--prompt-file", HELPER.read_text())
 
 

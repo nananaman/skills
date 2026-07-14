@@ -325,33 +325,25 @@ def repository_evidence_file(repo: Path, relative: str, field: str) -> Path:
     return resolved
 
 
-def validate_evidence_item(
-    repo: Path,
-    item: dict[str, object],
-    required: tuple[str, ...],
-    field: str,
-) -> None:
-    if set(item) != set(required):
-        raise RuntimeError(f"context builder {field} item has invalid fields")
-    if not all(isinstance(item[key], str) and item[key] for key in required):
-        raise RuntimeError(f"context builder {field} fields must be non-empty strings")
+def related_file_range(repo: Path, item: dict[str, object]) -> tuple[Path, int, int]:
+    if set(item) != {"path", "lines"}:
+        raise RuntimeError("context builder related_files item has invalid fields")
+    if not all(isinstance(item[key], str) and item[key] for key in ("path", "lines")):
+        raise RuntimeError("context builder related_files fields must be non-empty strings")
     lines = item["lines"]
     if not re.fullmatch(r"[1-9]\d*(?:-[1-9]\d*)?", lines):
-        raise RuntimeError(f"context builder {field} lines must be a line or line range")
-    path = repository_evidence_file(repo, item["path"], f"{field}.path")
+        raise RuntimeError("context builder related_files lines must be a line or line range")
+    path = repository_evidence_file(repo, item["path"], "related_files.path")
     try:
         source = path.read_text()
     except UnicodeDecodeError as error:
-        raise RuntimeError(f"context builder {field} path must be UTF-8 text") from error
+        raise RuntimeError("context builder related_files path must be UTF-8 text") from error
     start_text, separator, end_text = lines.partition("-")
     start = int(start_text)
     end = int(end_text) if separator else start
-    source_lines = source.splitlines()
-    if end < start or end > len(source_lines):
-        raise RuntimeError(f"context builder {field} lines are outside its source file")
-    selected_source = "\n".join(source_lines[start - 1 : end])
-    if item["excerpt"] not in selected_source:
-        raise RuntimeError(f"context builder {field} excerpt does not match its source lines")
+    if end < start or end > len(source.splitlines()):
+        raise RuntimeError("context builder related_files lines are outside its source file")
+    return path, start, end
 
 
 def parse_context_builder_output(stdout: str, changed_files: list[str], repo: Path) -> dict[str, object]:
@@ -361,8 +353,10 @@ def parse_context_builder_output(stdout: str, changed_files: list[str], repo: Pa
         raise RuntimeError(f"context builder returned invalid JSON: {error}") from error
     if not isinstance(result, dict):
         raise RuntimeError("context builder output must be a JSON object")
+    if set(result) != {"implementation_files", "context_files", "related_files"}:
+        raise RuntimeError("context builder output has invalid fields")
     classifications: dict[str, list[str]] = {}
-    for key in ("implementation_files", "context_files", "unclassified_files"):
+    for key in ("implementation_files", "context_files"):
         value = result.get(key)
         if not isinstance(value, list) or not all(isinstance(path, str) for path in value):
             raise RuntimeError(f"context builder field {key} must be a string array")
@@ -372,68 +366,27 @@ def parse_context_builder_output(stdout: str, changed_files: list[str], repo: Pa
         raise RuntimeError("context builder classifications overlap or contain duplicates")
     if set(flattened) != set(changed_files):
         raise RuntimeError("context builder classifications do not cover exactly the changed files")
-    if classifications["unclassified_files"]:
-        joined = ", ".join(classifications["unclassified_files"])
-        raise RuntimeError(f"context builder left unclassified files: {joined}")
-    issue_context = result.get("issue_context")
-    if not isinstance(issue_context, list) or not all(isinstance(item, dict) for item in issue_context):
-        raise RuntimeError("context builder field issue_context must be an object array")
-    for item in issue_context:
-        validate_evidence_item(repo, item, ("path", "lines", "summary", "excerpt"), "issue_context")
-
-    related = result.get("related_implementation")
+    related = result.get("related_files")
     if not isinstance(related, list) or not all(isinstance(item, dict) for item in related):
-        raise RuntimeError("context builder field related_implementation must be an object array")
+        raise RuntimeError("context builder field related_files must be an object array")
     for item in related:
-        validate_evidence_item(
-            repo, item, ("path", "lines", "relationship", "excerpt"), "related_implementation"
-        )
-        if item["relationship"] not in ("caller", "consumer", "test", "contract"):
-            raise RuntimeError("context builder related_implementation relationship is invalid")
-
-    coverage = result.get("impact_coverage")
-    if not isinstance(coverage, list) or not all(isinstance(item, dict) for item in coverage):
-        raise RuntimeError("context builder field impact_coverage must be an object array")
-    coverage_paths: list[str] = []
-    expected_fields = {"changed_path", "callers", "consumers", "tests", "contracts", "status"}
-    for item in coverage:
-        if set(item) != expected_fields:
-            raise RuntimeError("context builder impact_coverage item has invalid fields")
-        changed_path = item["changed_path"]
-        if not isinstance(changed_path, str) or not changed_path:
-            raise RuntimeError("context builder impact_coverage changed_path must be a string")
-        coverage_paths.append(changed_path)
-        if item["status"] not in ("complete", "not_applicable"):
-            raise RuntimeError("context builder impact_coverage status is invalid")
-        for key in ("callers", "consumers", "tests", "contracts"):
-            paths = item[key]
-            if not isinstance(paths, list) or not all(isinstance(path, str) and path for path in paths):
-                raise RuntimeError(f"context builder impact_coverage {key} must be a string array")
-            for path in paths:
-                repository_evidence_file(repo, path, f"impact_coverage.{key}")
-    if len(coverage_paths) != len(set(coverage_paths)) or set(coverage_paths) != set(classifications["implementation_files"]):
-        raise RuntimeError("context builder impact_coverage must cover each implementation file exactly once")
-
-    unresolved = result.get("unresolved_impact")
-    if not isinstance(unresolved, list) or not all(isinstance(item, str) and item for item in unresolved):
-        raise RuntimeError("context builder field unresolved_impact must be a string array")
-    if unresolved:
-        raise RuntimeError("context builder left unresolved impact: " + "; ".join(unresolved))
+        related_file_range(repo, item)
+        if item["path"] in changed_files:
+            raise RuntimeError("context builder related_files must not include changed files")
     return result
 
 
-def render_impact_context(context: dict[str, object], context_diff: str) -> str:
-    rendered = "# 影響調査context\n\n" + json.dumps(
-        {
-            "issue_context": context["issue_context"],
-            "related_implementation": context["related_implementation"],
-            "impact_coverage": context["impact_coverage"],
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
+def render_review_context(repo: Path, context: dict[str, object], context_diff: str) -> str:
+    rendered = "# Review context"
     if context_diff:
         rendered += "\n\n# Context file diff\n\n```text\n" + context_diff.rstrip() + "\n```"
+    related_files = []
+    for item in context["related_files"]:
+        path, start, end = related_file_range(repo, item)
+        content = "\n".join(path.read_text().splitlines()[start - 1 : end])
+        related_files.append({"path": item["path"], "lines": item["lines"], "content": content})
+    if related_files:
+        rendered += "\n\n# Related files\n\n" + json.dumps(related_files, ensure_ascii=False, indent=2)
     return rendered
 
 
@@ -650,7 +603,7 @@ def main() -> int:
                 args.commit,
                 context["context_files"],
             )
-            impact_context = render_impact_context(context, context_diff)
+            impact_context = render_review_context(repo, context, context_diff)
             prompts = {
                 reviewer_id: build_prompt(reviewer_id, implementation_bundle, impact_context)
                 for reviewer_id, title in REVIEWERS
