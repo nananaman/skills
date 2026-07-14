@@ -58,8 +58,8 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 - **[`create-pr`](./create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`
-- **[`review-diff-code`](./review-diff-code/SKILL.md)** — 現在の diff / branch diff / PR diff を厳しめにレビューする。
-  - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー
+- **[`review-diff-code`](./review-diff-code/SKILL.md)** — 現在の diff / branch diff / PR diff を3つの独立contextで批判的にレビューする。
+  - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
 - **[`hunk-human-review`](./hunk-human-review/SKILL.md)** — commit 前に Hunk TUI で人間レビューを依頼する。
   - Use when: Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、レビュー完了後に Hunk コメントを回収する

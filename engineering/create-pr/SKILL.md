@@ -91,7 +91,7 @@ description: 現在の branch から GitHub PR を作成する。通常は draft
 7. review gate を確認する。
    - docs-only の変更なら review gate は不要。
    - skill 変更を含むなら `skill-workbench` の Review diff branch を使い、対象 diff と結果を記録する。
-   - code / config / test / CI / runtime behavior に影響する変更を含むなら `review-diff-code` を使う。既定は `~/.agents/skills/review-diff-code/scripts/review-diff-code --mode branch --base origin/<base>`。dirty worktree を含める必要がある場合は `--mode local` を使う。
+   - code / config / test / CI / runtime behavior に影響する変更を含むなら `review-diff-code` を使う。既定は `~/.agents/skills/review-diff-code/scripts/review-diff-code.py --mode branch --base origin/<base>`。dirty worktree を含める必要がある場合は `--mode local` を使う。
    - 既に同じ base / head diff に対して review 済みなら再実行しなくてよい。
    - 会話、直近の作業ログ、PR body の `Review notes` などで review 済みと確認できなければ、未実施として扱う。
    - 未実施なら push 前に実行する。push が不要な場合でも、PR 作成前に実行する。
