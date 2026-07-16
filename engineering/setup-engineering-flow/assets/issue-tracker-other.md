@@ -17,4 +17,5 @@ Issue tracker 種別: other
 ## Agent ルール
 
 この tracker が設定されている場合、`draft-issue` と `polish-issue` は GitHub Issue や local markdown の挙動を仮定しない。
-上記 workflow に従い、不可逆な tracker 操作の前に必ずユーザー確認を取る。
+上記 workflow に従い、`draft-issue` による設定済みの draft 作成は確認を挟まず実行する。
+既存 artifact の変更や draft 作成を超える不可逆な tracker 操作の前にはユーザー確認を取る。

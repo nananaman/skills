@@ -9,7 +9,7 @@ Issue はこのリポジトリの GitHub Issues で管理する。
 
 ## draft / polish の動作
 
-- `draft-issue` は GitHub Issue の本文 draft を作り、確認後に `gh issue create` を実行する。
+- `draft-issue` は GitHub Issue の本文 draft を作り、確認を挟まず `gh issue create` を実行する。
 - `polish-issue` は更新内容を提示し、確認後に issue body を更新する。
 - PRD / Design Doc が関係する場合は、issue body に参照 link と必要十分な要約を含める。
 
