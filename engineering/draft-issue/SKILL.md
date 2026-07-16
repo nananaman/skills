@@ -43,7 +43,8 @@ draft issue には入れすぎない。
 ## Safety
 
 - この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
-- GitHub Issue 作成や local markdown file 作成など、tracker への永続化はユーザー確認後だけ行う。
+- この skill の起動を、設定済み tracker への draft issue 作成の承認として扱い、作成前の確認は求めない。
+- 既存 issue / file の上書き、欠損した採番情報の復旧、draft 作成を超える永続変更が必要な場合だけ停止して確認する。
 - local markdown では、issue file と `SEQUENCE` を確認済みの tracker 文書として扱う。
 - issue file 作成と `SEQUENCE` 更新後は報告で停止する。commit / push が必要なら別タスクとして確認する。
 
@@ -78,23 +79,21 @@ draft issue には入れすぎない。
 
 #### GitHub Issue
 
-- issue body を作り、作成前にユーザーへ提示する。
-- ユーザー確認後に `gh issue create` を実行してよい。
+- issue title と body を作り、`gh issue create` を直ちに実行する。
 
 #### Local markdown
 
 - issue directory と `SEQUENCE` を読む。
 - `SEQUENCE` は最後に使った番号として扱う。
 - 次番号を決める。
-- 作成前に filename と body を提示する。
-- ユーザー確認後に issue file を作成し、`SEQUENCE` を更新する。
+- issue file を直ちに作成し、`SEQUENCE` を更新する。
 
 `SEQUENCE` が存在しない場合は復旧方法を提案し、勝手に推測で作成しない。
 
 #### Other
 
 - 設定 prose に従う。
-- 不可逆な tracker 操作の前に必ず確認する。
+- 設定済みの draft 作成操作は直ちに実行する。既存 artifact の変更や draft 作成を超える不可逆な操作は確認する。
 
 ### 4. Write draft
 

@@ -45,7 +45,8 @@ Design Doc は、技術・設計上の問題を解くための設計判断文書
 ## Safety
 
 - この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
-- Design Doc file 作成などの永続化はユーザー確認後だけ行う。
+- この skill の起動を Design Doc draft file 作成の承認として扱い、書き込み前の確認は求めない。
+- 既存 file の上書き、保存先の競合、draft 作成を超える永続変更が必要な場合だけ停止して確認する。
 - Design Doc 作成後は報告で停止する。polish は `polish-design-doc` に委譲する。
 
 ## Workflow
@@ -99,10 +100,11 @@ Design Doc は次のような場合に使う。
 - Mermaid 図はどの章でも使ってよい。概要・詳細設計では特に推奨する。
 - 状態を持つ設計では、概要または詳細設計に状態遷移図を書く TODO を残す。
 
-### 5. Confirm before write
+### 5. Write draft
 
-保存先、filename、body を提示し、ユーザー確認後だけ書く。
-デフォルト保存先は repo-local 設定に従う。未設定なら `docs/design/` を提案する。
+repo-local 設定に従って filename と保存先を決め、draft を直ちに書く。
+設定がなければ `docs/design/` を必要に応じて作り、title から作った短い kebab-case filename で保存する。
+対象 file が既に存在する場合は上書きせず、既存 file を更新するか別名で作るかを確認する。
 
 ### 6. Closeout
 
