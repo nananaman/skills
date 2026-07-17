@@ -44,7 +44,7 @@ agent skill の lifecycle workbench。
    - 横断棚卸しが必要な規模なら、この branch を止めて Audit inventory branch を先に実行する。
 
 3. `references/design-principles.md` を読む。
-   - invocation、branches、information hierarchy、completion criteria、failure modes、leading words を決める。
+   - invocation、prompt contract、branches、information hierarchy、completion criteria、failure modes、leading words を決める。
    - completion: 本文に入れる情報、reference に逃がす情報、別 skill にすべき情報を分けた。
 
 4. 起動方式と配置を決める。
@@ -53,6 +53,7 @@ agent skill の lifecycle workbench。
    - 汎用 skill は `nananaman/skills` の適切な category に置く。project 固有 skill は対象 project の local skill directory に置く。
 
 5. draft または変更を作る。
+   - 既存 skill の改善では、現行の positive / negative routing、safety / permission gate、completion criterion、output contract、failure handling を preservation set として先に固定する。
    - `name:` は directory 名と一致させる。小文字、数字、単一ハイフンのみ、1〜64 文字。
    - description は positive trigger と negative trigger を含む routing 情報にする。
    - `SKILL.md` は agent の判断・手順・停止条件・出力形式を変える情報だけを書く。
@@ -92,7 +93,7 @@ agent skill の lifecycle workbench。
    - trigger が広がりすぎていないか、狭まりすぎていないか。
    - negative trigger の削除や曖昧化で近接領域に過発火しないか。
    - 新しい手順が既存の停止条件を迂回していないか。
-   - 削除された文が safety gate、user confirmation、failure handling を担っていなかったか。
+   - 削除された文が preservation set の routing、safety / permission gate、completion criterion、output contract、failure handling を担っていなかったか。
    - 通常 path に不要な context を積んでいないか。
 
 5. 必要なら Review whole へ escalate する。
