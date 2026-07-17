@@ -26,12 +26,8 @@ description: 実装前の仮説付き issue draft を作成する。repo の doc
 
 ## Issue draft の責務
 
-draft issue は polished issue と同じ日本語見出し構造を使う。
-
-- 埋められる項目は仮説として書く。
-- 未調査・未確定の項目は削らず、`<!-- TODO(polish): ... -->` コメントを残す。
-- `polish-issue` は TODO コメントを調査・検証で埋め、不要になった TODO を削除する。
-- `assets/issue-template.md` を issue template として使う。
+`assets/issue-template.md` を記述内容と出力構造の source of truth とする。
+template の `TODO(draft)` は draft 作成時に処理する。
 
 draft issue には入れすぎない。
 
@@ -101,8 +97,9 @@ draft issue には入れすぎない。
 
 - local markdown の場合は template 全体を使い、`状態: Draft` にする。
 - GitHub Issue の場合は `# {{title}}` を issue title として扱い、body からは H1 を省いてよい。
-- 未確定欄には `<!-- TODO(polish): 何を確認すれば埋まるか -->` を残す。
-- draft 時点で存在しない情報を推測で埋めない。
+- 各 `TODO(draft)` を、入力から分かる範囲で仮説に置き換える。
+- draft 時点で解消できない部分だけ、確認事項を具体化した `TODO(polish)` として残す。
+- 完成した draft に `TODO(draft)` を残さない。
 
 issue には `状態: Draft` または tracker 相当の状態を明記する。見出しは原則日本語にする。
 

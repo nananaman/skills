@@ -118,6 +118,8 @@ PRD / Design Doc 参照がない場合は、repo-local `engineering-flow.md` に
 
 一度に一つずつ問いを立て、必要なら調査して答える。
 ユーザーに聞く前に、コードベースから答えられることは自分で調べる。
+draft に残った `TODO(polish)` と、polished gate を阻害する具体的な不足・矛盾を優先する。
+PRD / Design Doc / draft issue で根拠とともに確定している内容は一律に問い直さない。
 
 必ず詰める観点:
 
@@ -155,6 +157,9 @@ git status --short --untracked-files=all
 
 `../draft-issue/assets/issue-template.md` を seed にして polished body または blocked body を作る。
 既存 issue の有用な情報は保持し、重複・曖昧な記述は統合する。
+
+template の `TODO(draft)` は draft 作成用の指示であり、polished issue に転記しない。
+polished gate を満たした body は `状態: Polished` に更新する。
 
 既存 issue に `<!-- TODO(polish): ... -->` コメントがある場合は、各 TODO を調査・検証で埋める。解決した TODO コメントは削除する。
 

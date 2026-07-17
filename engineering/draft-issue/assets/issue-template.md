@@ -1,6 +1,6 @@
 # {{title}}
 
-- 状態: Polished
+- 状態: Draft
 - 更新日: {{date}}
 
 ## 参照
@@ -8,75 +8,64 @@
 - PRD: {{prd_reference_or_none}}
 - Design Doc: {{design_doc_reference_or_none}}
 
+<!-- TODO(draft): この issue が引き継ぐ要求・設計判断の参照先を書く。参照が不要なら理由を書く。 -->
+
 ## 目的
 
-{{purpose}}
+<!-- TODO(draft): この issue が単独で達成する結果を書く。 -->
 
 ## 背景
 
-{{background}}
+<!-- TODO(draft): この作業が必要な理由と、前後の issue や制約を書く。 -->
 
 ## 優先度根拠
 
-{{priority_rationale_or_none}}
-<!-- TODO(polish): 必要なら優先度根拠を調査して書く。不要なら「なし」とする。 -->
+<!-- TODO(draft): 順序を決める根拠を書く。特別な優先度がなければ理由を書く。 -->
 
 ## コンテキスト要約
 
-{{context_summary_needed_to_implement_this_issue}}
-<!-- TODO(polish): PRD / Design Doc / 関連 issue から、この issue の実装に必要な要約だけを書く。 -->
+<!-- TODO(draft): 実装に必要な要求・設計判断だけを参照元から要約する。 -->
 
 ## 現状
 
-{{current_state}}
-<!-- TODO(polish): 既存コード・仕様・関連 issue を調査して現状を書く。 -->
+<!-- TODO(draft): 現在の挙動、関連 code path、制約を書く。未調査事項は確認先を残す。 -->
 
 ## 要求 / 仕様
 
-{{requirements}}
-<!-- TODO(polish): この issue で満たす要求・仕様を検証済みの内容として書く。 -->
+<!-- TODO(draft): 入出力、正常系、重要な異常系と境界条件を書く。 -->
 
 ## やらないこと
 
-{{non_goals}}
-<!-- TODO(polish): この issue で明示的にやらないことを書く。 -->
+<!-- TODO(draft): この issue に含めない変更と、その行き先を書く。 -->
 
 ## 設計方針
 
-{{design_direction}}
-<!-- TODO(polish): 実装設計契約として十分な設計方針を書く。 -->
+<!-- TODO(draft): 変更する責務、境界、データや制御の流れを書く。 -->
 
 ## 変更対象ファイル
 
-{{files_modules_or_components_expected_to_change}}
-<!-- TODO(polish): 変更対象ファイル・module・component を調査して書く。 -->
+<!-- TODO(draft): 変更対象と変更理由を書く。未調査の候補は断定せず確認先を残す。 -->
 
 ## 実装上の注意
 
-{{types_pseudocode_dependency_graph_or_known_traps_when_needed}}
-<!-- TODO(polish): 型定義案、擬似コード、依存グラフ、落とし穴が必要なら書く。 -->
+<!-- TODO(draft): public contract、型、処理順、依存、migration、落とし穴を書く。該当しなければ理由を書く。 -->
 
 ## 採用しない案
 
-{{alternatives_and_reasons_not_chosen}}
-<!-- TODO(polish): 採用しない案と理由を書く。なければ「なし」とする。 -->
+<!-- TODO(draft): 採用しない案と理由を書く。Design Doc で決定済みなら参照する。 -->
 
 ## テスト方針
 
-{{test_strategy}}
-<!-- TODO(polish): 実行可能なテスト方針・確認コマンドを書く。 -->
+<!-- TODO(draft): 正常系、異常系、境界条件と、実行する確認を書く。 -->
 
 ## 後方互換の影響
 
-{{backward_compatibility_impact_or_none}}
-<!-- TODO(polish): 後方互換の影響を確認して書く。影響なしなら「なし」とする。 -->
+<!-- TODO(draft): API、schema、config、data、CLI、運用への影響を書く。影響がなければ理由を書く。 -->
 
 ## 完了条件
 
-{{completion_criteria}}
-<!-- TODO(polish): 完了判定できる条件を書く。 -->
+<!-- TODO(draft): 外部から完了を判定できる条件を書く。 -->
 
 ## 先送り事項
 
-{{explicitly_deferred_items_or_none}}
-<!-- TODO(polish): 先送り事項があれば理由つきで書く。なければ「なし」とする。 -->
+<!-- TODO(draft): scope 外へ送る項目を、理由と行き先つきで書く。実装を block する未解決事項は含めない。 -->

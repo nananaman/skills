@@ -1,12 +1,12 @@
 ---
 name: draft-design-doc
-description: 技術改善・設計変更、または PRD 後に必要な大きい変更について Design Doc draft を作る。複数の設計案を検討した案に並べ、仮説と TODO(polish) を置く。PRD 作成、Design Doc polish、issue 作成、実装、レビューだけの依頼では使わない。
+description: 技術改善・設計変更、または PRD 後に必要な大きい変更について Design Doc draft を作る。問題・制約を確定し、複数の設計案を比較できる形にする。PRD 作成、Design Doc polish、issue 作成、実装、レビューだけの依頼では使わない。
 ---
 
 # Draft Design Doc
 
 Design Doc の draft を作る。
-成果物は完成設計ではなく、複数の設計案・仮説・`TODO(polish)` を含むたたき台である。
+成果物は、問題・制約と複数案を確定し、案の選択を polish に渡せるたたき台である。
 
 Design Doc は、技術・設計上の問題を解くための設計判断文書である。
 
@@ -34,13 +34,10 @@ Design Doc は、技術・設計上の問題を解くための設計判断文書
 
 ## Draft の責務
 
-- 目的を数行で端的に置く。
-- 技術設計としてのやらないことを仮置きする。
-- 背景・制約・用語を仮置きする。
-- `検討した案` に検討中の設計案を複数書く。
-- 各案には Pros / Cons / Conclusion の見出しを残すが、draft では TODO のままでよい。
-- 未検証の前提は事実扱いせず、案の説明や TODO に一時的に残す。
-- 採用案を無理に確定しない。
+`assets/design-doc-template.md` を記述内容と出力構造の source of truth とする。
+template の `TODO(draft)` は draft 作成時に処理する。
+`TODO(draft)` は仮置きではなく、調査・確認して確定する draft gate である。
+採用案は draft で決めない。
 
 ## Safety
 
@@ -85,20 +82,20 @@ Design Doc は次のような場合に使う。
 - 関連する既存 Design Doc / ADR
 - 検討案を出すために必要な周辺コード
 
-大きな検証や設計確定はしない。それは `polish-design-doc` の責務である。
+`TODO(draft)` の確定と案の比較に必要な範囲は調査する。
+採用案を前提にした詳細検証と設計確定は `polish-design-doc` の責務である。
 
 ### 4. Draft Design Doc
 
 `assets/design-doc-template.md` を seed として使う。
 
-- 見出しは日本語にする。
 - `状態: Draft` にする。
 - `検討した案` に検討中の案を複数書く。
-- draft の Pros / Cons / Conclusion は TODO のままでよい。
-- 未検証事項がある場合は、案の説明に一時的に書いてよい。
-- 概要 / 詳細設計は採用案が未決なら TODO のままでよい。
-- Mermaid 図はどの章でも使ってよい。概要・詳細設計では特に推奨する。
-- 状態を持つ設計では、概要または詳細設計に状態遷移図を書く TODO を残す。
+- 各案を同じ軸で Pros / Cons 比較できるようにする。
+- 各 `TODO(draft)` を調査・確認して本文に置き換える。
+- `TODO(draft)` を解消できない場合は polish へ送らず、draft を blocked として不足情報を報告する。
+- template に最初からある `TODO(polish)` は、採用案を決めて設計へ昇格する polish 段階の作業として残す。
+- 完成した draft に `TODO(draft)` を残さない。
 
 ### 5. Write draft
 
