@@ -132,6 +132,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`teach`](./productivity/teach/SKILL.md)** — 現在のディレクトリを学習 workspace として使い、複数セッションで教える。
   - Use when: 新しい概念の学習、技術・技能の継続学習、学習記録の管理
   - Type: `user-invoked`
+- **[`improve-agent-prompt`](./productivity/improve-agent-prompt/SKILL.md)** — agent-facing prompt を既存意図を保った最小差分で診断・改善する。
+  - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill、prompt stack の改善、明示された対象モデルへの prompt 適応
+  - Type: `model-invoked`
 
 ### Sakura Cloud
 

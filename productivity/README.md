@@ -1,7 +1,7 @@
 # Productivity Skills
 
-汎用的な作業フロー、思考補助、引き継ぎ、学習支援に使う skill 群です。
-コード作業に限らず、計画を詰める・会話を圧縮する・継続学習する場面を扱います。
+汎用的な作業フロー、思考補助、引き継ぎ、学習支援、agent prompt 改善に使う skill 群です。
+コード作業に限らず、計画を詰める・会話を圧縮する・継続学習する・agent-facing instructions を改善する場面を扱います。
 
 ## どの Skill を使うか
 
@@ -10,6 +10,7 @@
 - 現在の会話を別 agent へ引き継げる形に圧縮する → [`handoff`](./handoff/SKILL.md)
 - Herdr pane 内で隣接 pane の出力確認、pane 分割、長時間 command の実行を行う → [`herdr`](./herdr/SKILL.md)
 - 現在の directory を学習 workspace として使う → [`teach`](./teach/SKILL.md)
+- system prompt、agent instructions、tool description、skill、prompt stack を診断・改善する → [`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)
 
 ## 典型フロー
 
@@ -18,6 +19,7 @@
 3. 作業が長くなったら `handoff` で次の agent が読める状態に圧縮する。
 4. 学習目的の directory では `teach` で記録を残しながら複数セッションで進める。
 5. Herdr-managed pane では `herdr` で長時間 command や helper agent を sibling pane に分離する。
+6. agent-facing prompt は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。
 
 ## Skill 一覧
 
@@ -36,3 +38,6 @@
 - **[`teach`](./teach/SKILL.md)** — 現在のディレクトリを学習 workspace として使い、複数セッションで教える。
   - Use when: 新しい概念の学習、技術・技能の継続学習、学習記録の管理
   - Type: `user-invoked`
+- **[`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)** — agent-facing prompt を既存意図を保った最小差分で診断・改善する。
+  - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill、prompt stack の改善、明示された対象モデルへの prompt 適応
+  - Type: `model-invoked`

@@ -17,6 +17,7 @@
    - 起動すべきでない近接領域まで拾っていないか。
 
 3. predictability
+   - outcome と success criteria が agent に観測可能か。
    - agent が毎回同じ種類の判断順序をたどれるか。
    - 分岐条件が本文にあるか。
    - 「考える」「よくする」だけで手順が終わっていないか。
@@ -35,19 +36,23 @@
 6. completion criteria
    - 各 step に完了判定があるか。
    - finding が残ったときの扱いが明確か。
+   - 必須 output と validation 結果が定義されているか。
    - stop / ask / continue の条件が分かれているか。
 
 7. pruning
    - no-op 文がないか。
    - 同じ意味が複数箇所にないか。
+   - 同じ状況に適用される rule が矛盾していないか。
    - 古い前提や廃止名が残っていないか。
    - 人間向け文書と skill 実行契約が二重管理になっていないか。
 
 8. failure modes
    - 対象不明、権限不足、外部 tool 不在、レビュー不能で止まれるか。
+   - action 前に必要な evidence / prerequisite と、結果不足時の fallback が明確か。
    - ユーザーに聞くことと、自分で調べることが分かれているか。
 
 9. safety
+   - 自律実行できる action と、確認が必要な外部・destructive・costly・scope-expanding action が分かれているか。
    - destructive command や永続変更を勝手に実行しないか。
    - commit / push / pin / install が明示依頼 gated か。
 
@@ -58,6 +63,7 @@
 - `SKILL.md` と関連ファイルを読む。
 - `name:`、directory、description、本文 branch の対応を確認する。
 - workflow、分岐条件、停止条件、出力形式が agent に判定可能か確認する。
+- outcome、evidence / prerequisite、authority boundary が該当 workflow で判断可能か確認する。
 - scope gap があれば、smoke check より先に description か本文の修正を提案する。
 
 ## Smoke Check

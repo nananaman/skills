@@ -20,6 +20,7 @@
 2. baseline を決める。
    - 新規 skill: skill なし。
    - 既存 skill 改善: 変更前 skill の snapshot。
+   - case、assertion、reasoning setting、tool set、runtime 条件を変更前に固定する。
 
 3. with-skill と baseline を同じ iteration で走らせる。
    - subagent を使える場合は並列に走らせる。
@@ -32,14 +33,18 @@
 5. grade / compare する。
    - assertion pass/fail、品質差、token / duration の tradeoff を見る。
    - baseline でも pass する assertion は非識別的として見直す。
+   - token、duration、tool use の削減は、既存の品質 assertion を維持した場合だけ改善と数える。
 
 6. 改善する。
    - feedback から一般化できる instruction gap だけを skill に反映する。
+   - 1 iteration では 1 つの failure theme だけを最小差分で直す。
+   - prompt、tool set、reasoning setting、runtime を同じ iteration で同時に変えない。
+   - measured regression がない working prompt の全面 rewrite は行わない。
    - test prompt への overfit を避ける。
    - 同じ helper や script を複数 run が再生成したら、bundled script 化を検討する。
 
 7. 再実行する。
-   - 同じ case で regression を見た後、必要なら case を増やす。
+   - 同じ case と assertion で regression を見た後、必要なら hold-out case を増やす。
    - meaningful progress がなくなったら止め、残リスクを報告する。
 
 ## Output
