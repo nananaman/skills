@@ -6,82 +6,72 @@
 
 ## 目的
 
-{{purpose}}
-<!-- TODO(polish): この設計で何が実現されるかを数行で端的に書く。問題の詳細は背景に書く。 -->
+<!-- TODO(draft): 解く技術的な問題と、この設計で実現する状態を書く。 -->
 
 ## やらないこと
 
-{{things_not_to_do}}
-<!-- TODO(polish): 技術設計・実装方針として、この Design Doc で扱わないことを書く。 -->
+<!-- TODO(draft): この Design Doc で扱わない技術的な範囲を書く。 -->
 
 ## 背景
 
-{{background}}
-<!-- TODO(polish): 解決したい問題、制約、経緯、なぜ今やるかを書く。 -->
+<!-- TODO(draft): 現在の構成、問題、制約、既存の判断を書く。 -->
 
 ## 用語
 
-{{glossary}}
-<!-- TODO(polish): 設計を読む前に揃えるべき用語を定義する。 -->
+<!-- TODO(draft): 設計判断に必要な用語を定義する。追加定義が不要なら理由を書く。 -->
 
 ## 概要
 
-{{overview}}
-<!-- TODO(polish): 採用案の全体像を書く。draft では比較対象となる案の概要でもよい。必要なら Mermaid 図を使う。 -->
+<!-- TODO(polish): 採用案の system boundary、主要 component、責務、依存関係、データや制御の流れを書く。複数 component が関わる場合は Mermaid の概要図を置く。 -->
+
+## 採用理由
+
+<!-- TODO(polish): 問題・制約と比較結果に照らして、この設計案を採用した理由を書く。 -->
 
 ## 詳細設計
 
-{{detailed_design}}
-<!-- TODO(polish): 採用案の module boundary、データ構造、API、状態管理、エラー処理、移行手順などを書く。状態を持つ設計ではここか概要に状態遷移図を書く。 -->
+<!-- TODO(polish): 採用案について、必要に応じて module、API・event、データ、状態、エラー処理、互換性、移行、observability を小見出しに分けて書く。 -->
+
+<!-- TODO(polish): component 間の処理順が重要なら sequence diagram、永続的な状態を持つなら state diagram を置く。 -->
 
 ## 落とし穴
 
-{{pitfalls}}
-<!-- TODO(polish): 採用する設計が抱える既知の問題、仕様として受け入れるネガティブな要素、拡張性の限界を書く。 -->
+<!-- TODO(polish): 採用案の欠点、誤用しやすい箇所、境界条件、拡張上の限界を書く。 -->
 
 ## セキュリティ
 
-{{security}}
-<!-- TODO(polish): リスクと対策を書く。考慮不要な場合も、なぜ不要かを説明する。「なし」だけで終わらせない。 -->
+<!-- TODO(polish): 採用案の trust boundary、認証・認可、入力、secret への影響と対策を書く。該当しなければ理由を書く。 -->
 
 ## プライバシー
 
-{{privacy}}
-<!-- TODO(polish): 個人情報・識別子・ログ・外部送信への影響を書く。考慮不要な場合も理由を書く。 -->
+<!-- TODO(polish): 採用案の個人情報、識別子、log、外部送信への影響を書く。該当しなければ理由を書く。 -->
 
 ## 負荷・コスト
 
-{{load_and_cost}}
-<!-- TODO(polish): request 数、DB query、外部 API、infra cost、計算量への影響を書く。考慮不要な場合も理由を書く。 -->
+<!-- TODO(polish): 採用案の request、query、外部 API、storage、計算量、infra cost への影響を書く。該当しなければ理由を書く。 -->
 
 ## 信頼性
 
-{{reliability}}
-<!-- TODO(polish): failure mode、retry、rollback、data loss、observability への影響を書く。考慮不要な場合も理由を書く。 -->
+<!-- TODO(polish): 採用案の failure、retry、idempotency、rollback、data loss、監視への影響を書く。該当しなければ理由を書く。 -->
 
 ## 開発・運用への影響
 
-{{delivery_and_operations}}
-<!-- TODO(polish): 実装難度、レビューしやすさ、運用負荷、属人性、release timing への影響を書く。考慮不要な場合も理由を書く。 -->
+<!-- TODO(polish): 採用案の実装・review の分割、rollout、migration、運用手順への影響を書く。 -->
 
 ## 検討した案
 
-### {{option_title}}
+### 案 A
 
-{{option_description}}
-<!-- TODO(polish): 案の説明を書く。draft では未検証事項や確認したい前提を一時的にここへ書いてよい。 -->
+<!-- TODO(draft): 案の名前、仕組み、成立条件を書く。検討する案ごとにこの節を複製する。 -->
 
 #### Pros
 
-{{option_pros}}
-<!-- TODO(polish): 採用案との比較として利点を書く。draft では未確定のままでよい。 -->
+<!-- TODO(draft): 他案と比較した利点を書く。 -->
 
 #### Cons
 
-{{option_cons}}
-<!-- TODO(polish): 採用案との比較として欠点を書く。draft では未確定のままでよい。 -->
+<!-- TODO(draft): 他案と比較した欠点とリスクを書く。 -->
 
 #### Conclusion
 
-{{option_conclusion}}
-<!-- TODO(polish): 採用 / 不採用と理由を書く。draft では未決のままでよい。 -->
+<!-- TODO(polish): 採用案の仕組み、成立条件、重要な Pros / Cons を「概要」「採用理由」「詳細設計」「落とし穴」へ欠落なく反映してから、この節から外す。不採用案には、その理由を書く。 -->

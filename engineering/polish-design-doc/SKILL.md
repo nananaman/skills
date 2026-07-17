@@ -23,7 +23,7 @@ polished Design Doc は、次を満たす。
 - 落とし穴が設計上の既知の問題として書かれている。
 - セキュリティ / プライバシー / 負荷・コスト / 信頼性 / 開発・運用への影響が評価されている。
 - リスク評価系の章が「なし」だけで終わっていない。
-- 検討した案が Pros / Cons / Conclusion 付きで比較されている。
+- 採用案が概要・詳細設計へ昇格し、不採用案と理由が `検討した案` に残っている。
 - `TODO(polish)` が残っていない。
 - issue 分割に進める。
 
@@ -55,14 +55,17 @@ docs/agents/domain.md
 ```
 
 Design Doc が存在しない場合は `draft-design-doc` を提案して止める。
+`TODO(draft)` が残っている、または draft が blocked の場合は polish へ進まず、`draft-design-doc` で draft gate を解消するよう報告して止める。
 PRD の要求を実現するための Design Doc であれば、PRD 参照を読む。技術・設計上の問題から直接始まった Design Doc では、PRD は不要である。
 
 ### 2. Grill one question at a time
 
 一度に一つずつ問いを立てる。
 コードベース、既存 docs、既存 ADR から答えられることは、ユーザーに聞く前に調べる。
+draft に残った `TODO(polish)` と、polished gate を阻害する具体的な不足・矛盾を優先する。
+draft で根拠とともに確定している設計判断は一律に問い直さない。
 
-必ず詰める問い:
+不足・矛盾がある場合に詰める問い:
 
 - この設計で何が実現されるか。
 - 技術設計として何をやらないか。
@@ -100,14 +103,16 @@ git status --short --untracked-files=all
 `検討した案` にある候補を比較し、採用案を決める。
 
 - 採用案は `概要` と `詳細設計` に反映する。
-- `検討した案` には、採用案と不採用案の比較を残す。
-- 各案の `Conclusion` には採用 / 不採用と理由を書く。
+- 採用案の仕組み、成立条件、重要な Pros / Cons を `概要`・`採用理由`・`詳細設計`・`落とし穴` へ欠落なく反映してから、その subsection を `検討した案` から外す。
+- `検討した案` には不採用案だけを残し、各案の `Conclusion` に不採用理由を書く。
 - 採用案が決められない場合は polished にせず blocked として報告する。
 
 ### 5. Rewrite Design Doc
 
 `../draft-design-doc/assets/design-doc-template.md` の構造に合わせて Design Doc を更新する。
 
+- template の `TODO(draft)` は draft 作成用の指示であり、polished Design Doc に転記しない。
+- polished gate を満たした Design Doc は `状態: Polished` に更新する。
 - `TODO(polish)` コメントは polished Design Doc に残さない。
 - リスク評価系の章は `なし` / `特になし` / `影響なし` だけで終わらせない。
 - 考慮不要な場合も、なぜ不要かを書く。
@@ -125,8 +130,11 @@ git status --short --untracked-files=all
 - 落とし穴が既知の問題・限界として honest に書かれているか。
 - セキュリティ / プライバシー / 負荷・コスト / 信頼性 / 開発・運用への影響が評価されているか。
 - リスク評価系の章が「なし」だけで終わっていないか。
-- 検討した案が Pros / Cons / Conclusion 付きで比較されているか。
+- 採用案が概要・詳細設計に反映され、`検討した案` に重複して残っていないか。
+- 採用案の仕組み、成立条件、重要な Pros / Cons が本文側に欠落なく残っているか。
+- `検討した案` に不採用案と理由が残っているか。
 - `TODO(polish)` が残っていないか。
+- `TODO(draft)` が残っていないか。
 - issue 分割に進めるか。
 
 ### 7. Confirm before update
@@ -139,7 +147,7 @@ polished body をユーザーへ提示し、確認後だけ Design Doc を更新
 
 - polished Design Doc location
 - 採用案と採用理由
-- 検討した案ごとの採用 / 不採用と理由
+- 不採用案と不採用理由
 - 実行した test / typecheck / proof
 - issue 分割へ進めるか、blocked か
 - 次に進むべき flow: `draft-issue`
