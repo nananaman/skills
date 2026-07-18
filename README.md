@@ -51,6 +51,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Engineering
 
+- **[`prototype`](./engineering/prototype/SKILL.md)** — 複数案を操作して比較できる throwaway prototype で設計上の問いを検証する。
+  - Use when: Web・mobile/native の UI 比較、状態遷移・データ構造・API の操作検証
+  - Type: `model-invoked`
 - **[`setup-engineering-flow`](./engineering/setup-engineering-flow/SKILL.md)** — リポジトリごとの engineering flow を初期設定する。
   - Use when: issue tracker、PRD / Design Doc 配置、local markdown issue 採番、AGENTS.md / CLAUDE.md 参照 block の設定
   - Type: `user-invoked`
