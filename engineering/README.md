@@ -5,6 +5,7 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 
 ## どの Skill を使うか
 
+- Web・mobile/native の UI や logic の複数案を操作して比較する → [`prototype`](./prototype/SKILL.md)
 - リポジトリごとの engineering flow を初期設定する → [`setup-engineering-flow`](./setup-engineering-flow/SKILL.md)
 - 新機能・仕様変更の PRD draft を作る → [`draft-prd`](./draft-prd/SKILL.md)
 - PRD を作る価値・範囲・成功条件を判断できる文書に磨く → [`polish-prd`](./polish-prd/SKILL.md)
@@ -34,6 +35,9 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 
 ## Skill 一覧
 
+- **[`prototype`](./prototype/SKILL.md)** — 複数案を操作して比較できる throwaway prototype で設計上の問いを検証する。
+  - Use when: Web・mobile/native の UI 比較、状態遷移・データ構造・API の操作検証
+  - Type: `model-invoked`
 - **[`setup-engineering-flow`](./setup-engineering-flow/SKILL.md)** — リポジトリごとの engineering flow を初期設定する。
   - Use when: issue tracker、PRD / Design Doc 配置、local markdown issue 採番、AGENTS.md / CLAUDE.md 参照 block の設定
   - Type: `user-invoked`
