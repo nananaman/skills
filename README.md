@@ -87,6 +87,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`sandbox-runtime`](./engineering/sandbox-runtime/SKILL.md)** — Anthropic Sandbox Runtime 起因の ghost dotfiles や mount artifact を診断する。
   - Use when: sandbox 実行後の想定外 untracked files、read-only filesystem、workflow scope 不足、gh auth refresh 失敗の診断
   - Type: `model-invoked`
+- **[`nono-sandbox-maintenance`](./engineering/nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
+  - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認
+  - Type: `model-invoked`
 - **[`ast-grep-practice`](./engineering/ast-grep-practice/SKILL.md)** — ast-grep を project-local な構造 lint / rewrite として運用する。
   - Use when: 既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンド、kind 名・rule 例の確認
   - Type: `model-invoked`
@@ -95,6 +98,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Type: `model-invoked`
 - **[`test-writing-style`](./engineering/test-writing-style/SKILL.md)** — テストを仕様として読める検証に整える。
   - Use when: テストの新規追加・修正・レビュー、命名・AAA・1テスト1関心・mock/fake の整理
+  - Type: `model-invoked`
+- **[`apple-container`](./engineering/apple-container/SKILL.md)** — Apple `container` CLI を実機 version に合わせて安全に操作する。
+  - Use when: OCI image の build / run、registry、network・volume・machine 管理、障害調査
   - Type: `model-invoked`
 
 ### Meta
