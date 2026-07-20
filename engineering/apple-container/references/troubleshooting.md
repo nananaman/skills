@@ -26,6 +26,32 @@ container --version
 sw_vers
 ```
 
+command sandbox 内では、`system status` の JSON が `status: "unregistered"` でも、それだけで API server の到達不能とは判定しない。まず `system version` の JSON に API server の version / build / commit が含まれるか確認する。通常の container lifecycle も検証対象なら、`sh` と `sleep` を使える既存の local image で一意名の disposable container を作成し、観察後にその container だけを停止・削除する。
+
+```sh
+status_check="status-check-$(uuidgen | tr '[:upper:]' '[:lower:]')"
+status_check_created=0
+cleanup_status_check() {
+    if [ "$status_check_created" -eq 1 ]; then
+        container stop "$status_check" || true
+        if container delete "$status_check" || container delete --force "$status_check"; then
+            status_check_created=0
+        fi
+    fi
+}
+trap cleanup_status_check EXIT INT TERM
+
+if container run -d --name "$status_check" ALREADY_LOCAL_IMAGE sh -c 'echo status-check-ready; sleep 300'; then
+    status_check_created=1
+    container inspect "$status_check"
+    container logs "$status_check" | grep -F status-check-ready
+fi
+cleanup_status_check
+trap - EXIT INT TERM
+```
+
+`system version` で API server を確認でき、この lifecycle も成功するなら、runtime 切断ではなく launchd registration の可視性だけが sandbox に制限されている可能性が高い。この比較だけを理由に service を再起動したり、既存 container、kernel、DNS を変更したりしない。command sandbox が `container system logs` の内部 command を拒否しても、通常の `container logs APP` や lifecycle 操作が成功する場合があるため、別の失敗として記録する。
+
 `system version` の JSON に CLI だけあり API server がない、または `status` が health check に失敗するなら service が未起動か応答不能である。system log に kernel 未設定、設定 file parse、service 起動のどこで失敗したかを探す。upgrade 直後なら CLI と API server の version / commit が揃うか確認し、停止・起動を一度行う。
 
 ```sh
