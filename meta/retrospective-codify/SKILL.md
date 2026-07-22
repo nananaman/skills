@@ -1,11 +1,12 @@
 ---
 name: retrospective-codify
-description: タスク完了時、またはユーザーが「今日の知見を固定して」「codify して」「skill にして」「lint に落として」と明示したとき、試行錯誤で得た「最初に知っていれば遠回りしなかった」知見を ast-grep ルール / skill / AGENTS.md 系 source-of-truth のいずれかへ固定する。失敗した初手と最終解を対応付け、dedup check と承認を経て書き出す。単なる作業ログ保存、再利用できない one-off、commit / push / APM pin / install だけが目的のときは使わない。
+description: ユーザーが「今日の知見を固定して」「codify して」「skill にして」「lint に落として」「繰り返す許可を恒久化して」と明示したとき、再利用可能な知見や反復する approval を lint / skill / AGENTS.md 系 rule / 最小権限 policy のいずれかへ固定する。失敗した初手と最終解を対応付け、dedup check と承認を経て書き出す。通常のタスク完了、単なる作業ログ保存、再利用できない one-off、個別 approval の自動昇格、commit / push / APM pin / install だけが目的のときは使わない。
+disable-model-invocation: true
 ---
 
 # Retrospective Codify
 
-タスクの終盤で「最初にこれを知っていれば遠回りしなかった」知見を抽出し、静的ルール・skill・常時有効ルールのいずれかに固定する。
+ユーザーが明示的に retrospective / codify を依頼したとき、「最初にこれを知っていれば遠回りしなかった」知見や反復する approval を抽出し、静的ルール・skill・常時有効ルール・最小権限 policy のいずれかに固定する。
 プロンプトに頼らず再現可能な形に落とすことを優先する。
 
 Retrospective と Proposals による棚卸しを維持しつつ、常時有効ルールの書き出し先は `AGENTS.md` 系 source-of-truth を中心にする。
@@ -13,9 +14,8 @@ commit / push / APM pin 更新 / install は担当しない。
 
 ## いつ使うか
 
-- タスク完了直前、またはユーザーから「学びを残して」「ルール化して」「codify して」と指示されたとき
-- 試行錯誤の末に解にたどり着いたとき（初手で詰まった、誤った仮説を立てた、ドキュメント不足で時間を溶かした 等）
-- 同種のタスクを将来また行う可能性があるとき
+- ユーザーが、試行錯誤で得た知見を「学びとして残して」「ルール化して」「codify して」と明示したとき
+- ユーザーが、反復する permission prompt を全 enforcement layer で最小権限の恒久 policy にしたいと明示したとき
 
 使わない場面:
 - 一発で通った単純なタスク（抽出する学びがない）
@@ -33,7 +33,8 @@ commit / push / APM pin 更新 / install は担当しない。
 2. **「最初に知るべきだったこと」の言語化**: 気付きを 1〜3 文で要約する。回顧でなく、未来の自分への指示形で書く（「〜するな」/「〜を先に確認せよ」）。
 3. **採用対象か判定する**: 「再利用可能で、次回の初動を変える知見」だけを採用候補にする。one-off、薄すぎる注意、機密を含む内容は不採用または session note に留める。
 4. **分類する**: 下の判定表に従って出力先を決める。
-5. **source-of-truth を確認する**: AGENTS.md 系 rule / skill / lint rule のどこを編集対象にするか決める。展開物や symlink 先を直接編集しない。
+   - 反復する permission prompt を減らす依頼、または今回の作業で同種 approval が繰り返された場合は **approval codification branch** を選び、`references/approval-codification.md` を全文読む。
+5. **source-of-truth を確認する**: AGENTS.md 系 rule / skill / lint rule / approval policy のどこを編集対象にするか決める。展開物や symlink 先を直接編集しない。
 6. **重複チェック（必須）**: 提案前に既存の知見と照合する。重複や近接する規則があれば「新規追加」ではなく「既存への追記 / 更新」を選ぶ。これを怠ると skill / ルールが肥大化する。
 
    検索キー候補は気付きから 2〜3 語抽出する（ツール名・API 名・症状語・対義語）。例: 気付きが「pnpm v10 を使う」なら `pnpm`, `packageManager`, `lockfile`。
@@ -95,6 +96,7 @@ digraph classify {
 | コード/設定の構文レベルで検出可能 | `ast-grep` ルール または既存 linter 設定 | `Array.from(set).length` を使うな、`set.size` を使え |
 | 短く、常時適用、判断を伴わない | `AGENTS.md` 系 source-of-truth（global / project） | pnpm は v10 以上を使う |
 | 手順・文脈判断・テンプレが必要 | 新規 skill または既存 skill への追記 | MoonBit の C binding を書く手順 |
+| 反復する実行時 approval を最小権限で恒久化 | approval policy の source-of-truth | Codex execpolicy と外側の sandbox policy を対で allow にする |
 | プロジェクト固有で一回限り | 採用しない（コミットメッセージ / PR 説明に留める） | — |
 
 **ast-grep を優先する原則**: 静的に検出可能なものはプロンプトやドキュメントに書かず、可能なら `ast-grep` ルールや既存 linter 設定にする。
@@ -213,6 +215,7 @@ message: Set/Map のサイズは .size プロパティを使う。
 2. [skill 追記] <既存 skill 名>: <1 行>（学び N 由来）
 3. [skill 新規] <skill 名>: <1 行>（学び N 由来）
 4. [rule] AGENTS.md（global/project）: <1 行>（学び N 由来）
+5. [approval policy] <操作>: <変更する全 enforcement layer と最小 scope>（artifact: <source-of-truth paths>, 学び N 由来）
 
 重複検出（提案不要）:
 - <学び N>: 既存 <skill/rule 名> の <該当節名 or 行番号> が完全カバー → 追加なし
@@ -274,6 +277,7 @@ message: Set/Map のサイズは .size プロパティを使う。
 - 失敗⇄成功⇄気付きの 3 点が確認済みである
 - 再利用可能で次回の初動を変える知見か判定済みである
 - dedup check を実行し、新規 / 既存追記 / 既存と重複 / 判断保留の分類を報告している
+- approval codification branch では、全 enforcement layer、最小 scope、副作用分類、source-of-truth、各 layer の非破壊検証が揃っている
 - 出力先と source-of-truth が明確である
 - 採用候補・重複検出・不採用を、空節を省いた `Retrospective` / `Proposals` 形式で提示している
 - 承認前に永続ファイルを編集していない

@@ -111,8 +111,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・改善・レビュー・棚卸しを 1 つの lifecycle として扱う。
   - Use when: 新規 skill 作成、既存 skill 改善、skill diff / 全体レビュー、skill inventory audit
   - Type: `user-invoked`
-- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
-  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
+- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見や反復する approval を固定する。
+  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定、繰り返す permission prompt の最小権限 policy 化
   - Type: `user-invoked`
 
 ### Personal
