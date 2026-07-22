@@ -1,6 +1,6 @@
 ---
 name: herdr
-description: Herdr-managed pane 内で HERDR_ENV=1 を確認したうえで、herdr CLI による pane / tab / workspace / agent の確認、隣接 pane での command 実行、出力待ち、agent 協調を行う runbook。Herdr 外、短い単発 command、承認のない focus / close / takeover / layout 変更 / 人間 pane への入力では使わない。
+description: Herdr-managed pane 内で HERDR_ENV=1 を確認したうえで、herdr CLI による pane / tab / workspace / agent の確認、隣接 pane での command 実行、出力待ち、agent 協調、managed Hunk review のコメント回収を行う runbook。Herdr 外、短い単発 command、承認のない focus / close / takeover / layout 変更 / 人間 pane への入力、managed Hunk review pane の起動 / reload / close では使わない。
 ---
 
 # Herdr
@@ -19,6 +19,8 @@ CLI の command catalog、用途別 runbook、task pattern は `references/herdr
 - focus / close / takeover / layout 変更 / 既存 pane への入力は、ユーザーが明示依頼した場合だけ実行する。
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
 - 短い単発 command は通常の shell tool を使い、この skill を使わない。
+- managed Hunk review の起動、reload、close は agent が行わない。
+- Hunk の user comment は、人間がレビュー完了を伝えた後だけ session API から回収する。
 
 ## When to use
 
@@ -27,6 +29,7 @@ CLI の command catalog、用途別 runbook、task pattern は `references/herdr
 - command の readiness marker や test 完了を待ちたい。
 - helper agent を別 pane で起動し、完了後に結果を読む必要がある。
 - Herdr の workspace / tab / pane / agent 状態を確認しながら作業を進める。
+- managed Hunk review の完了後に、人間が残したコメントを回収する。
 
 ## When not to use
 
@@ -98,6 +101,25 @@ herdr agent send helper "<task>"
 herdr agent wait helper --status idle --timeout 120000
 herdr agent read helper --source recent --lines 120
 ```
+
+## Managed Hunk review
+
+Hunk review pane は Herdr plugin と人間が管理する。
+agent は Hunk pane を起動、reload、close しない。
+pane の表示内容は全コメントを含む保証がないため、コメント回収の source of truth にしない。
+
+人間が「レビュー完了」または同等の完了を伝えた後、現在の repository について Hunk session を確認する。
+
+```sh
+hunk session get --repo .
+hunk session comment list --repo . --type user
+```
+
+- Hunk session が見つからない場合は、コメント0件として扱わず、session 未検出を報告する。
+- コメントがある場合は、原文、file、line、hunk 情報を保持して整理する。
+- コメントが0件の場合も自動承認せず、「指摘なしとして進めてよいですか？」と確認する。
+- コメント取得後、修正または commit へ進む前に人間へ対応方針を確認する。
+- レビュー完了後も Hunk pane をcloseせず、watchを継続させる。
 
 ## Risky operations gate
 
