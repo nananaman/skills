@@ -14,7 +14,7 @@ CLI の command catalog、用途別 runbook、task pattern は `references/herdr
 - 最初に `HERDR_ENV=1` を確認する。
 - `HERDR_ENV` が `1` でなければ、Herdr-managed pane 外であることを報告して止める。
 - Herdr 外から focused pane を推測して操作しない。
-- ID は live session の一時 ID として扱い、操作直前に list / current / get / create / split の結果から取り直す。
+- workspace / tab / pane ID は stable handle として扱うが、pane move 後は新しい ID を response から取り直す。agent target は unique な live agent 名か、その agent を現在 host する pane ID に限定する。
 - 補助用の pane / tab / workspace を作るときは、原則 `--no-focus` を付ける。
 - focus / close / takeover / layout 変更 / 既存 pane への入力は、ユーザーが明示依頼した場合だけ実行する。
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
@@ -54,8 +54,8 @@ CLI の command catalog、用途別 runbook、task pattern は `references/herdr
 
 2. 作業種別を決める。
    - 読むだけ: `pane read` / `agent read` / list / get 系に限定する。
-   - 補助 pane で実行: `pane split --no-focus` または `agent start --no-focus` を使う。
-   - 待機: `wait output` / `wait agent-status` / `agent wait` を使い、最後に read で結果を確認する。
+   - 補助 pane で実行: `pane split --no-focus` で shell pane を作り、必要ならその pane を指定して `agent start` を使う。
+   - 待機: 通常 command は `pane wait-output`、agent は `agent wait` を使い、最後に read で結果を確認する。
    - risky operation: 実行せず、対象 ID・操作・影響を提示してユーザー承認を待つ。
 
 3. 具体 command が必要なら `references/herdr-cli-runbook.md` を読む。
@@ -89,16 +89,18 @@ CURRENT_PANE=$(herdr pane current \
 NEW_PANE=$(herdr pane split "$CURRENT_PANE" --direction right --no-focus \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
 herdr pane run "$NEW_PANE" "<command>"
-herdr wait output "$NEW_PANE" --match "<marker>" --timeout 60000
+herdr pane wait-output "$NEW_PANE" --match "<marker>" --timeout 60000
 herdr pane read "$NEW_PANE" --source recent --lines 100
 ```
 
 ### helper agent を起動して読む
 
 ```sh
-herdr agent start "helper" --cwd "$PWD" --split right --no-focus -- claude
-herdr agent send helper "<task>"
-herdr agent wait helper --status idle --timeout 120000
+herdr agent list
+HELPER_PANE=$(herdr pane split --current --direction right --cwd "$PWD" --no-focus \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
+herdr agent start helper --kind claude --pane "$HELPER_PANE"
+herdr agent prompt helper "<task>" --wait --timeout 120000
 herdr agent read helper --source recent --lines 120
 ```
 
@@ -125,13 +127,13 @@ hunk session comment list --repo . --type user
 
 次の操作は通常 workflow から外す。
 ユーザーが明示依頼した場合だけ、実行前に対象 ID、現在の process / agent 状態、操作内容、予想される影響を提示する。
-ただし、直前にこの作業のために作成した補助 pane / helper agent への `pane run` / `agent send` は通常 path として扱う。
+ただし、直前にこの作業のために作成した補助 pane / helper agent への `pane run` / `agent prompt` は通常 path として扱う。
 
 | Operation | Examples |
 |---|---|
 | focus 移動 | `pane focus`、`tab focus`、`workspace focus`、`agent focus` |
 | close | `pane close`、`tab close`、`workspace close` |
-| 既存 pane / 既存 agent 入力 | `pane run`、`send-text`、`send-keys`、`agent send` |
+| 既存 pane / 既存 agent 入力 | `pane run`、`send-text`、`send-keys`、`agent prompt`、`agent send-keys` |
 | takeover / attach | `agent attach`、`agent attach --takeover` |
 | layout 変更 | `pane move`、`swap`、`resize`、`zoom` |
 | metadata 注入 | `pane report-*` |
@@ -141,5 +143,5 @@ hunk session comment list --repo . --type user
 - `HERDR_ENV` がない: Herdr 操作を止め、通常 shell tool で代替できるか提案する。
 - `herdr` command が失敗する: command、exit code、stderr を報告し、追加操作へ進まない。
 - ID が見つからない / 古い: list / current / get を読み直し、推測で補正しない。
-- wait が timeout: `pane read` / `agent read` で直近出力を確認し、失敗・実行中・marker 不一致を切り分ける。
+- wait が timeout、または `agent_prompt_stalled`: `pane read` / `agent get` / `agent read` で直近状態を確認し、失敗・実行中・marker 不一致・state change 未検出を切り分ける。
 - TUI 出力が読みにくい: `--format ansi` または `--source recent-unwrapped` を使う。
