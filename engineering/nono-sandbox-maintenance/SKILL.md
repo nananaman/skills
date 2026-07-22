@@ -112,9 +112,10 @@ command policyは用途ごとに三段階で設計する。
 1. 公式source、実行ログ、実機helpのいずれかで子executableとargvを確認する。
 2. PATH shimで制御できる呼出しか、absolute pathのdirect execかを分ける。
 3. command policyの `executable` はwrapperではなく実体をpinできるか確認する。wrapperが設定する必須environmentがあれば `environment.set_vars` で明示する。
-4. `allow_direct_exec_bypass` はpinしたpolicy-controlled command本体のdirect invocation用であり、親commandが起動する任意の子executableを許可するfieldではない。子processの許可へ流用しない。
-5. `unsafe_macos_seatbelt_rules` が必要なら、対象commandのchild sandbox内でexact executableだけを許可する。directory prefixや任意process execへ広げない。
-6. OS tool自身がsandbox実行を拒否する場合は権限追加を止め、sandbox外の人間向け診断へ分離する。
+4. package managerなどのshimがversioned実体へ解決される場合は、versioned pathをprofileへ直書きせず、pinした実体から呼出設定とsandbox許可を同時に生成できるか確認する。
+5. `allow_direct_exec_bypass` はpinしたpolicy-controlled command本体のdirect invocation用であり、親commandが起動する任意の子executableを許可するfieldではない。子processの許可へ流用しない。
+6. `unsafe_macos_seatbelt_rules` が必要なら、対象commandのchild sandbox内でexact executableだけを許可する。directory prefixや任意process execへ広げない。
+7. OS tool自身がsandbox実行を拒否する場合は権限追加を止め、sandbox外の人間向け診断へ分離する。
 
 raw Seatbelt ruleはvalidator warningを残す設計上の例外である。警告を消すためにscopeを広げない。
 
@@ -161,6 +162,7 @@ patchしない場合は理由と根拠を報告する。patch案だけなら `pr
 ## 失敗時
 
 - auditにeventがなければdenial reportを使い、それでも観測不能なら限定したlegacy traceを検討する。
+- audit ledgerが `trailing characters` でparse不能なら、対象行を読み取り、複数の完全なJSON objectが改行なしで連結された場合だけ修復候補にする。対象ledgerと操作を示してユーザー承認を得た後、同じdirectoryへ既存fileを上書きしない名前でbackupし、object境界へ改行だけを戻して、境界前後のsessionを `nono audit verify <session-id>` で検証する。object欠損、曖昧な境界、chain不整合、backup失敗のいずれかがあれば自動修復せず停止する。
 - shell、wrapper、absolute path、外部daemonを別経路として扱い、単一prefix ruleで解決したと判断しない。
 - incidental denialを追加しても症状が変わらなければ撤回し、原因候補へ戻る。
 - source-of-truthが不明なら編集せず、候補pathと発見根拠を示す。
