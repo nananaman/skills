@@ -51,6 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--thinking", default="", help="Override thinking level when supported")
     parser.add_argument("--timeout-sec", type=positive_int, default=600)
     parser.add_argument("--show-failure-stderr", action="store_true", help="Show raw failed-reviewer stderr; it may repeat bundle data")
+    parser.add_argument("--collect", type=Path, help="Collect reviewer result files from a prepared Herdr run")
     help_requested = any(argument in ("-h", "--help") for argument in sys.argv[1:])
     timeout_overridden = any(
         argument == "--timeout-sec" or argument.startswith("--timeout-sec=")
@@ -93,6 +94,15 @@ def select_engine(requested: str) -> str:
         if shutil.which(candidate):
             return candidate
     raise RuntimeError("no supported review engine found: install pi, codex, or claude")
+
+
+def engine_candidates(requested: str) -> list[str]:
+    if requested != "auto":
+        return [select_engine(requested)]
+    candidates = [candidate for candidate in ("pi", "codex", "claude") if shutil.which(candidate)]
+    if not candidates:
+        raise RuntimeError("no supported review engine found: install pi, codex, or claude")
+    return candidates
 
 
 def engine_settings(engine: str, model: str, thinking: str) -> tuple[str, str]:
@@ -432,6 +442,59 @@ def static_codex_command(model: str, thinking: str) -> list[str]:
     ]
 
 
+def nono_codex_command(model: str, thinking: str) -> list[str] | None:
+    codex = shutil.which("codex")
+    nono = shutil.which("nono")
+    if not codex or not nono:
+        return None
+    codex_path = Path(codex).resolve()
+    try:
+        wrapper = codex_path.read_text()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not re.search(r"\bnono\s+run\b.*?\s--allow-cwd\s+--", wrapper, re.DOTALL):
+        return None
+    if os.getenv("NONO_CAP_FILE"):
+        raise RuntimeError("cannot create bundle-only Codex isolation inside an existing nono sandbox")
+    raw_codex = next(
+        (
+            candidate.resolve()
+            for directory in os.get_exec_path()
+            if (candidate := Path(directory) / "codex").is_file()
+            and os.access(candidate, os.X_OK)
+            and not candidate.samefile(codex_path)
+        ),
+        None,
+    )
+    if raw_codex is None:
+        raise RuntimeError("nono Codex wrapper found, but raw Codex executable was not found on PATH")
+    if raw_codex.read_bytes()[:2] == b"#!":
+        package_root = raw_codex.parent.parent
+        native_candidates = [
+            candidate.resolve()
+            for candidate in package_root.glob("node_modules/@openai/codex-*/vendor/*/bin/codex")
+            if candidate.is_file() and os.access(candidate, os.X_OK)
+        ]
+        if len(native_candidates) != 1:
+            raise RuntimeError("nono Codex isolation requires exactly one packaged native Codex executable")
+        raw_codex = native_candidates[0]
+    codex_home = Path(os.getenv("CODEX_HOME", Path.home() / ".codex"))
+    auth = codex_home / "auth.json"
+    if not auth.is_file():
+        raise RuntimeError(f"Codex auth file not found: {auth}")
+    codex_args = [str(raw_codex), "--dangerously-bypass-approvals-and-sandbox", "--model", model]
+    if thinking:
+        codex_args.extend(["-c", f'model_reasoning_effort="{thinking}"'])
+    codex_args.extend([
+        "exec", "--ephemeral", "--ignore-user-config", "--ignore-rules",
+        "--skip-git-repo-check", "-C", ".", "-",
+    ])
+    return [
+        nono, "run", "--silent", "--allow-cwd", "--read-file", str(auth), "--",
+        *codex_args,
+    ]
+
+
 def engine_command(engine: str, role: str, repo: Path, isolation_root: Path, model: str, thinking: str) -> tuple[list[str], Path]:
     context_builder = role == "context-builder"
     if engine == "pi":
@@ -444,8 +507,10 @@ def engine_command(engine: str, role: str, repo: Path, isolation_root: Path, mod
         return args, repo if context_builder else isolation_root
     if engine == "codex":
         if not context_builder:
+            if nono_command := nono_codex_command(model, thinking):
+                return nono_command, isolation_root
             return static_codex_command(model, thinking), isolation_root
-        args = ["codex", "--ask-for-approval", "never", "--model", model]
+        args = ["codex", "--model", model]
         if thinking:
             args.extend(["-c", f'model_reasoning_effort="{thinking}"'])
         args.extend(["exec", "--ephemeral", "-C", str(repo), "-s", "read-only", "-"])
@@ -526,7 +591,16 @@ def run_reviewer(
     return ReviewerResult(reviewer_id, title, status, stdout, stderr)
 
 
-def render_summary(args: argparse.Namespace, mode: str, engine: str, model: str, thinking: str, results: list[ReviewerResult]) -> int:
+def render_summary(
+    args: argparse.Namespace,
+    mode: str,
+    engine: str,
+    model: str,
+    thinking: str,
+    results: list[ReviewerResult],
+    *,
+    orchestrator: str = "helper",
+) -> int:
     successes = sum(result.status == "success" for result in results)
     overall = "failed" if successes == 0 else "partial_failure" if successes < len(results) else "success"
     print("# Review Summary\n")
@@ -536,8 +610,9 @@ def render_summary(args: argparse.Namespace, mode: str, engine: str, model: str,
     print(f"thinking: {thinking or 'none'}")
     print(f"timeout_sec: {args.timeout_sec}")
     print(f"mode: {mode}")
+    print(f"orchestrator: {orchestrator}")
     print("context_builder: success")
-    print("reviewer_isolation: bundle_only")
+    print(f"reviewer_isolation: {'isolated_bundle_workspace' if orchestrator == 'herdr' else 'bundle_only'}")
     print(f"failure_stderr: {'shown' if args.show_failure_stderr else 'suppressed'}\n")
     print("| Reviewer | Status |")
     print("| --- | --- |")
@@ -566,29 +641,151 @@ def render_summary(args: argparse.Namespace, mode: str, engine: str, model: str,
     return 1 if successes == 0 else 0
 
 
+def prepare_herdr_review(
+    mode: str,
+    engine: str,
+    model: str,
+    thinking: str,
+    timeout: int,
+    prompts: dict[str, str],
+) -> dict[str, object]:
+    run_dir = Path(tempfile.mkdtemp(prefix="review-diff-code-herdr-"))
+    reviewers: list[dict[str, str]] = []
+    titles = dict(REVIEWERS)
+    for reviewer_id, _ in REVIEWERS:
+        workspace = run_dir / reviewer_id
+        workspace.mkdir()
+        (workspace / "prompt.md").write_text(prompts[reviewer_id])
+        (workspace / "task.md").write_text(
+            "Read prompt.md and review only the supplied bundle. Do not inspect other directories.\n"
+            "Write only the final reviewer output to result.md. Use either `No actionable findings.` "
+            "or the finding format required by prompt.md. Then reply exactly REVIEW_COMPLETE.\n"
+        )
+        reviewers.append({
+            "id": reviewer_id,
+            "title": titles[reviewer_id],
+            "cwd": str(workspace),
+            "task": str(workspace / "task.md"),
+            "result": str(workspace / "result.md"),
+        })
+    manifest: dict[str, object] = {
+        "status": "prepared",
+        "orchestrator": "herdr",
+        "run_dir": str(run_dir),
+        "mode": mode,
+        "engine": engine,
+        "model": model,
+        "thinking": thinking,
+        "timeout_sec": timeout,
+        "reviewers": reviewers,
+    }
+    (run_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+    return manifest
+
+
+def collect_herdr_review(args: argparse.Namespace) -> int:
+    run_dir = args.collect.resolve(strict=True)
+    manifest_path = run_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get("status") != "prepared" or manifest.get("orchestrator") != "herdr":
+        raise RuntimeError("invalid Herdr review manifest")
+    try:
+        manifest_run_dir = Path(manifest["run_dir"]).resolve(strict=True)
+    except (KeyError, TypeError, OSError) as error:
+        raise RuntimeError("invalid Herdr review manifest run directory") from error
+    if manifest_run_dir != run_dir:
+        raise RuntimeError("invalid Herdr review manifest run directory")
+    reviewers = manifest.get("reviewers")
+    expected_titles = dict(REVIEWERS)
+    if (
+        not isinstance(reviewers, list)
+        or len(reviewers) != len(REVIEWERS)
+        or not all(isinstance(item, dict) for item in reviewers)
+    ):
+        raise RuntimeError("Herdr review manifest does not contain the required reviewers")
+    reviewers_by_id = {item.get("id"): item for item in reviewers}
+    if len(reviewers_by_id) != len(REVIEWERS) or set(reviewers_by_id) != set(expected_titles):
+        raise RuntimeError("Herdr review manifest does not contain the required reviewers")
+    results: list[ReviewerResult] = []
+    for reviewer_id, title in REVIEWERS:
+        item = reviewers_by_id[reviewer_id]
+        if set(item) != {"id", "title", "cwd", "task", "result"} or item["title"] != title:
+            raise RuntimeError(f"invalid Herdr reviewer workspace: {reviewer_id}")
+        workspace_path = Path(item["cwd"])
+        task_path = Path(item["task"])
+        result_path = Path(item["result"])
+        expected_workspace = run_dir / reviewer_id
+        expected_task = expected_workspace / "task.md"
+        expected_result = expected_workspace / "result.md"
+        if (
+            workspace_path.is_symlink()
+            or workspace_path.resolve(strict=True) != expected_workspace.resolve(strict=True)
+            or task_path.is_symlink()
+            or task_path.resolve(strict=True) != expected_task.resolve(strict=True)
+            or result_path.parent.resolve(strict=True) != expected_workspace.resolve(strict=True)
+            or result_path.name != expected_result.name
+            or result_path.is_symlink()
+        ):
+            raise RuntimeError(f"invalid Herdr reviewer workspace: {reviewer_id}")
+        if result_path.exists() and not result_path.is_file():
+            raise RuntimeError(f"invalid Herdr reviewer result: {reviewer_id}")
+        try:
+            stdout = expected_result.read_text()
+        except FileNotFoundError:
+            results.append(ReviewerResult(reviewer_id, title, "failed(missing_result)", "", ""))
+            continue
+        results.append(ReviewerResult(
+            reviewer_id,
+            title,
+            validate_output(stdout),
+            stdout,
+            "",
+        ))
+    return render_summary(
+        args,
+        manifest["mode"],
+        manifest["engine"],
+        manifest["model"],
+        manifest["thinking"],
+        results,
+        orchestrator="herdr",
+    )
+
+
 def main() -> int:
     args = parse_args()
     try:
+        if args.collect:
+            return collect_herdr_review(args)
         repo = repository_root()
-        engine = select_engine(args.engine)
-        model, thinking = engine_settings(engine, args.model, args.thinking)
         mode, raw_bundle, changed_files, resolved_base = create_raw_bundle(repo, args.mode, args.base, args.commit)
         with tempfile.TemporaryDirectory(prefix="review-diff-code-") as directory:
             isolation_root = Path(directory) / "reviewer-root"
             isolation_root.mkdir()
             builder_prompt = build_context_builder_prompt(changed_files, raw_bundle)
-            builder_command, builder_cwd = engine_command(
-                engine, "context-builder", repo, isolation_root, model, thinking
-            )
-            returncode, stdout, stderr, timed_out = execute(
-                builder_command, builder_cwd, builder_prompt, args.timeout_sec
-            )
-            if timed_out:
-                raise RuntimeError("context builder timed out")
-            if returncode != 0:
-                detail = stderr.strip() if args.show_failure_stderr else f"exit {returncode}"
-                raise RuntimeError(f"context builder failed: {detail}")
-            context = parse_context_builder_output(stdout, changed_files, repo)
+            builder_failures: list[str] = []
+            for engine in engine_candidates(args.engine):
+                model, thinking = engine_settings(engine, args.model, args.thinking)
+                try:
+                    builder_command, builder_cwd = engine_command(
+                        engine, "context-builder", repo, isolation_root, model, thinking
+                    )
+                    returncode, stdout, stderr, timed_out = execute(
+                        builder_command, builder_cwd, builder_prompt, args.timeout_sec
+                    )
+                    if timed_out:
+                        raise RuntimeError("timed out")
+                    if returncode != 0:
+                        detail = stderr.strip() if args.show_failure_stderr and stderr.strip() else f"exit {returncode}"
+                        raise RuntimeError(detail)
+                    context = parse_context_builder_output(stdout, changed_files, repo)
+                    break
+                except Exception as error:
+                    builder_failures.append(f"{engine}: {error}")
+                    if args.engine != "auto":
+                        raise RuntimeError(f"context builder failed: {error}") from error
+            else:
+                raise RuntimeError("context builder failed for all auto engines: " + "; ".join(builder_failures))
             implementation_bundle = create_implementation_bundle(
                 repo,
                 mode,
@@ -608,6 +805,12 @@ def main() -> int:
                 reviewer_id: build_prompt(reviewer_id, implementation_bundle, impact_context)
                 for reviewer_id, title in REVIEWERS
             }
+            if os.getenv("HERDR_ENV") == "1":
+                manifest = prepare_herdr_review(mode, engine, model, thinking, args.timeout_sec, prompts)
+                print(json.dumps(manifest, ensure_ascii=False, indent=2))
+                return 0
+            for reviewer_id, _ in REVIEWERS:
+                (isolation_root / reviewer_id).mkdir()
             with ThreadPoolExecutor(max_workers=len(REVIEWERS)) as executor:
                 futures = [
                     executor.submit(
@@ -615,7 +818,7 @@ def main() -> int:
                         reviewer_id,
                         title,
                         repo,
-                        isolation_root,
+                        isolation_root / reviewer_id,
                         prompts[reviewer_id],
                         engine,
                         model,

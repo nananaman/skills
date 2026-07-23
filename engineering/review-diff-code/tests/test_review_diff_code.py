@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -9,10 +10,12 @@ import unittest
 
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
+SKILL = SKILL_DIR / "SKILL.md"
 HELPER = SKILL_DIR / "scripts" / "review-diff-code.py"
 LEGACY_HELPER = SKILL_DIR / "scripts" / "review-diff-code"
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
 CONTEXT_BUILDER_PROMPT = SKILL_DIR / "assets" / "context-builder.md"
+REVIEWER_IDS = {"behavioral-safety", "design-quality", "adversarial"}
 
 
 FAKE_ENGINE = r"""#!/usr/bin/env python3
@@ -150,6 +153,7 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
 
     def _run(self, *args: str, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
+        env.pop("HERDR_ENV", None)
         env.update(
             {
                 "PATH": f"{self.bin}:{env['PATH']}",
@@ -167,6 +171,14 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
             check=False,
         )
 
+    def _prepare_herdr_review(self) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
+        result = self._run(
+            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
+            extra_env={"HERDR_ENV": "1", "TMPDIR": str(self.root)},
+        )
+        manifest = json.loads(result.stdout) if result.returncode == 0 else {}
+        return result, manifest
+
     def _captured_prompt(self, title: str) -> Path:
         matches = list(self.capture.glob(f"{title.replace(' ', '_')}.*.prompt"))
         self.assertEqual(len(matches), 1)
@@ -176,6 +188,53 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         self.assertTrue(HELPER.is_file())
         self.assertTrue(os.access(HELPER, os.X_OK))
         self.assertFalse(LEGACY_HELPER.exists())
+
+    def test_skill_routes_semantic_closeout_changes_without_excluding_normal_fixes(self) -> None:
+        # Arrange & Act: metadata is the public discovery contract for model invocation.
+        description = next(
+            line.removeprefix("description: ")
+            for line in SKILL.read_text().splitlines()
+            if line.startswith("description: ")
+        )
+
+        # Assert: semantic implementation surfaces route to review, with only non-semantic diffs skippable.
+        for trigger in ("コード", "設定", "テスト", "schema", "依存関係", "agent指示", "closeout review"):
+            self.assertIn(trigger, description)
+        for skippable in ("コメント", "誤字", "空白", "formatter"):
+            self.assertIn(skippable, description)
+        self.assertNotIn("通常実装、修正だけの依頼では使わない", description)
+
+    def test_skill_routes_every_herdr_session_to_visible_reviewer_panes(self) -> None:
+        # Arrange & Act: the body is the orchestration contract followed by the main agent.
+        skill = SKILL.read_text()
+
+        # Assert: Herdr is unconditional, non-focusing, and collected through the helper protocol.
+        self.assertIn("`HERDR_ENV=1`なら、無条件にHerdr branchへ進む", skill)
+        self.assertIn("--no-focus", skill)
+        self.assertIn("--collect <run_dir>", skill)
+        self.assertIn("preflight失敗時は他engineへfallbackせず停止", skill)
+
+    def test_skill_uses_and_closes_a_dedicated_review_tab(self) -> None:
+        # Arrange & Act: the skill body is the public Herdr layout and cleanup contract.
+        skill = SKILL.read_text()
+
+        # Assert: review panes never shrink the main tab and only the run-owned tab is closed.
+        self.assertIn("herdr tab create", skill)
+        self.assertIn("review専用tab", skill)
+        self.assertIn("herdr tab close <review-tab-id>", skill)
+        self.assertIn("既存tabをcloseしない", skill)
+        self.assertIn("review専用tab作成後の全失敗", skill)
+        self.assertIn("作成成功して保存済みのpane IDだけ", skill)
+        self.assertIn("現在のpane ID集合と保存済みpane ID集合が完全一致", skill)
+
+    def test_skill_collects_missing_herdr_results_before_cleanup(self) -> None:
+        # Arrange & Act: the skill body defines how incomplete reviewer output is finalized.
+        skill = SKILL.read_text()
+
+        # Assert: missing files become reviewer statuses instead of bypassing collection.
+        self.assertIn("result.md`の有無にかかわらず", skill)
+        self.assertIn("failed(missing_result)", skill)
+        self.assertIn("status化してからcleanup", skill)
 
     def test_panel_option_is_not_part_of_the_public_interface(self) -> None:
         result = self._run("--panel", "legacy")
@@ -195,16 +254,89 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         self.assertEqual(len(list(self.capture.glob("*.prompt"))), 4)
         builder = self._captured_prompt("Context Builder")
         builder_stem = str(builder).removesuffix(".prompt")
-        self.assertEqual(Path(builder_stem + ".cwd").read_text().strip(), str(self.repo))
+        self.assertEqual(
+            Path(Path(builder_stem + ".cwd").read_text().strip()).resolve(),
+            self.repo.resolve(),
+        )
         self.assertIn("read,grep,find,ls", Path(builder_stem + ".args").read_text())
         for title in ("Behavioral Safety", "Design Quality", "Adversarial"):
             reviewer = self._captured_prompt(title)
             stem = str(reviewer).removesuffix(".prompt")
             self.assertNotEqual(Path(stem + ".cwd").read_text().strip(), str(self.repo))
             self.assertNotIn("read,grep,find,ls", Path(stem + ".args").read_text())
+        reviewer_cwds = {
+            self._captured_prompt(title).with_suffix(".cwd").read_text().strip()
+            for title in ("Behavioral Safety", "Design Quality", "Adversarial")
+        }
+        self.assertEqual(len(reviewer_cwds), 3)
         self.assertIn("RELATED_FILE_MARKER", self._captured_prompt("Behavioral Safety").read_text())
         self.assertIn("RELATED_FILE_MARKER", self._captured_prompt("Design Quality").read_text())
         self.assertNotIn("RELATED_FILE_MARKER", self._captured_prompt("Adversarial").read_text())
+
+    def test_herdr_environment_prepares_visible_review_without_starting_reviewers(self) -> None:
+        # Arrange & Act: Herdr routing is selected only from the public environment contract.
+        result, manifest = self._prepare_herdr_review()
+
+        # Assert: the helper hands reviewer startup to the main agent and materializes isolated workspaces.
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(manifest["status"], "prepared")
+        self.assertEqual(manifest["orchestrator"], "herdr")
+        self.assertEqual(len(list(self.capture.glob("*.prompt"))), 1)
+        reviewers = manifest["reviewers"]
+        self.assertEqual({reviewer["id"] for reviewer in reviewers}, REVIEWER_IDS)
+        for reviewer in reviewers:
+            workspace = Path(reviewer["cwd"])
+            self.assertTrue((workspace / "prompt.md").is_file())
+            self.assertTrue((workspace / "task.md").is_file())
+            self.assertEqual(Path(reviewer["result"]), workspace / "result.md")
+
+    def test_collect_validates_results_written_by_herdr_reviewers(self) -> None:
+        # Arrange: prepare a run and emulate the three visible reviewer panes completing successfully.
+        prepare_result, manifest = self._prepare_herdr_review()
+        self.assertEqual(prepare_result.returncode, 0, prepare_result.stderr)
+        for reviewer in manifest["reviewers"]:
+            Path(reviewer["result"]).write_text("No actionable findings.\n")
+
+        # Act: collect is a separate deterministic phase after pane orchestration.
+        result = self._run("--collect", manifest["run_dir"])
+
+        # Assert: collection preserves the existing reviewer protocol and summary contract.
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("overall_status: success", result.stdout)
+        self.assertIn("orchestrator: herdr", result.stdout)
+
+    def test_collect_does_not_report_clean_when_a_herdr_reviewer_is_incomplete(self) -> None:
+        # Arrange: only two of three panes have produced protocol-valid results.
+        prepare_result, manifest = self._prepare_herdr_review()
+        self.assertEqual(prepare_result.returncode, 0, prepare_result.stderr)
+        for reviewer in manifest["reviewers"][:2]:
+            Path(reviewer["result"]).write_text("No actionable findings.\n")
+
+        # Act
+        result = self._run("--collect", manifest["run_dir"])
+
+        # Assert: an incomplete visible review cannot become a clean gate.
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("overall_status: partial_failure", result.stdout)
+        self.assertIn("failed(missing_result)", result.stdout)
+
+    def test_collect_rejects_reused_workspace_for_multiple_herdr_reviewers(self) -> None:
+        # Arrange: point a second reviewer at the first reviewer's workspace and result.
+        prepare_result, manifest = self._prepare_herdr_review()
+        self.assertEqual(prepare_result.returncode, 0, prepare_result.stderr)
+        first, second = manifest["reviewers"][:2]
+        second["cwd"] = first["cwd"]
+        second["task"] = first["task"]
+        second["result"] = first["result"]
+        (Path(manifest["run_dir"]) / "manifest.json").write_text(json.dumps(manifest))
+        Path(first["result"]).write_text("No actionable findings.\n")
+
+        # Act
+        result = self._run("--collect", manifest["run_dir"])
+
+        # Assert: one output cannot satisfy multiple independent reviewer slots.
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid Herdr reviewer workspace", result.stderr)
 
     def test_issue_documents_are_routed_only_to_impact_reviewers(self) -> None:
         issue = self.repo / "docs" / "issues" / "001.md"
@@ -454,6 +586,108 @@ print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
         self.assertNotIn(str(self.repo), bwrap_args)
         self.assertIn("gpt-5.6-luna", bwrap_args)
         self.assertIn('model_reasoning_effort="medium"', bwrap_args)
+
+        builder = self._captured_prompt("Context Builder")
+        builder_args = Path(str(builder).removesuffix(".prompt") + ".args").read_text()
+        self.assertNotIn("--ask-for-approval", builder_args)
+
+    def test_nono_wrapped_codex_uses_fresh_bundle_only_sandbox_without_bwrap(self) -> None:
+        raw_bin = self.root / "raw-bin"
+        raw_bin.mkdir()
+        package_root = self.root / "codex-package"
+        launcher = package_root / "bin" / "codex.js"
+        launcher.parent.mkdir(parents=True)
+        launcher.write_text("#!/bin/sh\nexit 98\n")
+        launcher.chmod(0o755)
+        raw_codex = raw_bin / "codex"
+        raw_codex.symlink_to(launcher)
+        native_codex = package_root / "node_modules" / "@openai" / "codex-test" / "vendor" / "test-target" / "bin" / "codex"
+        native_codex.parent.mkdir(parents=True)
+        native_codex.write_text(textwrap.dedent(FAKE_ENGINE))
+        native_codex.chmod(0o755)
+        codex_home = self.root / "codex-home"
+        codex_home.mkdir()
+        (codex_home / "auth.json").write_text("{}\n")
+        self._write_executable(
+            "codex",
+            """#!/bin/sh
+exec nono run --silent --profile test-codex --allow-cwd -- codex "$@"
+""",
+        )
+        self._write_executable(
+            "nono",
+            """#!/usr/bin/env python3
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+capture = Path(os.environ["FAKE_CAPTURE_DIR"])
+(capture / "nono.args").write_text("\\n".join(sys.argv[1:]) + "\\n")
+separator = sys.argv.index("--")
+command = sys.argv[separator + 1:]
+command[0] = str(Path(os.environ["FAKE_RAW_CODEX"]))
+raise SystemExit(subprocess.run(command).returncode)
+""",
+        )
+
+        result = self._run(
+            "--engine", "codex", "--mode", "branch", "--base", "HEAD~1",
+            extra_env={
+                "FAKE_RAW_CODEX": str(native_codex),
+                "PATH": f"{self.bin}:{raw_bin}:{os.environ['PATH']}",
+                "CODEX_HOME": str(codex_home),
+                "NONO_CAP_FILE": "",
+            },
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        nono_args = (self.capture / "nono.args").read_text()
+        self.assertNotIn("--profile", nono_args)
+        self.assertIn(f"--allow-cwd\n--read-file\n{codex_home / 'auth.json'}\n--", nono_args)
+        self.assertIn(str(native_codex), nono_args)
+        self.assertNotIn(str(self.repo), nono_args)
+
+    def test_nested_nono_codex_review_fails_closed(self) -> None:
+        self._write_executable("codex", FAKE_ENGINE + "\n# nono run --profile test-codex --allow-cwd -- codex\n")
+        self._write_executable("nono", "#!/bin/sh\nexit 99\n")
+
+        result = self._run(
+            "--show-failure-stderr", "--engine", "codex", "--mode", "branch", "--base", "HEAD~1",
+            extra_env={"NONO_CAP_FILE": "/tmp/existing-capability.json"},
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cannot create bundle-only Codex isolation inside an existing nono sandbox", result.stdout)
+
+    def test_auto_engine_falls_back_when_context_builder_cannot_start(self) -> None:
+        self._write_executable(
+            "pi",
+            """#!/bin/sh
+echo 'pi authentication required' >&2
+exit 1
+""",
+        )
+        self._write_executable("codex", FAKE_ENGINE)
+        self._write_executable("bwrap", FAKE_BWRAP)
+        self._write_executable(
+            "file",
+            """#!/usr/bin/env python3
+import sys
+print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
+""",
+        )
+        codex_home = self.root / "codex-home"
+        codex_home.mkdir()
+        (codex_home / "auth.json").write_text("{}\n")
+
+        result = self._run(
+            "--engine", "auto", "--mode", "branch", "--base", "HEAD~1",
+            extra_env={"CODEX_HOME": str(codex_home)},
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("engine: codex", result.stdout)
 
     def test_claude_context_builder_gets_read_tools_and_reviewers_get_none(self) -> None:
         self._write_executable("claude", FAKE_ENGINE)
