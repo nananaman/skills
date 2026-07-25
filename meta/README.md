@@ -7,6 +7,7 @@ skill lifecycle は `skill-workbench` に集約し、APM 配布運用は別 skil
 
 - 新しい skill を作る、構造・routing・lifecycle を改善する、skill diff / 全体レビューを行う、または skill inventory を棚卸しする → [`skill-workbench`](./skill-workbench/SKILL.md)
 - APM の pin、install、dotfiles 連携を扱う → [`apm-usage`](./apm-usage/SKILL.md)
+- global / project-local APM dependency を最新の full SHA へ更新する → [`update-skills`](./update-skills/SKILL.md)
 - 試行錯誤で得た知見を ast-grep rule、skill、AGENTS.md rule へ固定する → [`retrospective-codify`](./retrospective-codify/SKILL.md)
 
 ## 典型フロー
@@ -24,4 +25,7 @@ skill lifecycle は `skill-workbench` に集約し、APM 配布運用は別 skil
   - Type: `user-invoked`
 - **[`retrospective-codify`](./retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
+  - Type: `user-invoked`
+- **[`update-skills`](./update-skills/SKILL.md)** — APM skill dependency を最新の full SHA へ更新する。
+  - Use when: apm.yml の pin drift、複数 skill の一括更新、source-of-truth と展開先の同期確認
   - Type: `user-invoked`
