@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: 機能追加、バグ修正、仕様変更、リファクタリングをテスト駆動で進めるとき、Red→Green→Refactor を public contract 単位で実行する。よほどの微修正でないコード変更では原則使う。文言・表示データ・translation table のみ、コメントのみ、テスト実行だけ、CI 失敗調査だけでは使わない。
+description: 実行コードのロジック、状態遷移、データ変換、API・型・schemaの処理規則を変更するとき、Red→Green→Refactor を public contract 単位で実行する。ユーザーの明示指定がない限り、宣言的データ、設定値、policy entry、skill、agent instruction、文書だけの変更では使わない。テスト実行だけ、CI 失敗調査だけでは使わない。
 ---
 
 # TDD
@@ -10,15 +10,13 @@ description: 機能追加、バグ修正、仕様変更、リファクタリン�
 
 ## When to use
 
-- 機能追加、バグ修正、仕様変更を行うとき。
-- リファクタリング前に既存の振る舞いを守れているか確認するとき。
+- 実行コードのロジック、状態遷移、データ変換、API・型・schemaの処理規則を変更するとき。
+- 実行コードのリファクタリング前に既存の振る舞いを守れているか確認するとき。
 - ユーザーが TDD、テスト駆動、test-first、red-green-refactor、失敗するテストからの実装を求めたとき。
-- よほどの微修正ではないコード変更を行うとき。
 
 使わない場面:
 
-- typo、コメント、README など runtime behavior が変わらない軽微変更。
-- 文言、表示データ、translation table のみの変更。
+- ユーザーがTDDを明示していない、宣言的データ、設定値、policy entry、skill、agent instruction、文書だけの変更。
 - テストコマンドを実行するだけのとき。
 - CI 失敗原因を調査するだけのとき。
 
@@ -26,9 +24,9 @@ TDD を適用しない場合は、実装前または報告時に理由を 1 文�
 
 例:
 
-- 文言・translation table のみで、type / state / route / formatting rule は変わらないため新規テストは追加しない。
+- allowlistへの項目追加だけで評価ロジックは変わらないため、validatorと代表的な境界確認に留める。
+- skill本文だけの変更で実行コードは変わらないため、skill reviewで検証する。
 - 既存 integration test が同じ public contract を既に守っているため、内部 helper の unit test は追加しない。
-- コメント修正のみで runtime behavior が変わらないため、テストは実行確認に留める。
 
 ## Principles
 
@@ -90,11 +88,11 @@ public contract を守れる最小のテストレベルを選ぶ。
 
 server / backend では、service / handler / usecase / repository などの public interface を通した integration-style test を優先する。既存の integration-style test が同じ contract を守っている場合、内部関数や private helper の unit test を重複追加しない。
 
-## Text and display-data changes
+## Declarative and agent-facing changes
 
-文言、表示データ、translation table のみの変更では、新規テストを原則追加しない。
-テストすべきなのは表示文字列そのものではなく、文字列を選ぶ元になる contract である。
-詳細な判断は `test-writing-style` の「表示文字列ではなく元の契約を検証する」に従う。
+ユーザーがTDDを明示していない場合、宣言的データ、設定値、policy entry、skill、agent instruction、文書だけの変更にはTDDを使わない。
+各値をテストへ写経せず、既存validator、schema検査、代表的な境界確認、または対象artifactのreview workflowで検証する。
+ただし、それらを解釈・評価する実装ロジックを変更する場合はTDDを使う。
 
 ## Refactoring
 

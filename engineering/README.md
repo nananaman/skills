@@ -13,7 +13,7 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 - Design Doc を設計判断・issue 分割へ進める文書に磨く → [`polish-design-doc`](./polish-design-doc/SKILL.md)
 - 実装前の issue draft を作る → [`draft-issue`](./draft-issue/SKILL.md)
 - issue を実装設計契約に磨く → [`polish-issue`](./polish-issue/SKILL.md)
-- よほどの微修正ではないコード変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
+- 実行コードのロジック・状態遷移・データ変換・処理規則の変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
 - diff / branch diff / PR diff を厳しめに見る → [`review-diff-code`](./review-diff-code/SKILL.md)
@@ -29,7 +29,7 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 2. 新機能・仕様変更は `draft-prd` → `polish-prd` で要求を固める。
 3. 技術改善・設計変更、または PRD 実現に設計判断が必要な変更は `draft-design-doc` → `polish-design-doc` で設計を固める。
 4. 実装作業単位は `draft-issue` → `polish-issue` で実装設計契約にする。
-5. よほどの微修正でない変更は、`tdd` で RED → GREEN → Refactor の順に進める。
+5. 実行コードのロジック・状態遷移・データ変換・処理規則を変更するときは、`tdd` で RED → GREEN → Refactor の順に進める。
 6. テストを書くときは、`test-writing-style` で既存テスト文化と読みやすさを揃える。
 7. 実装後、`review-diff-code` で差分を確認する。
 8. 指摘を直し、必要なテストや確認コマンドを実行する。
@@ -80,7 +80,7 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
   - Use when: 既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンド、kind 名・rule 例の確認
   - Type: `model-invoked`
 - **[`tdd`](./tdd/SKILL.md)** — Red → Green → Refactor を public contract 単位で実行する。
-  - Use when: 機能追加、バグ修正、仕様変更、リファクタリング、よほどの微修正ではないコード変更
+  - Use when: 実行コードのロジック・状態遷移・データ変換・API・型・schemaの処理規則の変更、または明示的なTDD依頼
   - Type: `model-invoked`
 - **[`test-writing-style`](./test-writing-style/SKILL.md)** — テストを仕様として読める検証に整える。
   - Use when: テストの新規追加・修正・レビュー、命名・AAA・1テスト1関心・mock/fake の整理

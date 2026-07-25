@@ -94,7 +94,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Use when: 既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンド、kind 名・rule 例の確認
   - Type: `model-invoked`
 - **[`tdd`](./engineering/tdd/SKILL.md)** — Red → Green → Refactor を public contract 単位で実行する。
-  - Use when: 機能追加、バグ修正、仕様変更、リファクタリング、よほどの微修正ではないコード変更
+  - Use when: 実行コードのロジック・状態遷移・データ変換・API・型・schemaの処理規則の変更、または明示的なTDD依頼
   - Type: `model-invoked`
 - **[`test-writing-style`](./engineering/test-writing-style/SKILL.md)** — テストを仕様として読める検証に整える。
   - Use when: テストの新規追加・修正・レビュー、命名・AAA・1テスト1関心・mock/fake の整理
@@ -111,8 +111,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
   - Use when: 新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
   - Type: `user-invoked`
-- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見や反復する approval を固定する。
-  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定、繰り返す permission prompt の最小権限 policy 化
+- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
+  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
   - Type: `user-invoked`
 
 ### Personal
