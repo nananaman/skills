@@ -69,5 +69,5 @@ Design Doc で扱うもの:
 リスク評価系の章は、`なし` / `特になし` / `影響なし` だけで終わらせない。
 考慮不要な場合も、なぜ不要かを書く。
 
-Design Doc が必要な場合は、issue 作成前に polished にする。
-issue polish 中に Design Doc の矛盾を見つけた場合は、issue を block し、先に Design Doc を更新する。
+Design Doc が必要な場合は、task 分解前に polished にする。
+task 分解または plan 作成中に Design Doc の矛盾を見つけた場合は作業を止め、先に Design Doc を更新する。

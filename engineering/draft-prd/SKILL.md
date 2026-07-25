@@ -26,7 +26,7 @@ PRD は価値・範囲・成功条件の判断文書である。
 `assets/prd-template.md` を記述内容と出力構造の source of truth とする。
 template の `TODO(draft)` は draft 作成時に処理する。
 `TODO(draft)` は仮置きではなく、調査・確認して確定する draft gate である。
-技術設計・実装方針・issue 分割には踏み込まない。
+技術設計・実装方針・task 分割には踏み込まない。
 
 ## Safety
 

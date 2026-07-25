@@ -1,12 +1,12 @@
 ---
 name: setup-engineering-flow
-description: リポジトリごとの engineering flow を初期設定する。issue tracker、PRD / Design Doc の配置、local markdown issue の採番、AGENTS.md / CLAUDE.md の参照 block を整える。draft-issue / polish-issue の初回利用前に user-invoked で実行する。通常の issue 作成・issue polish・実装・レビューでは使わない。
+description: リポジトリごとの engineering flow を初期設定する。issue tracker、PRD / Design Doc / ADR、temporary plan の配置、local markdown issue の採番、AGENTS.md / CLAUDE.md の参照 block を整える。task-breakdown / create-plan の初回利用前に user-invoked で実行する。通常の task 分解、plan 作成、実装、レビューでは使わない。
 disable-model-invocation: true
 ---
 
 # Setup Engineering Flow
 
-`draft-issue` と `polish-issue` が前提にする repo-local 設定を作る。
+`task-breakdown` と `create-plan` が前提にする repo-local 設定を作る。
 これは一度だけ実行する prompt-driven skill であり、deterministic script ではない。
 
 ## 目的
@@ -14,8 +14,9 @@ disable-model-invocation: true
 次を repo ごとの source of truth として記録する。
 
 - issue tracker: GitHub Issue / local markdown / other
-- PRD / Design Doc の置き場所
-- engineering flow: PRD → Design Doc? → draft issue → polish issue → implementation → review
+- PRD / Design Doc / ADR の置き場所
+- temporary plan の置き場所
+- engineering flow: PRD / Design Doc / ADR? → task breakdown → issue → create plan → implementation → review → plan closeout
 - local markdown issue の採番規則
 - agent が読む `AGENTS.md` / `CLAUDE.md` の参照 block
 
@@ -59,7 +60,8 @@ git status --short
 #### A. Issue tracker
 
 説明: issue tracker は実装作業単位を管理する場所である。
-`draft-issue` と `polish-issue` はここを読んで issue を作成・更新する。
+`task-breakdown` はここを読んで task を作成する。
+`create-plan` はここを読んで対象 issue を取得する。
 
 選択肢:
 
@@ -70,9 +72,9 @@ git status --short
 GitHub remote がある場合は GitHub を提案する。
 `docs/issues/` または `issues/` がある場合は local markdown も有力候補として示す。
 
-#### B. PRD / Design Doc location
+#### B. PRD / Design Doc / ADR location
 
-説明: PRD は「なぜ・何を・どこまで」を固定する文書で、Design Doc は「どう設計するか」を固定する文書である。
+説明: PRD は「なぜ・何を・どこまで」を固定する文書で、Design Doc / ADR は複数 task や将来から参照する設計判断を固定する文書である。
 Design Doc には必要に応じて Glossary / Domain Model を含める。
 
 デフォルト:
@@ -80,11 +82,24 @@ Design Doc には必要に応じて Glossary / Domain Model を含める。
 ```text
 docs/prd/
 docs/design/
+docs/adr/
 ```
 
 ただし GitHub Issue / Discussion / Wiki / other location も許可する。
 
-#### C. Local markdown issue convention
+#### C. Temporary plan location
+
+説明: plan は担当者が issue を取得した後に作る、一度も commit しない一時的な implementation design contract である。
+デフォルト:
+
+```text
+plans/
+```
+
+plan directory は `.gitignore` に追加しない。
+既存の plan directory や project 規則がある場合は、それを使うか確認する。
+
+#### D. Local markdown issue convention
 
 local markdown を使う場合だけ確認する。
 デフォルト:
@@ -103,7 +118,7 @@ SEQUENCE=42 -> 次は 0043 -> 作成後 SEQUENCE=43
 
 既存 `issues/SEQUENCE` がある場合は、その場所を使うか `docs/issues/` に移行するか確認する。
 
-#### D. AGENTS.md / CLAUDE.md update
+#### E. AGENTS.md / CLAUDE.md update
 
 説明: repo-local rule を agent が毎回発見できるように、`AGENTS.md` または `CLAUDE.md` に参照 block を置く。
 
@@ -163,7 +178,7 @@ This repository uses repo-local engineering flow settings.
 - Issue tracker: `docs/agents/issue-tracker.md`
 - Domain and design docs: `docs/agents/domain.md`
 
-Before implementation, use a polished issue as the implementation design contract unless the flow explicitly allows skipping it.
+After taking a task, create a temporary implementation plan according to the flow. Never commit the plan file; preserve its contents in the designated commit message and delete the file after implementation review.
 <!-- END engineering-flow -->
 ```
 
@@ -173,6 +188,7 @@ Before implementation, use a polished issue as the implementation design contrac
 
 - 作成・更新したファイル
 - issue tracker の種類
-- PRD / Design Doc の location
+- PRD / Design Doc / ADR の location
+- temporary plan の location
 - local markdown issue の sequence 規則（該当時）
-- 次に使うべき skill: `draft-issue` または `polish-issue`
+- 次に使うべき skill: `task-breakdown` または `create-plan`

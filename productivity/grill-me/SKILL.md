@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: 計画や設計を着手前に grill したいとユーザーが明示したときに使う。通常の PRD polish、Design Doc polish、issue polish の内部手順では grilling を直接使う。
+description: 計画や設計を着手前に grill したいとユーザーが明示したときに使う。通常の PRD polish、Design Doc polish、create-plan の内部手順では grilling を直接使う。
 disable-model-invocation: true
 ---
 

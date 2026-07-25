@@ -57,6 +57,26 @@ format-only change や generated file の大規模差分は、可能なら実質
 subject だけで意図や影響が伝わらない場合は body を書く。
 body では「何を変えたか」よりも「なぜそうしたか」を優先する。
 
+repo-local engineering flow が temporary plan を使う場合は、その規則を通常の commit body より優先する。
+
+- 通常は実装・検証・review・修正が終わるまで commit しない。
+- 対象 plan の原文を次の marker 内へ入れる。
+- plan file が commit 対象にも過去の commit にも含まれていないことを確認する。
+- marker 内と plan file が一致することを確認してから plan file を削除する。
+- plan file の削除後、今回の変更だけを stage して commit する。
+
+```text
+Implementation-Plan:
+
+<plan 原文>
+
+End-Implementation-Plan
+```
+
+途中 commit が必要な場合は最初の commit body に plan を入れる。
+この場合は実装・検証・review が終わるまで plan file を保持し、最後の commit 前に削除する。
+plan が複数ある、対象が判断できない、marker が既存 commit にないのに plan file だけ削除されている場合は commit せず確認する。
+
 ## Branch Naming
 
 project に明文化された branch 命名規則がある場合はそれに従う。

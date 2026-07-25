@@ -1,112 +1,98 @@
 # Engineering Flow
 
-このリポジトリでは、実装前の不確実性を減らすために次の engineering flow を使う。
+このリポジトリでは、共有する設計判断と、個別実装でだけ使う plan を分離する。
 
 ## 基本フロー
 
-新機能・仕様変更:
-
 ```text
-draft-prd
-  -> polish-prd
-  -> draft-design-doc? / polish-design-doc?（大きい変更・後戻りしにくい変更では必須）
-  -> draft-issue
-  -> polish-issue
+PRD? / Design Doc? / ADR?
+  -> task-breakdown
+  -> issue tracker
+  -> create-plan <issue>
   -> implementation
+  -> verification
   -> review
+  -> commit
+  -> create-pr?
 ```
 
-技術改善・設計変更:
+要求判断が必要な新機能・仕様変更では、task 分解前に PRD を polished にする。
+複数 task が共有する設計判断や、後から参照すべき判断は、task 分解前に Design Doc または ADR として合意・永続化する。
+小バグ、小リファクタ、軽微な文書・設定変更では、上流文書や task 分解を省略して既存 issue またはユーザー説明から `create-plan` へ進んでよい。
 
-```text
-draft-design-doc? / polish-design-doc?
-  -> draft-issue
-  -> polish-issue
-  -> implementation
-  -> review
-```
+## 永続文書の責務
 
-小バグ・小リファクタ:
+PRD は「なぜ・何を・どこまで」を判断する。
+Design Doc / ADR は、複数 task や将来の変更から参照する技術的な意思決定を残す。
+実装時だけ必要な調査結果や作業方針を永続文書へ混ぜない。
 
-```text
-draft-issue
-  -> polish-issue
-  -> implementation
-  -> review
-```
+## Task の責務
 
-軽微な文書・設定変更では、理由が明らかな場合に限り issue flow を省略してよい。
+issue tracker の task は、人が共有し、担当者が取得できる作業単位である。
 
-## PRD の責務
+task には次を含める。
 
-PRD は、新機能・仕様変更の要求判断文書である。
-作る価値・範囲・成功条件を人間が判断できる状態にする。
-
-PRD で扱うもの:
-
-- 概要とゴール
-- やらないこと
-- 対象ユーザー / 利用者
-- なぜ作るか
-- 作るもの
-  - 機能概要
-  - 主要な振る舞い
-  - 受け入れ条件
-- 成功条件
-
-PRD は実装計画にしない。
-要求に関する TODO は、PRD を polished とする前に解消する。
-
-## Design Doc の責務
-
-Design Doc は、技術・設計上の問題を解くための設計判断文書である。
-
-入口は二つある。
-
-1. 技術・設計上の問題から直接始める場合
-   - CI 改善、build 改善、architecture 改善、module 分割、migration strategy など
-2. PRD の要求を実現するために必要になる場合
-   - API / DB / 状態設計 / 移行 / セキュリティ / 信頼性などの設計判断が必要な変更
-
-Design Doc は、新機能・仕様変更の「何を作るか」「なぜ作るか」「成功条件」を決める文書ではない。
-要求の価値・範囲・成功条件を決める必要がある場合は、先に PRD を作る。
-
-Design Doc は次の場合に必須である。
-
-- 複数 issue に分割される
-- API / DB / 状態設計 / 互換性 / 移行に影響する
-- migration / rollout planning が必要
-- 失敗したときの手戻りが大きい、または設計リスクが高い
-- 用語、domain model、状態、不変条件、business rule の整理が必要
-
-Design Doc が必要な場合は、issue 作成前に polished にする。
-issue polish 中に Design Doc の矛盾を見つけた場合は、issue を block し、先に Design Doc を更新する。
-
-## Polished issue gate
-
-実装は polished issue から開始する。
-Polished issue は implementation design contract であり、別 agent がその issue だけを読んで実装に入れる状態である。
-
-Polished issue には次を含める。
-
-- 目的と背景
-- 現状
-- 要求 / 仕様
-- やらないこと
-- 設計方針
-- 変更境界
-- 必要な PRD / Design Doc への参照と要約
-- 実装上の注意
-- テスト方針
+- 目的
+- 対象範囲 / 対象外
 - 完了条件
-- 実装に必要な未解決事項がないこと
+- 依存する task
+- 元になった要求・設計への参照
+- 必要な場合だけ、担当 component や変更してよい interface 境界
 
-## Review gate
+個別実装の詳細、変更ファイルごとの手順、局所的な実装方法は task に固定しない。
+合意済みの情報を複数 task へ分ける場合は `task-breakdown` を使い、分解案の確認後に設定済み tracker へ作成する。
 
-実装後の review では次を確認する。
+## Plan gate
+
+担当者が task を取得した後、`create-plan <issue>` で実装前の共有理解を作る。
+`create-plan` は関連文書とコードを調査し、`grilling` で重要な判断を一つずつ解消してから、repo 設定済みの plan directory に一時 plan を作る。
+
+plan directory:
+
+```text
+plans/
+```
+
+この directory は `.gitignore` に追加しない。
+
+plan の標準見出しは次とする。
+
+- 目的
+- 現状
+- 設計方針
+- 完了条件
+- スコープ外
+
+別セッションの coding agent が追加の設計判断なしに実装・検証できる状態を plan gate とする。
+plan は今回の実装だけで使う untracked file であり、永続的な Design Doc / ADR の代わりにしない。
+
+## Implementation and review gate
+
+実装中は plan を参照し、plan の完了条件に対応する自動テスト、静的検査、必要な実動作確認を行う。
+実装後は次を確認する。
 
 - diff の品質と regression risk
-- polished issue との整合性
-- `やらないこと` に反する scope creep がないこと
-- 参照された PRD / Design Doc との整合性
-- テスト方針が満たされていること
+- issue の scope と完了条件との整合性
+- plan の設計方針と完了条件との整合性
+- 上流の PRD / Design Doc / ADR との整合性
+- scope creep がないこと
+
+review と修正が終わるまで plan file を保持する。
+
+## Plan closeout
+
+plan file 自体は一度も commit しない。
+通常は実装・検証・review・修正後に一つの完成 commit を作る。
+commit body には plan 原文を次の marker 内へ入れ、plan file を削除してから commit する。
+
+```text
+Implementation-Plan:
+
+<plan 原文>
+
+End-Implementation-Plan
+```
+
+途中 commit が必要な場合は最初の commit body に plan を入れ、実装完了まで plan file を保持し、最後の commit 前に削除する。
+PR を作る場合は commit body から plan 原文を抽出し、PR body の折りたたみへ同じ内容を転記する。
+これにより、直接 push では Git 履歴、squash merge では PR 履歴から実装時の plan を参照できる。

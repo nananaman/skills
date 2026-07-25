@@ -1,7 +1,7 @@
 # Engineering Skills
 
-コード作業、設計文書、issue 整理、レビュー、PR 作成に使う skill 群です。
-PRD、Design Doc、issue を draft から polish し、TDD による実装、テスト記述、実装後レビュー、レビューしやすい PR 作成までの導線を扱います。
+コード作業、設計文書、task 分解、一時 plan、レビュー、PR 作成に使う skill 群です。
+PRD、Design Doc、独立実行可能な task、実装用 plan、TDD による実装、テスト記述、実装後レビュー、レビューしやすい PR 作成までの導線を扱います。
 
 ## どの Skill を使うか
 
@@ -10,9 +10,9 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 - 新機能・仕様変更の PRD draft を作る → [`draft-prd`](./draft-prd/SKILL.md)
 - PRD を作る価値・範囲・成功条件を判断できる文書に磨く → [`polish-prd`](./polish-prd/SKILL.md)
 - 技術改善・設計変更の Design Doc draft を作る → [`draft-design-doc`](./draft-design-doc/SKILL.md)
-- Design Doc を設計判断・issue 分割へ進める文書に磨く → [`polish-design-doc`](./polish-design-doc/SKILL.md)
-- 実装前の issue draft を作る → [`draft-issue`](./draft-issue/SKILL.md)
-- issue を実装設計契約に磨く → [`polish-issue`](./polish-issue/SKILL.md)
+- Design Doc を設計判断・task 分割へ進める文書に磨く → [`polish-design-doc`](./polish-design-doc/SKILL.md)
+- 合意済みの要求・設計を独立実行可能な task 群へ分解する → [`task-breakdown`](./task-breakdown/SKILL.md)
+- issue を取得し、grill 後に一時的な実装 plan を作る → [`create-plan`](./create-plan/SKILL.md)
 - 実行コードのロジック・状態遷移・データ変換・処理規則の変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
@@ -25,15 +25,16 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 
 ## 典型フロー
 
-1. 初回は `setup-engineering-flow` で issue tracker、PRD、Design Doc の配置を記録する。
+1. 初回は `setup-engineering-flow` で issue tracker、PRD、Design Doc / ADR、一時 plan の配置を記録する。
 2. 新機能・仕様変更は `draft-prd` → `polish-prd` で要求を固める。
 3. 技術改善・設計変更、または PRD 実現に設計判断が必要な変更は `draft-design-doc` → `polish-design-doc` で設計を固める。
-4. 実装作業単位は `draft-issue` → `polish-issue` で実装設計契約にする。
-5. 実行コードのロジック・状態遷移・データ変換・処理規則を変更するときは、`tdd` で RED → GREEN → Refactor の順に進める。
-6. テストを書くときは、`test-writing-style` で既存テスト文化と読みやすさを揃える。
-7. 実装後、`review-diff-code` で差分を確認する。
-8. 指摘を直し、必要なテストや確認コマンドを実行する。
-9. `create-pr` で diff・commit・テスト状況を整理した draft PR を作る。
+4. 合意済みの要求・設計は `task-breakdown` で独立実行可能な issue 群へ分ける。
+5. issue を取得したら `create-plan` で grill と調査を行い、untracked の一時 plan を作る。
+6. 実行コードのロジック・状態遷移・データ変換・処理規則を変更するときは、`tdd` で RED → GREEN → Refactor の順に進める。
+7. テストを書くときは、`test-writing-style` で既存テスト文化と読みやすさを揃える。
+8. 実装後、plan を保持したまま `review-diff-code` で差分を確認する。
+9. review 後、plan 原文を commit body に保存して plan file を削除する。
+10. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
 
 ## Skill 一覧
 
@@ -41,7 +42,7 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
   - Use when: Web・mobile/native の UI 比較、状態遷移・データ構造・API の操作検証
   - Type: `model-invoked`
 - **[`setup-engineering-flow`](./setup-engineering-flow/SKILL.md)** — リポジトリごとの engineering flow を初期設定する。
-  - Use when: issue tracker、PRD / Design Doc 配置、local markdown issue 採番、AGENTS.md / CLAUDE.md 参照 block の設定
+  - Use when: issue tracker、PRD / Design Doc / ADR、一時 plan 配置、local markdown issue 採番、AGENTS.md / CLAUDE.md 参照 block の設定
   - Type: `user-invoked`
 - **[`draft-prd`](./draft-prd/SKILL.md)** — 新機能・仕様変更の PRD draft を作成する。
   - Use when: 一言アイデア、メモ、会話ログ、既存 issue から PRD の仮説と TODO(polish) を置く
@@ -52,15 +53,15 @@ PRD、Design Doc、issue を draft から polish し、TDD による実装、テ
 - **[`draft-design-doc`](./draft-design-doc/SKILL.md)** — 技術改善・設計変更の Design Doc draft を作成する。
   - Use when: 技術・設計上の問題、PRD 実現に必要な設計判断、複数案の比較検討
   - Type: `model-invoked`
-- **[`polish-design-doc`](./polish-design-doc/SKILL.md)** — Design Doc draft を設計判断と issue 分割へ進める文書へ磨く。
-  - Use when: 採用案の決定、詳細設計、リスク評価、検討した案、issue 分割前の設計 gate
+- **[`polish-design-doc`](./polish-design-doc/SKILL.md)** — Design Doc draft を設計判断と task 分割へ進める文書へ磨く。
+  - Use when: 採用案の決定、詳細設計、リスク評価、検討した案、task 分割前の設計 gate
   - Type: `model-invoked`
-- **[`draft-issue`](./draft-issue/SKILL.md)** — 実装前の issue draft を作成する。
-  - Use when: polished PRD / Design Doc またはユーザー説明から、仮説と TODO(polish) 付き issue を作る
-  - Type: `model-invoked`
-- **[`polish-issue`](./polish-issue/SKILL.md)** — issue を実装設計契約に磨く。
-  - Use when: issue だけで実装に入れるように、目的、現状、設計方針、変更対象、テスト方針、完了条件を詰める
-  - Type: `model-invoked`
+- **[`task-breakdown`](./task-breakdown/SKILL.md)** — 合意済みの情報を独立実行可能な task 群へ分解する。
+  - Use when: Design Doc、ADR、PRD、会話上の合意、ユーザー説明から tracker 用 task を設計・作成
+  - Type: `user-invoked`
+- **[`create-plan`](./create-plan/SKILL.md)** — issue を取得した後、grill と調査を経て一時的な実装 plan を作成する。
+  - Use when: `create-plan <issue>`、個別 task の実装前設計、`plans/<task>-<slug>.md` の作成
+  - Type: `user-invoked`
 - **[`create-pr`](./create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`
