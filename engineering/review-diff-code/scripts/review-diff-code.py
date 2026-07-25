@@ -51,7 +51,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--thinking", default="", help="Override thinking level when supported")
     parser.add_argument("--timeout-sec", type=positive_int, default=600)
     parser.add_argument("--show-failure-stderr", action="store_true", help="Show raw failed-reviewer stderr; it may repeat bundle data")
-    parser.add_argument("--collect", type=Path, help="Collect reviewer result files from a prepared Herdr run")
     help_requested = any(argument in ("-h", "--help") for argument in sys.argv[1:])
     timeout_overridden = any(
         argument == "--timeout-sec" or argument.startswith("--timeout-sec=")
@@ -598,8 +597,6 @@ def render_summary(
     model: str,
     thinking: str,
     results: list[ReviewerResult],
-    *,
-    orchestrator: str = "helper",
 ) -> int:
     successes = sum(result.status == "success" for result in results)
     overall = "failed" if successes == 0 else "partial_failure" if successes < len(results) else "success"
@@ -610,9 +607,9 @@ def render_summary(
     print(f"thinking: {thinking or 'none'}")
     print(f"timeout_sec: {args.timeout_sec}")
     print(f"mode: {mode}")
-    print(f"orchestrator: {orchestrator}")
+    print("orchestrator: helper")
     print("context_builder: success")
-    print(f"reviewer_isolation: {'isolated_bundle_workspace' if orchestrator == 'herdr' else 'bundle_only'}")
+    print("reviewer_isolation: bundle_only")
     print(f"failure_stderr: {'shown' if args.show_failure_stderr else 'suppressed'}\n")
     print("| Reviewer | Status |")
     print("| --- | --- |")
@@ -641,122 +638,9 @@ def render_summary(
     return 1 if successes == 0 else 0
 
 
-def prepare_herdr_review(
-    mode: str,
-    engine: str,
-    model: str,
-    thinking: str,
-    timeout: int,
-    prompts: dict[str, str],
-) -> dict[str, object]:
-    run_dir = Path(tempfile.mkdtemp(prefix="review-diff-code-herdr-"))
-    reviewers: list[dict[str, str]] = []
-    titles = dict(REVIEWERS)
-    for reviewer_id, _ in REVIEWERS:
-        workspace = run_dir / reviewer_id
-        workspace.mkdir()
-        (workspace / "prompt.md").write_text(prompts[reviewer_id])
-        (workspace / "task.md").write_text(
-            "Read prompt.md and review only the supplied bundle. Do not inspect other directories.\n"
-            "Write only the final reviewer output to result.md. Use either `No actionable findings.` "
-            "or the finding format required by prompt.md. Then reply exactly REVIEW_COMPLETE.\n"
-        )
-        reviewers.append({
-            "id": reviewer_id,
-            "title": titles[reviewer_id],
-            "cwd": str(workspace),
-            "task": str(workspace / "task.md"),
-            "result": str(workspace / "result.md"),
-        })
-    manifest: dict[str, object] = {
-        "status": "prepared",
-        "orchestrator": "herdr",
-        "run_dir": str(run_dir),
-        "mode": mode,
-        "engine": engine,
-        "model": model,
-        "thinking": thinking,
-        "timeout_sec": timeout,
-        "reviewers": reviewers,
-    }
-    (run_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-    return manifest
-
-
-def collect_herdr_review(args: argparse.Namespace) -> int:
-    run_dir = args.collect.resolve(strict=True)
-    manifest_path = run_dir / "manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    if manifest.get("status") != "prepared" or manifest.get("orchestrator") != "herdr":
-        raise RuntimeError("invalid Herdr review manifest")
-    try:
-        manifest_run_dir = Path(manifest["run_dir"]).resolve(strict=True)
-    except (KeyError, TypeError, OSError) as error:
-        raise RuntimeError("invalid Herdr review manifest run directory") from error
-    if manifest_run_dir != run_dir:
-        raise RuntimeError("invalid Herdr review manifest run directory")
-    reviewers = manifest.get("reviewers")
-    expected_titles = dict(REVIEWERS)
-    if (
-        not isinstance(reviewers, list)
-        or len(reviewers) != len(REVIEWERS)
-        or not all(isinstance(item, dict) for item in reviewers)
-    ):
-        raise RuntimeError("Herdr review manifest does not contain the required reviewers")
-    reviewers_by_id = {item.get("id"): item for item in reviewers}
-    if len(reviewers_by_id) != len(REVIEWERS) or set(reviewers_by_id) != set(expected_titles):
-        raise RuntimeError("Herdr review manifest does not contain the required reviewers")
-    results: list[ReviewerResult] = []
-    for reviewer_id, title in REVIEWERS:
-        item = reviewers_by_id[reviewer_id]
-        if set(item) != {"id", "title", "cwd", "task", "result"} or item["title"] != title:
-            raise RuntimeError(f"invalid Herdr reviewer workspace: {reviewer_id}")
-        workspace_path = Path(item["cwd"])
-        task_path = Path(item["task"])
-        result_path = Path(item["result"])
-        expected_workspace = run_dir / reviewer_id
-        expected_task = expected_workspace / "task.md"
-        expected_result = expected_workspace / "result.md"
-        if (
-            workspace_path.is_symlink()
-            or workspace_path.resolve(strict=True) != expected_workspace.resolve(strict=True)
-            or task_path.is_symlink()
-            or task_path.resolve(strict=True) != expected_task.resolve(strict=True)
-            or result_path.parent.resolve(strict=True) != expected_workspace.resolve(strict=True)
-            or result_path.name != expected_result.name
-            or result_path.is_symlink()
-        ):
-            raise RuntimeError(f"invalid Herdr reviewer workspace: {reviewer_id}")
-        if result_path.exists() and not result_path.is_file():
-            raise RuntimeError(f"invalid Herdr reviewer result: {reviewer_id}")
-        try:
-            stdout = expected_result.read_text()
-        except FileNotFoundError:
-            results.append(ReviewerResult(reviewer_id, title, "failed(missing_result)", "", ""))
-            continue
-        results.append(ReviewerResult(
-            reviewer_id,
-            title,
-            validate_output(stdout),
-            stdout,
-            "",
-        ))
-    return render_summary(
-        args,
-        manifest["mode"],
-        manifest["engine"],
-        manifest["model"],
-        manifest["thinking"],
-        results,
-        orchestrator="herdr",
-    )
-
-
 def main() -> int:
     args = parse_args()
     try:
-        if args.collect:
-            return collect_herdr_review(args)
         repo = repository_root()
         mode, raw_bundle, changed_files, resolved_base = create_raw_bundle(repo, args.mode, args.base, args.commit)
         with tempfile.TemporaryDirectory(prefix="review-diff-code-") as directory:
@@ -805,10 +689,6 @@ def main() -> int:
                 reviewer_id: build_prompt(reviewer_id, implementation_bundle, impact_context)
                 for reviewer_id, title in REVIEWERS
             }
-            if os.getenv("HERDR_ENV") == "1":
-                manifest = prepare_herdr_review(mode, engine, model, thinking, args.timeout_sec, prompts)
-                print(json.dumps(manifest, ensure_ascii=False, indent=2))
-                return 0
             for reviewer_id, _ in REVIEWERS:
                 (isolation_root / reviewer_id).mkdir()
             with ThreadPoolExecutor(max_workers=len(REVIEWERS)) as executor:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 import subprocess
@@ -171,14 +170,6 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
             check=False,
         )
 
-    def _prepare_herdr_review(self) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"HERDR_ENV": "1", "TMPDIR": str(self.root)},
-        )
-        manifest = json.loads(result.stdout) if result.returncode == 0 else {}
-        return result, manifest
-
     def _captured_prompt(self, title: str) -> Path:
         matches = list(self.capture.glob(f"{title.replace(' ', '_')}.*.prompt"))
         self.assertEqual(len(matches), 1)
@@ -204,37 +195,14 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
             self.assertIn(skippable, description)
         self.assertNotIn("通常実装、修正だけの依頼では使わない", description)
 
-    def test_skill_routes_every_herdr_session_to_visible_reviewer_panes(self) -> None:
-        # Arrange & Act: the body is the orchestration contract followed by the main agent.
+    def test_skill_has_one_review_orchestration_path_in_every_environment(self) -> None:
+        # Arrange & Act: the skill body is the public orchestration contract.
         skill = SKILL.read_text()
 
-        # Assert: Herdr is unconditional, non-focusing, and collected through the helper protocol.
-        self.assertIn("`HERDR_ENV=1`なら、無条件にHerdr branchへ進む", skill)
-        self.assertIn("--no-focus", skill)
-        self.assertIn("--collect <run_dir>", skill)
-        self.assertIn("preflight失敗時は他engineへfallbackせず停止", skill)
-
-    def test_skill_uses_and_closes_a_dedicated_review_tab(self) -> None:
-        # Arrange & Act: the skill body is the public Herdr layout and cleanup contract.
-        skill = SKILL.read_text()
-
-        # Assert: review panes never shrink the main tab and only the run-owned tab is closed.
-        self.assertIn("herdr tab create", skill)
-        self.assertIn("review専用tab", skill)
-        self.assertIn("herdr tab close <review-tab-id>", skill)
-        self.assertIn("既存tabをcloseしない", skill)
-        self.assertIn("review専用tab作成後の全失敗", skill)
-        self.assertIn("作成成功して保存済みのpane IDだけ", skill)
-        self.assertIn("現在のpane ID集合と保存済みpane ID集合が完全一致", skill)
-
-    def test_skill_collects_missing_herdr_results_before_cleanup(self) -> None:
-        # Arrange & Act: the skill body defines how incomplete reviewer output is finalized.
-        skill = SKILL.read_text()
-
-        # Assert: missing files become reviewer statuses instead of bypassing collection.
-        self.assertIn("result.md`の有無にかかわらず", skill)
-        self.assertIn("failed(missing_result)", skill)
-        self.assertIn("status化してからcleanup", skill)
+        # Assert: review execution belongs to the helper and has no terminal-specific branch.
+        self.assertIn("reviewer orchestration", skill)
+        for terminal_contract in ("HERDR_ENV", "Herdr", "herdr", "--collect", "review専用tab"):
+            self.assertNotIn(terminal_contract, skill)
 
     def test_panel_option_is_not_part_of_the_public_interface(self) -> None:
         result = self._run("--panel", "legacy")
@@ -273,70 +241,28 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         self.assertIn("RELATED_FILE_MARKER", self._captured_prompt("Design Quality").read_text())
         self.assertNotIn("RELATED_FILE_MARKER", self._captured_prompt("Adversarial").read_text())
 
-    def test_herdr_environment_prepares_visible_review_without_starting_reviewers(self) -> None:
-        # Arrange & Act: Herdr routing is selected only from the public environment contract.
-        result, manifest = self._prepare_herdr_review()
+    def test_herdr_environment_runs_the_standard_reviewers(self) -> None:
+        # Arrange & Act: a terminal environment marker is present during a normal review.
+        result = self._run(
+            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
+            extra_env={"HERDR_ENV": "1"},
+        )
 
-        # Assert: the helper hands reviewer startup to the main agent and materializes isolated workspaces.
+        # Assert: terminal state does not change helper orchestration or reviewer isolation.
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(manifest["status"], "prepared")
-        self.assertEqual(manifest["orchestrator"], "herdr")
-        self.assertEqual(len(list(self.capture.glob("*.prompt"))), 1)
-        reviewers = manifest["reviewers"]
-        self.assertEqual({reviewer["id"] for reviewer in reviewers}, REVIEWER_IDS)
-        for reviewer in reviewers:
-            workspace = Path(reviewer["cwd"])
-            self.assertTrue((workspace / "prompt.md").is_file())
-            self.assertTrue((workspace / "task.md").is_file())
-            self.assertEqual(Path(reviewer["result"]), workspace / "result.md")
+        self.assertIn("orchestrator: helper", result.stdout)
+        self.assertIn("reviewer_isolation: bundle_only", result.stdout)
+        self.assertEqual(len(list(self.capture.glob("*.prompt"))), 4)
 
-    def test_collect_validates_results_written_by_herdr_reviewers(self) -> None:
-        # Arrange: prepare a run and emulate the three visible reviewer panes completing successfully.
-        prepare_result, manifest = self._prepare_herdr_review()
-        self.assertEqual(prepare_result.returncode, 0, prepare_result.stderr)
-        for reviewer in manifest["reviewers"]:
-            Path(reviewer["result"]).write_text("No actionable findings.\n")
-
-        # Act: collect is a separate deterministic phase after pane orchestration.
-        result = self._run("--collect", manifest["run_dir"])
-
-        # Assert: collection preserves the existing reviewer protocol and summary contract.
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("overall_status: success", result.stdout)
-        self.assertIn("orchestrator: herdr", result.stdout)
-
-    def test_collect_does_not_report_clean_when_a_herdr_reviewer_is_incomplete(self) -> None:
-        # Arrange: only two of three panes have produced protocol-valid results.
-        prepare_result, manifest = self._prepare_herdr_review()
-        self.assertEqual(prepare_result.returncode, 0, prepare_result.stderr)
-        for reviewer in manifest["reviewers"][:2]:
-            Path(reviewer["result"]).write_text("No actionable findings.\n")
-
+    def test_collect_option_is_not_part_of_the_public_interface(self) -> None:
         # Act
-        result = self._run("--collect", manifest["run_dir"])
+        result = self._run("--collect", str(self.root))
+        help_result = self._run("--help")
 
-        # Assert: an incomplete visible review cannot become a clean gate.
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("overall_status: partial_failure", result.stdout)
-        self.assertIn("failed(missing_result)", result.stdout)
-
-    def test_collect_rejects_reused_workspace_for_multiple_herdr_reviewers(self) -> None:
-        # Arrange: point a second reviewer at the first reviewer's workspace and result.
-        prepare_result, manifest = self._prepare_herdr_review()
-        self.assertEqual(prepare_result.returncode, 0, prepare_result.stderr)
-        first, second = manifest["reviewers"][:2]
-        second["cwd"] = first["cwd"]
-        second["task"] = first["task"]
-        second["result"] = first["result"]
-        (Path(manifest["run_dir"]) / "manifest.json").write_text(json.dumps(manifest))
-        Path(first["result"]).write_text("No actionable findings.\n")
-
-        # Act
-        result = self._run("--collect", manifest["run_dir"])
-
-        # Assert: one output cannot satisfy multiple independent reviewer slots.
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("invalid Herdr reviewer workspace", result.stderr)
+        # Assert: the removed terminal-specific protocol cannot be invoked.
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unrecognized arguments: --collect", result.stderr)
+        self.assertNotIn("--collect", help_result.stdout)
 
     def test_issue_documents_are_routed_only_to_impact_reviewers(self) -> None:
         issue = self.repo / "docs" / "issues" / "001.md"
