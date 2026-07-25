@@ -101,6 +101,10 @@ command policyは用途ごとに三段階で設計する。
 - `approve`: 変更系、cleanup、pull / pushなど人間判断を残すargv
 - `deny`: credential変更、host設定変更などagentへ委譲しないargv
 
+CLIがcredential fileを必要とする場合は、親sessionへfileやtokenを開示する前に、そのCLIだけをTool Sandboxへ分離できるか確認する。
+credentialをstdoutへ出す限定subcommandがあるなら、親networkのTLS interceptionやcredential proxyを設計する前に、per-intercept sandboxと`capture_credential`で実値をbroker内へ閉じ込められるか検証する。
+通常操作用sandboxとcredential取得用sandboxのfilesystem、network、environmentを別々に定義し、親sessionからprotected pathのdenyを外さない。
+
 未分類commandを `deny` と `approve` のどちらにするかは、ユーザーの運用方針と失敗時の影響で決める。常にdefault denyとは限らない。`nono why --command` で各branchを実行せず検証できる形にする。
 
 完了条件: patchが候補と一対一に対応し、無関係な権限を含まない。
@@ -111,17 +115,25 @@ command policyは用途ごとに三段階で設計する。
 
 1. 公式source、実行ログ、実機helpのいずれかで子executableとargvを確認する。
 2. PATH shimで制御できる呼出しか、absolute pathのdirect execかを分ける。
-3. command policyの `executable` はwrapperではなく実体をpinできるか確認する。wrapperが設定する必須environmentがあれば `environment.set_vars` で明示する。
-4. package managerなどのshimがversioned実体へ解決される場合は、versioned pathをprofileへ直書きせず、pinした実体から呼出設定とsandbox許可を同時に生成できるか確認する。
-5. `allow_direct_exec_bypass` はpinしたpolicy-controlled command本体のdirect invocation用であり、親commandが起動する任意の子executableを許可するfieldではない。子processの許可へ流用しない。
-6. `unsafe_macos_seatbelt_rules` が必要なら、対象commandのchild sandbox内でexact executableだけを許可する。directory prefixや任意process execへ広げない。
-7. OS tool自身がsandbox実行を拒否する場合は権限追加を止め、sandbox外の人間向け診断へ分離する。
+3. `command -v`の結果が`$NONO_TOOL_SANDBOX_SHIM_DIR`配下なら、それを実体として追跡せず、source profileまたは`nono profile show`からcommand policyの`executable`を確認する。
+4. sandbox外の`command -v`、`realpath`、`file`、起動scriptの内容から、command policyの`executable`がwrapperか実binaryかを確認する。Nix packageでは`bin/<command>`が同じdirectoryの`.<command>-wrapped`などを起動する場合があるため、名前を推測せず生成物を調べる。
+5. wrapperが必須environmentを設定していなければ実binaryをpinし、設定しているなら`environment.set_vars`で再現できるか確認する。nonoが生成する標準PATH shimで到達できるcommandに同名wrapperを追加せず、追加が必要ならPATH順序の再現とpackage集合内の`bin/<command>`衝突がないことを先に確認する。
+6. package managerなどのshimがversioned実体へ解決される場合は、versioned pathをprofileへ直書きせず、pinした実体から呼出設定とsandbox許可を同時に生成できるか確認する。
+7. `allow_direct_exec_bypass` はpinしたpolicy-controlled command本体のdirect invocation用であり、親commandが起動する任意の子executableを許可するfieldではない。子processの許可へ流用しない。
+8. `unsafe_macos_seatbelt_rules` が必要なら、対象commandのchild sandbox内でexact executableだけを許可する。directory prefixや任意process execへ広げない。
+9. OS tool自身がsandbox実行を拒否する場合は権限追加を止め、sandbox外の人間向け診断へ分離する。
 
 raw Seatbelt ruleはvalidator warningを残す設計上の例外である。警告を消すためにscopeを広げない。
 
 完了条件: child execの経路、pinした実体、追加rule、またはsandbox内で対応不能な理由が明示された。
 
 ### Step 7: 検証する
+
+最初に`NONO_CAP_FILE`の有無を確認する。
+macOSで値が設定済みなら二重の`nono run`をruntime testとして起動しない。
+さらに対象commandの解決先が`$NONO_TOOL_SANDBOX_SHIM_DIR`配下で実行可能な場合だけ、現在のsessionへ注入されたTool Sandbox shimで正常系を確認する。
+credential非露出はstdoutを変数へ捕捉して期待するnonceの形式だけを判定し、成功時も失敗時も捕捉値をterminal、log、reportへ表示しない。
+新規sessionの起動を必要とする独立runtime testはsandbox外で実行し、内側profileの不具合と外側sandboxによる拒否を分けて報告する。
 
 ```sh
 nono profile validate --strict <profile-file>
