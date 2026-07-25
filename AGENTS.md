@@ -38,3 +38,12 @@ provider や product で namespace を切る場合、leaf directory は短いサ
 5. commit SHA を取得する。
 6. ユーザーが明示依頼した場合だけ、dotfiles の `apm/apm.yml` の参照 SHA を更新する。
 7. ユーザーが明示依頼した場合だけ、`apm install -g` で展開する。
+
+## 検証
+
+skill inventory、frontmatter、README 導線、relative link は次で検証する。
+
+```sh
+python3 scripts/check-skill-inventory.py
+python3 -m unittest tests/test_check_skill_inventory.py
+```

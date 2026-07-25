@@ -114,6 +114,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
   - Type: `user-invoked`
+- **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新の full SHA へ更新する。
+  - Use when: apm.yml の pin drift、複数 skill の一括更新、source-of-truth と展開先の同期確認
+  - Type: `user-invoked`
 
 ### Personal
 
