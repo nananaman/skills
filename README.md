@@ -108,8 +108,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、SHA pin 更新、global install / dotfiles 連携
   - Type: `model-invoked`
-- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・改善・レビュー・棚卸しを 1 つの lifecycle として扱う。
-  - Use when: 新規 skill 作成、既存 skill 改善、skill diff / 全体レビュー、skill inventory audit
+- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
+  - Use when: 新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
   - Type: `user-invoked`
 - **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見や反復する approval を固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定、繰り返す permission prompt の最小権限 policy 化

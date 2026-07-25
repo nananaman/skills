@@ -1,6 +1,6 @@
 # Skill Evaluation Loop
 
-この reference は Create / Improve branch で、skill の効果を baseline と比較して検証する必要がある場合だけ読む。
+この reference は Create / Improve branch で、skill の効果や context cost を baseline と比較する必要がある場合だけ読む。
 すべての skill 変更で必須ではない。
 
 ## When to Use
@@ -8,6 +8,7 @@
 - routing が難しい model-invoked skill。
 - 過去に品質問題が再発した skill。
 - 客観評価できる成果物を生成する skill。
+- 大幅な context 削減または constraint 削減で、既存 contract の維持を確認したい skill。
 - ユーザーが empirical / eval / benchmark を求めた場合。
 
 ## Loop
@@ -24,7 +25,7 @@
 
 3. with-skill と baseline を同じ iteration で走らせる。
    - subagent を使える場合は並列に走らせる。
-   - 出力、tool use、read files、duration / tokens が取れるなら保存する。
+   - 出力、tool use、read files、duration / tokens / loaded context が取れるなら保存する。
 
 4. assertion を作る。
    - 客観的に判定できる expected behavior だけ assertion にする。
@@ -34,6 +35,8 @@
    - assertion pass/fail、品質差、token / duration の tradeoff を見る。
    - baseline でも pass する assertion は非識別的として見直す。
    - token、duration、tool use の削減は、既存の品質 assertion を維持した場合だけ改善と数える。
+   - 手順どおり動いたかではなく、outcome、authority / safety、evidence、completion を満たしたかで判定する。
+   - 新しい instruction が探索を狭め、周辺 context に適応できなくなっていないかを見る。
 
 6. 改善する。
    - feedback から一般化できる instruction gap だけを skill に反映する。
@@ -41,6 +44,7 @@
    - prompt、tool set、reasoning setting、runtime を同じ iteration で同時に変えない。
    - measured regression がない working prompt の全面 rewrite は行わない。
    - test prompt への overfit を避ける。
+   - 例の追加より、routing、schema、type、rubric、tool / file interface の改善を優先する。
    - 同じ helper や script を複数 run が再生成したら、bundled script 化を検討する。
 
 7. 再実行する。
@@ -65,5 +69,5 @@
 - <instruction gap fixed>
 
 ## Residual Risk
-- <unverified or subjective area>
+- <unverified behavior、context cost、constraint risk>
 ```

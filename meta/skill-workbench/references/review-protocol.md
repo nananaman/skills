@@ -1,83 +1,74 @@
 # Skill Review Protocol
 
 この reference は Review diff / Review whole branch で読む。
-レビューは静的読解だけで終えず、可能な限り fresh agent / subagent の smoke check で実行時のズレを見る。
+レビューは変更または対象 skill が持つ contract を特定し、その risk に必要な check だけを選ぶ。
+静的読解だけでは実行時のズレを判断できない場合は、fresh agent / subagent の smoke check を使う。
 
-## Review Axes
+## Contract Map
 
-1. metadata / discoverability
-   - `name:` が directory 名と一致しているか。
-   - `name:` が小文字、数字、単一ハイフンのみ、1〜64 文字か。
-   - description が 1,024 文字以内で routing 情報として具体的か。
-   - model-invoked skill では positive / negative trigger があるか。
+最初に対象から次の contract を地図化する。
 
-2. description / body consistency
-   - description の trigger branch が本文 workflow に対応しているか。
-   - 本文にある重要手順へ description から到達できるか。
-   - 起動すべきでない近接領域まで拾っていないか。
+- outcome: skill が作るユーザー可視の到達状態。
+- routing: positive / negative trigger、branch selection。
+- authority / safety: 自律実行と確認が必要な action の境界。
+- evidence: 判断と action の前提。
+- completion / output: 終了状態と報告内容。
+- context interface: `SKILL.md`、references、assets、scripts、外部 reference の読み分け。
 
-3. predictability
-   - outcome と success criteria が agent に観測可能か。
-   - agent が毎回同じ種類の判断順序をたどれるか。
-   - 分岐条件が本文にあるか。
-   - 「考える」「よくする」だけで手順が終わっていないか。
+Review diff では変更された contract と preservation set の交差だけを詳しく見る。
+Review whole では contract map 全体を見る。
 
-4. progressive disclosure / information hierarchy
-   - すぐ必要な手順が `SKILL.md` にあるか。
-   - 詳細、例、用語、長い評価表だけが `references/` にあるか。
-   - template / schema は `assets/`、壊れやすい処理は `scripts/` に逃がせているか。
-   - 重要な停止条件が外部 reference に埋もれていないか。
+## Review Rubric
 
-5. deterministic resources / scripts
-   - 繰り返し boilerplate や壊れやすい解析を毎回 LLM に再生成させていないか。
-   - scripts が tiny CLI として引数、stdout、stderr、exit status を持つか。
-   - 長期保守すべき library code を skill 内に抱えていないか。
+対象に関係する軸だけを選び、選択理由を報告する。
 
-6. completion criteria
-   - 各 step に完了判定があるか。
-   - finding が残ったときの扱いが明確か。
-   - 必須 output と validation 結果が定義されているか。
-   - stop / ask / continue の条件が分かれているか。
+| Axis | 見る contract |
+| --- | --- |
+| metadata / routing | name、directory、description、positive / negative trigger、branch 対応 |
+| outcome / completion | outcome、branch-level completion、必須 output、残 finding の扱い |
+| authority / safety | permission gate、destructive / external / costly action、scope expansion |
+| evidence / failure | prerequisite、判断根拠、情報不足時の fallback |
+| context interface | progressive disclosure、single source of truth、rich reference、tool / script interface |
+| constraint quality | domain 固有の invariant と不要な探索手順の区別、矛盾、overconstraint |
+| deterministic resources | schema / asset / script / test に移すべき反復処理 |
+| pruning | no-op、重複、古い前提、周辺 context から明白な説明 |
 
-7. pruning
-   - no-op 文がないか。
-   - 同じ意味が複数箇所にないか。
-   - 同じ状況に適用される rule が矛盾していないか。
-   - 古い前提や廃止名が残っていないか。
-   - 人間向け文書と skill 実行契約が二重管理になっていないか。
-
-8. failure modes
-   - 対象不明、権限不足、外部 tool 不在、レビュー不能で止まれるか。
-   - action 前に必要な evidence / prerequisite と、結果不足時の fallback が明確か。
-   - ユーザーに聞くことと、自分で調べることが分かれているか。
-
-9. safety
-   - 自律実行できる action と、確認が必要な外部・destructive・costly・scope-expanding action が分かれているか。
-   - destructive command や永続変更を勝手に実行しないか。
-   - commit / push / pin / install が明示依頼 gated か。
+すべての軸を機械的に埋めない。
+ただし routing、authority / safety、branch-level completion は変更されていないことを preservation set で確認する。
 
 ## Static Contract Check
 
 すべての review で必須。
 
-- `SKILL.md` と関連ファイルを読む。
-- `name:`、directory、description、本文 branch の対応を確認する。
-- workflow、分岐条件、停止条件、出力形式が agent に判定可能か確認する。
-- outcome、evidence / prerequisite、authority boundary が該当 workflow で判断可能か確認する。
-- scope gap があれば、smoke check より先に description か本文の修正を提案する。
+- dirty worktree では tracked diff と untracked の skill resources を確認する。
+- contract map と変更内容から relevant axes を選ぶ。
+- routing、branch-level completion、authority / safety の preservation を確認する。
+- rule の列挙より既存 code、test、schema、tool interface のほうが高い忠実度で表せないか確認する。
+- scope gap や矛盾があれば、smoke check より先に修正候補とする。
 
 ## Smoke Check
 
 fresh agent / subagent に自然な入力と必要最小限の状況を渡し、どの `SKILL.md` を読んでどう実行したかを観測する。
 作者や同じ reviewer の mental walkthrough で代替しない。
 
+### Selection
+
+| Change / risk | Smoke |
+| --- | --- |
+| routing、description、branch selection | Discovery。harness-real に実行できる場合 |
+| authority / safety、主要 workflow、branch completion | Execution |
+| reference 構造、output contract、判断 rubric | Static で不十分なら Execution |
+| 外部 CLI、生成、Git、install、build、API に依存 | Runtime |
+| typo、formatting、リンク、一覧だけ | 不要。Skip |
+
+新規 skill と大幅変更では Execution smoke を行う。
+それ以外は Static Contract Check で未解決の risk がある場合に行う。
+
 ### Execution Smoke
 
-すべての対象 skill review で原則必須。
 対象 skill が選択済みであることを前提に、自然な依頼と repo / task 状況で本文どおり実行できるかを見る。
 
-- checklist は skill 名や内部手順名ではなく、外部観測可能な期待結果で書く。
-- 「この skill を使うこと」を期待値にしない。
+- expected は skill 名や内部手順ではなく、外部観測可能な outcome、gate、evidence で書く。
 - subagent を使えない場合は、理由と観測限界を報告し、実行済みとは言わない。
 
 ### Discovery Smoke
@@ -97,14 +88,34 @@ skill の期待動作が外部 CLI、ファイル生成、Git 操作、sandbox /
 - 実行した command、diff、生成ファイル、触った scope、結果を報告する。
 - 必要だが実行できない場合は、理由と残リスクを明示する。
 
-## Smoke Case Shape
+## Check Interface
 
 ```md
-- Case: <短い名前>
-- Input: <user prompt / repo 状況 / diff summary>
-- Expected: <外部から観測できる期待結果>
-- Pass criteria: <どの出力・判断・停止条件なら pass か>
+## Evaluation
+- Scope: <diff / whole と対象>
+- Contract map: <変更・評価した contract>
+- Relevant axes: <選んだ軸と理由>
+- Static contract check: <結果>
+- Smoke checks: <実施 / 不要 / 実施不能と理由>
+- Accepted findings: <件数と要約>
+- Rejected findings: <件数と理由>
+- Residual risk: <未検証事項>
+
+## Smoke checks
+| Case | Input | Expected | Actual | Result | Evidence | Finding |
+| --- | --- | --- | --- | --- | --- | --- |
+
+## Findings
+### [severity] title
+- Target: <path:line>
+- Contract: <contract map の項目>
+- Problem: <想定される誤作動または保守上の破れ>
+- Evidence: <本文、diff、または smoke の根拠>
+- Suggested fix: <最小修正>
+- Verification: <修正後に確認する evidence>
 ```
+
+Skip の場合は、対象 diff、実行契約に影響しない理由、residual risk だけを報告する。
 
 ## Interpretation Rules
 
@@ -113,10 +124,11 @@ skill の期待動作が外部 CLI、ファイル生成、Git 操作、sandbox /
 - verbose log、read files、tool calls、commands、generated diff、final output を確認できる範囲で evidence にする。
 - harness や tool 制約による failure を skill 本文の finding と混同しない。
 - 2 回以上同じ pattern で失敗する場合は、文言パッチではなく構造分割や workflow 再設計を検討する。
+- checklist completion ではなく、outcome、gate、evidence が満たされたかで判定する。
 
 ## Finding Rules
 
 - high-confidence かつ action 可能な finding だけ accepted にする。
-- target、axis、problem、evidence、suggested fix、judgment link を持たせる。
+- target、contract、problem、evidence、suggested fix、verification を持たせる。
 - smoke case の critical expected を落とす問題は high severity として扱う。
 - speculative risk、cosmetic nit、好み、過剰な rewrite は rejected にする。

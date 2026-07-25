@@ -1,7 +1,7 @@
 # Skill Inventory Audit Protocol
 
 この reference は Audit inventory branch で読む。
-目的は、skill 群を横断して routing conflict、責務重複、single source of truth 破れ、粒度問題、sprawl / sediment を cluster 単位で検出すること。
+目的は、skill 群を横断して routing conflict、責務重複、single source of truth 破れ、粒度問題、sprawl / sediment、overconstraint を cluster 単位で検出すること。
 
 ## Scope
 
@@ -35,11 +35,16 @@
    - 古い前提、廃止済み名称、今は使わない branch が残っている。
    - README や関連 docs と skill 本文が二重管理になっている。
 
+6. overconstraint
+   - outcome や invariant ではなく、agent が周辺 context から判断できる探索手順を固定している。
+   - 多数の例や checklist が探索範囲を狭めている。
+   - code、test、schema、tool description で表せる契約を prose で重複管理している。
+
 ## Severity
 
 - high: routing conflict により誤発火・不発火の可能性が高い。
 - medium: responsibility overlap、single source of truth break、granularity problem により drift や使い分け迷いが起きる可能性が高い。
-- low: sprawl / sediment や軽い導線不整合があるが、誤発火・不発火や二重管理の直接原因とはまだ言えない。
+- low: sprawl / sediment、overconstraint、軽い導線不整合があるが、誤発火・不発火や二重管理の直接原因とはまだ言えない。
 
 ## Workflow
 
@@ -58,62 +63,25 @@
    - routing conflict の疑いがある cluster を優先する。
 
 4. Cluster deep-dive を行う。
-   - cluster ごとに独立した subagent を使える場合は並列化する。
-   - subagent には対象 skill path、5 つの audit axes、編集禁止、根拠必須を渡す。
-   - subagent には inventory 全体の severity 最終判断を委譲しない。
+   - inventory pass だけで判断できない cluster だけを深掘りする。
+   - cluster が独立し、並列化の利益がある場合は worker を使ってよい。
+   - worker には対象 path、関連 axes、編集禁止、根拠必須、判断範囲を interface として渡す。
+   - inventory 全体の severity 最終判断は委譲しない。
 
-5. Subagent finding を検証する。
+5. Worker finding を検証する。
    - finding をそのまま採用しない。
    - 対象 `SKILL.md`、関連 `references/`、README を main agent が直接読み、根拠が確認できるものだけ accepted にする。
    - speculative risk、文言類似だけ、共有 rubric の正当な参照、意図された wrapper / discipline 分離は rejected にする。
 
 6. Severity と次アクションを決める。
    - routing conflict を最優先。
-   - 次に responsibility overlap、single source of truth break、granularity problem、sprawl / sediment。
+   - 次に responsibility overlap、single source of truth break、granularity problem、sprawl / sediment、overconstraint。
    - 次アクションは Review whole、description narrow、merge proposal、split proposal、single source extraction、no action のように整理する。
 
-## Subagent Contract
+## Worker Interface
 
-```md
-You are a cluster deep-dive worker for skill-workbench Audit inventory.
-Do not edit files. Do not propose commits, pushes, APM pin updates, or installs.
-
-## Cluster
-- Name: <cluster name>
-- Candidate reason: <routing / responsibility / shared rule / category / README adjacency>
-- Skill paths:
-  - <path/to/SKILL.md>
-
-## Audit axes
-1. routing conflict
-2. responsibility overlap
-3. single source of truth break
-4. granularity problem
-5. sprawl / sediment
-
-## Task
-1. Read the listed SKILL.md files and directly related references only when needed.
-2. Identify high-confidence finding candidates within this cluster.
-3. For each candidate, provide exact path:line evidence or a short excerpt.
-4. Mark speculative or wording-only similarities as rejected candidates.
-5. Do not decide global severity beyond this cluster.
-
-## Report
-### Finding candidates
-- Title:
-- Axis:
-- Problem:
-- Evidence:
-- Suggested next action:
-
-### Rejected candidates
-- Candidate:
-- Reason rejected:
-
-### Notes
-- Files read:
-- Unclear points:
-```
+worker を使う場合は、cluster 名、対象 path、候補理由、関連 audit axes、編集禁止、必要な evidence、判断を委譲しない範囲、期待する report fields を渡す。
+自然な task context を保ち、特定の結論や文面へ誘導する例は渡さない。
 
 ## Output
 
@@ -124,7 +92,7 @@ Do not edit files. Do not propose commits, pushes, APM pin updates, or installs.
 - Model-invoked: <n>
 - User-invoked: <n>
 - Global drift checked: yes/no
-- Subagents used: <n or reason not used>
+- Workers used: <n or reason not used>
 
 ## Clusters
 ### <cluster name>
@@ -134,7 +102,7 @@ Do not edit files. Do not propose commits, pushes, APM pin updates, or installs.
 ## Findings
 ### [severity] <title>
 - Cluster: <cluster>
-- Axis: routing conflict / responsibility overlap / single source of truth / granularity / sprawl-sediment
+- Axis: routing conflict / responsibility overlap / single source of truth / granularity / sprawl-sediment / overconstraint
 - Problem: <agent がどう誤作動するか、または何が保守しづらくなるか>
 - Evidence: <path:line + excerpt>
 - Suggested next action: Review whole / description narrow / merge proposal / split proposal / single source extraction / no action
