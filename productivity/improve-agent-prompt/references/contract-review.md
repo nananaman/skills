@@ -1,6 +1,6 @@
 # Prompt Contract Review
 
-この reference は Diagnose / Improve / Migrate の共通診断で読む。
+この reference は Diagnose / Improve の共通診断で読む。
 各項目を prompt の見出しに変換するためではなく、agent の判断に必要な契約が存在するか検査するために使う。
 
 ## Contract Map
@@ -13,6 +13,7 @@
 | Evidence / prerequisites | 判断・action 前に必要な根拠は何か | lookup や validation を飛ばせる |
 | Authority boundary | 自律実行と確認要求の境界はどこか | 過剰確認または無断 action が起きる |
 | Tools | 何を、いつ、どの結果・error を見て使うか | route が文脈や前提に依存する |
+| Context placement | 契約をどの layer へ置き、いつ取得するか | 常時 load、重複、低忠実度な prose を減らせる |
 | Output | 必須の内容、形式、長さ、検証結果は何か | downstream consumer が期待する形がある |
 | Stop / fallback | retry、代替、質問、abstain、終了はいつか | loop、guess、早期終了が起きる |
 
@@ -69,6 +70,35 @@
 - absence of evidence を factual no に変換しない。
 - citation が必要なら、support 対象、十分な evidence、欠落時の behavior を定義する。
 
+### Context Placement
+
+各 instruction は、内容だけでなく authoritative な配置先を確認する。
+
+- product 全体の役割と invariant は system / agent instructions に置く。
+- repository 固有で、code や filesystem から発見できない gotcha は AGENTS.md 系の context に置く。
+- task や branch に依存する workflow と詳細は skill / reference へ分け、必要時だけ取得できる導線を残す。
+- session をまたぐ事実や preference は、利用可能なら memory に置く。
+- code、test、schema、型、rubric、mockup、linter のほうが高忠実度な契約は、prose で重複管理しない。
+- task と無関係な turn でも常時 load する必要がない情報を、上位 prompt に置かない。
+- 同じ rule が複数 layer にある場合は authoritative source を一つにし、必要なら他方は導線だけにする。
+
+prompt 以外の変更が依頼範囲外なら実装せず、移動先と必要な別 task を finding として報告する。
+
+### Tool Interface
+
+- tool の能力と利用条件が、名前、引数、型、enum から判別できるか確認する。
+- required / optional field、排他的な操作、状態遷移を prose の例だけに依存させない。
+- return value が次の判断に必要な状態を返し、error と正常な空結果を区別できるか確認する。
+- tool description は schema から分からない利用条件、重要な return field、failure behavior に絞る。
+- prompt 内の example が interface の不足を補っているだけなら、interface 改善を優先して提案する。
+
+### Examples and Rich References
+
+example は、schema で表現できない semantic boundary、固有の taste、紛らわしい反例、観測済み failure を伝える場合に残す。
+通常手順の再現、tool schema の言い換え、偶然選んだ一つの探索 path の固定にしかならない example は削除候補にする。
+
+文章による説明より code、test、schema、型、rubric、mockup、canonical implementation のほうが正確な場合は、rich reference への置換を提案する。
+
 ### Output and Brevity
 
 - 結論、required facts、decision、material caveat、next action を preservation priority にする。
@@ -89,6 +119,9 @@
 - 未実施の検証、実行できない理由、残る risk、次に必要な確認を報告する。
 - 必須検証が未実施、失敗、または actionable finding を残している場合、検証済み・完了済みと表現しない。
 - optional validation と completion gate を区別し、optional check の不能だけで正常な作業を止めない。
+- 実行型評価では working prompt を baseline にし、同じ representative cases と assertions で変更後と比較する。
+- 一度に変える変数を一つにし、regression の原因を追跡できるようにする。
+- token、latency、cost、tool call の削減は、既存の品質基準を満たした場合だけ improvement と数える。
 
 ## Change Test
 
@@ -101,5 +134,7 @@
 5. ほかの failure theme と分離できているか。
 6. 承認が必要な場合、許可される artifact / file / action が一意か。
 7. 変更なしの終了と、必須検証不能時の終了を正しく表現できるか。
+8. instruction の配置先と取得時点は適切か。
+9. example や prose を interface または rich reference で置き換えられないか。
 
 答えられない変更は適用しない。
