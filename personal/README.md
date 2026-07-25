@@ -19,7 +19,7 @@ project の明文化された規則を優先しつつ、個人のデフォルト
 
 - **[`chouge-changelog`](./chouge-changelog/SKILL.md)** — CHANGES.md が存在する repository で変更履歴を書く。
   - Use when: CHANGES.md 更新、release note 下書き、PR / commit 内容の変更履歴化
-  - Type: `user-invoked`
+  - Type: `model-invoked`
 - **[`chouge-git`](./chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
   - Use when: commit、branch、push、PR 作成・更新
   - Type: `model-invoked`
