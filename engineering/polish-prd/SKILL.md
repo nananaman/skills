@@ -95,7 +95,7 @@ draft で根拠とともに確定している内容は一律に問い直さな�
 - `TODO(polish)` コメントは polished PRD に残さない。
 - 要求に関する未解決事項が残る場合は polished にしない。
 - 設計判断は Design Doc へ送る内容として分離し、PRD には書きすぎない。
-- issue 分割や実装方針は書かない。
+- task 分割や実装方針は書かない。
 
 ### 6. Validate polished gate
 
@@ -127,5 +127,5 @@ polished body をユーザーへ提示し、確認後だけ PRD を更新する�
 - 不採用案と不採用理由
 - 解消した TODO / 判断
 - Design Doc に送るべき設計論点があればその要約
-- 次に進むべき flow: `draft-design-doc` / `draft-issue`
+- 次に進むべき flow: `draft-design-doc` / `task-breakdown`
 - commit / push / APM pin 更新 / install は未実行であること

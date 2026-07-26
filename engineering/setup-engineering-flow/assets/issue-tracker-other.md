@@ -10,12 +10,12 @@ Issue tracker 種別: other
 - issue がどこにあるか
 - 新しい issue をどう作るか
 - 既存 issue をどう更新するか
-- PRD / Design Doc への参照をどう書くか
-- その tracker で polished / ready な issue とは何か
+- PRD / Design Doc / ADR への参照をどう書くか
+- task 作成前の確認方法
 - agent が守るべき label、state、owner、権限ルール
 
 ## Agent ルール
 
-この tracker が設定されている場合、`draft-issue` と `polish-issue` は GitHub Issue や local markdown の挙動を仮定しない。
-上記 workflow に従い、`draft-issue` による設定済みの draft 作成は確認を挟まず実行する。
-既存 artifact の変更や draft 作成を超える不可逆な tracker 操作の前にはユーザー確認を取る。
+この tracker が設定されている場合、`task-breakdown` と `create-plan` は GitHub Issue や local markdown の挙動を仮定しない。
+`task-breakdown` は分解案を提示し、ユーザー確認後だけ上記 workflow に従って task を作成する。
+既存 artifact の変更や task 作成を超える不可逆な tracker 操作の前にはユーザー確認を取る。

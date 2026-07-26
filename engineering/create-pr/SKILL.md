@@ -14,6 +14,7 @@ description: 現在の branch から GitHub PR を作成する。通常は draft
 - project 規則が ready PR 作成を求めていても、ユーザーの明示指示がなければ draft で作成する。
 - project に PR template がある場合は、その構成を優先して body を作る。
 - PR body は実際の diff、commit、テスト状況、review gate の結果と一致させる。
+- branch の commit body に `Implementation-Plan:` marker がある場合は、plan 原文を PR body の折りたたみに転記する。
 - uncommitted changes、未 push、base branch 不明、既存 PR などの状態を確認してから作成する。
 - push または PR 作成の前に、変更種別に応じた review gate が通っていることを確認する。
 - history rewrite、force push、commit 整理はこの skill の責務外。必要なら別作業として提案する。
@@ -42,6 +43,15 @@ description: 現在の branch から GitHub PR を作成する。通常は draft
    git diff --stat origin/<base>...HEAD
    git diff --name-status origin/<base>...HEAD
    ```
+
+   commit message も全文読む。
+
+   ```bash
+   git log --format=fuller origin/<base>..HEAD
+   ```
+
+   `Implementation-Plan:` から `End-Implementation-Plan` までがある場合は、開始・終了 marker が一組で、内容が空でないことを確認する。
+   marker が壊れている場合や複数の plan があり対象を判断できない場合は PR body を作らず停止する。
 
    `origin/<base>...HEAD` が今回の目的だけを含むことを確認する。既に merge 済みの commit、別目的の変更、古い base 由来の差分が混ざる場合は、PR 作成へ進まず、最新 base へ載せ替える案または branch 分割案を提示してユーザーに確認する。history rewrite が必要なら `chouge-git` の History Rewrite に委譲し、共有済み branch では `--force-with-lease` を使う前に明示確認を取る。
 
@@ -87,6 +97,20 @@ description: 現在の branch から GitHub PR を作成する。通常は draft
 
    `Tests` には、実行したコマンドを書く。未実行なら `未実行` と理由を書く。推測で「テスト済み」と書かない。
    `Review notes` には、後続の review gate 確認後に、review gate の種類、実行した skill / command、対象 base、結果を書く。review gate が不要な docs-only 変更なら、その理由を書く。
+
+   commit body に implementation plan がある場合は、template の末尾または標準 body の末尾へ次を追加する。
+
+   ```md
+   <details>
+   <summary>Implementation plan</summary>
+
+   <commit body の marker 内にある plan 原文>
+
+   </details>
+   ```
+
+   plan 原文を要約・編集しない。
+   marker 内と折りたたみ内が一致することを確認する。
 
 7. review gate を確認する。
    - docs-only の変更なら review gate は不要。
@@ -146,6 +170,7 @@ template を使うときは、次を守る。
 - base branch が確定できない。
 - PR template の必須項目が埋められない。
 - PR body で参照する repository 内 artifact が base branch にも branch diff にも存在しない。
+- implementation plan marker が不完全、空、または対象を一意に決められない。
 - 必要な review gate が未実施、または actionable finding が残っている。
 - diff に secret、credential、private URL らしきものがある。
 - 変更が複数の無関係な目的を含み、1つの PR として説明しづらい。
@@ -160,3 +185,4 @@ template を使うときは、次を守る。
 - 使用した PR template。なければ `template なし`。
 - 実行したテスト。未実行ならその理由。
 - review gate の種類、実行した skill / command、結果。不要ならその理由。
+- implementation plan を転記したか。なければ `plan marker なし`。

@@ -1,11 +1,11 @@
 ---
 name: polish-design-doc
-description: Design Doc draft を、人間がこの設計で進めてよいか判断でき、issue 分割へ進める文書へ磨く。複数案を調査・比較し、採用案を概要/詳細設計へ昇格し、リスク評価と検討した案を完成させる。PRD 作成、issue 作成、通常実装、diff review だけの依頼では使わない。
+description: Design Doc draft を、人間がこの設計で進めてよいか判断でき、task 分割へ進める文書へ磨く。複数案を調査・比較し、採用案を概要/詳細設計へ昇格し、リスク評価と検討した案を完成させる。PRD 作成、task 作成、通常実装、diff review だけの依頼では使わない。
 ---
 
 # Polish Design Doc
 
-Design Doc draft を「この設計で進めてよいか判断でき、次に issue 分割へ進める文書」に磨く。
+Design Doc draft を「この設計で進めてよいか判断でき、次に task 分割へ進める文書」に磨く。
 複数案を調査・比較し、採用案を固定する。
 
 ## Contract
@@ -25,7 +25,7 @@ polished Design Doc は、次を満たす。
 - リスク評価系の章が「なし」だけで終わっていない。
 - 採用案が概要・詳細設計へ昇格し、不採用案と理由が `検討した案` に残っている。
 - `TODO(polish)` が残っていない。
-- issue 分割に進める。
+- task 分割に進める。
 
 ## 併用する skill
 
@@ -77,7 +77,7 @@ draft で根拠とともに確定している設計判断は一律に問い直�
 - 状態を持つなら状態遷移が明示されているか。
 - 落とし穴として受け入れる既知の問題は何か。
 - セキュリティ / プライバシー / 負荷・コスト / 信頼性 / 開発・運用への影響は評価されているか。
-- issue 分割へ進めるか。
+- task 分割へ進めるか。
 
 ### 3. Investigate and verify
 
@@ -135,7 +135,7 @@ git status --short --untracked-files=all
 - `検討した案` に不採用案と理由が残っているか。
 - `TODO(polish)` が残っていないか。
 - `TODO(draft)` が残っていないか。
-- issue 分割に進めるか。
+- task 分解に進めるか。
 
 ### 7. Confirm before update
 
@@ -149,6 +149,6 @@ polished body をユーザーへ提示し、確認後だけ Design Doc を更新
 - 採用案と採用理由
 - 不採用案と不採用理由
 - 実行した test / typecheck / proof
-- issue 分割へ進めるか、blocked か
-- 次に進むべき flow: `draft-issue`
+- task 分解へ進めるか、blocked か
+- 次に進むべき flow: `task-breakdown`
 - commit / push / APM pin 更新 / install は未実行であること

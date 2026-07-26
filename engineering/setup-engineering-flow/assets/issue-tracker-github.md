@@ -7,13 +7,14 @@ Issue tracker 種別: GitHub Issue
 Issue はこのリポジトリの GitHub Issues で管理する。
 作成・更新には `gh` CLI を使う。
 
-## draft / polish の動作
+## task 作成
 
-- `draft-issue` は GitHub Issue の本文 draft を作り、確認を挟まず `gh issue create` を実行する。
-- `polish-issue` は更新内容を提示し、確認後に issue body を更新する。
-- PRD / Design Doc が関係する場合は、issue body に参照 link と必要十分な要約を含める。
+- `task-breakdown` は task 分解案を提示し、ユーザー確認後に `gh issue create` を実行する。
+- Issue は共有する作業範囲として書き、個別実装の plan は含めない。
+- PRD / Design Doc / ADR が関係する場合は、issue body に参照 link と task の境界に必要な要約を含める。
+- 担当者は issue を取得した後、`create-plan <issue>` で一時 plan を作る。
 
-## PRD / Design Doc との関係
+## 永続文書との関係
 
-PRD / Design Doc は repo 内 docs、GitHub Issue、Discussion、Wiki、または repo ごとの設定先に置いてよい。
-Issue body には、実装に必要な要約と参照 link を含める。
+PRD / Design Doc / ADR は repo 内 docs、GitHub Issue、Discussion、Wiki、または repo ごとの設定先に置いてよい。
+Issue body には、task の目的と境界を理解するための要約と参照 link を含める。
