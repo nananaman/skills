@@ -1,6 +1,7 @@
 ---
 name: create-pr
 description: 現在の branch から GitHub PR を作成する。通常は draft にし、ready PR はユーザー明示指示時だけ許可する。PR template、diff、commit、テスト状況を整理する。
+disable-model-invocation: true
 ---
 
 # Create PR
