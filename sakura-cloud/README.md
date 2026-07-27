@@ -6,6 +6,7 @@
 ## どの Skill を使うか
 
 - EventBus の Schedule / Trigger / ProcessConfiguration を扱う → [`sakura-cloud-eventbus`](./eventbus/SKILL.md)
+- Terraform Provider v2 から v3 へ移行する → [`sakura-terraform-v3-migration`](./sakura-terraform-v3-migration/SKILL.md)
 - ウェブアクセラレータのサイト設定、独自ドメイン、SSL、キャッシュ削除を扱う → [`sakura-cloud-webaccel`](./webaccel/SKILL.md)
 - Workflows の YAML、式、HTTP/API 呼び出し、実行履歴を扱う → [`sakura-cloud-workflows`](./workflows/SKILL.md)
 
@@ -20,6 +21,9 @@
 - **[`sakura-cloud-eventbus`](./eventbus/SKILL.md)** — EventBus の実行設定、スケジュール、イベントトリガーを扱う。
   - Use when: EventBus 設計、Schedule / Trigger 作成、SimpleMQ / シンプル通知連携
   - Type: `model-invoked`
+- **[`sakura-terraform-v3-migration`](./sakura-terraform-v3-migration/SKILL.md)** — さくらのクラウド Terraform Provider v2 から v3 への移行を扱う。
+  - Use when: `sacloud/sakuracloud` から `sacloud/sakura` への移行、State/import 計画、Provider schema 確認
+  - Type: `user-invoked`
 - **[`sakura-cloud-webaccel`](./webaccel/SKILL.md)** — ウェブアクセラレータのサイト設定・運用を扱う。
   - Use when: サイト追加、独自ドメイン / SSL 設定、キャッシュ削除 / オリジンガード
   - Type: `model-invoked`
