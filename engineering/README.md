@@ -17,6 +17,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、TDD による�
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
 - diff / branch diff / PR diff を厳しめに見る → [`review-diff-code`](./review-diff-code/SKILL.md)
+- local差分を変更意図ごと・リスク順に解説する画面を作る → [`explain-diff`](./explain-diff/SKILL.md)
 - commit 前に Hunk で人間レビューを依頼する → [`hunk-human-review`](./hunk-human-review/SKILL.md)
 - sandbox runtime 起因の ghost dotfiles、mount artifact、workflow scope 不足を診断する → [`sandbox-runtime`](./sandbox-runtime/SKILL.md)
 - nono の拒否を診断し、最小権限の profile patch を作成・検証する → [`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)
@@ -33,8 +34,9 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、TDD による�
 6. 実行コードのロジック・状態遷移・データ変換・処理規則を変更するときは、`tdd` で RED → GREEN → Refactor の順に進める。
 7. テストを書くときは、`test-writing-style` で既存テスト文化と読みやすさを揃える。
 8. 実装後、plan を保持したまま `review-diff-code` で差分を確認する。
-9. review 後、plan 原文を commit body に保存して plan file を削除する。
-10. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
+9. 大きなlocal差分を人間へ説明するときは、必要に応じて `explain-diff` で意図別の確認画面を作る。
+10. review 後、plan 原文を commit body に保存して plan file を削除する。
+11. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
 
 ## Skill 一覧
 
@@ -68,6 +70,9 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、TDD による�
 - **[`review-diff-code`](./review-diff-code/SKILL.md)** — 現在の diff / branch diff / PR diff を3つの独立contextで批判的にレビューする。
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
+- **[`explain-diff`](./explain-diff/SKILL.md)** — local差分を変更意図ごと・リスク順に解説する人間向けHTMLを生成する。
+  - Use when: 大きな未コミット差分の説明、変更グループごとの確認・コメント、LAN配信、元セッション向けfeedback作成
+  - Type: `user-invoked`
 - **[`hunk-human-review`](./hunk-human-review/SKILL.md)** — commit 前に Hunk TUI で人間レビューを依頼する。
   - Use when: Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、レビュー完了後に Hunk コメントを回収する
   - Type: `model-invoked`
