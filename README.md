@@ -81,6 +81,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`review-diff-code`](./engineering/review-diff-code/SKILL.md)** — 現在の diff / branch diff / PR diff を3つの独立contextで批判的にレビューする。
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
+- **[`explain-diff`](./engineering/explain-diff/SKILL.md)** — local差分を変更意図ごと・リスク順に解説する人間向けHTMLを生成する。
+  - Use when: 大きな未コミット差分の説明、変更グループごとの確認・コメント、LAN配信、元セッション向けfeedback作成
+  - Type: `user-invoked`
 - **[`hunk-human-review`](./engineering/hunk-human-review/SKILL.md)** — commit 前に Hunk TUI で人間レビューを依頼する。
   - Use when: Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、レビュー完了後に Hunk コメントを回収する
   - Type: `model-invoked`
