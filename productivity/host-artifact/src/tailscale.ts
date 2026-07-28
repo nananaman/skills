@@ -12,12 +12,17 @@ function isCgnat(address: string): boolean {
 }
 
 export function detectTailscaleIPv4(
+  authoritativeAddress: string | undefined,
   getInterfaces: InterfaceProvider = () => os.networkInterfaces() as Interfaces,
 ): string | undefined {
-  for (const [name, addresses] of Object.entries(getInterfaces())) {
-    if (!/^(tailscale|utun)/i.test(name)) continue;
+  if (!authoritativeAddress || !isCgnat(authoritativeAddress)) return undefined;
+  for (const addresses of Object.values(getInterfaces())) {
     for (const address of addresses ?? []) {
-      if (address.family === "IPv4" && !address.internal && isCgnat(address.address)) return address.address;
+      if (
+        address.family === "IPv4"
+        && !address.internal
+        && address.address === authoritativeAddress
+      ) return authoritativeAddress;
     }
   }
   return undefined;

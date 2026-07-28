@@ -10,30 +10,31 @@ function argument(name: string, fallback: string): string {
 
 const port = Number(argument("--port", String(DEFAULT_PORT)));
 const root = argument("--publish-root", DEFAULT_PUBLISH_ROOT);
-let tailscaleReady = false;
+const authoritativeTailscaleAddress = argument("--tailscale-address", "") || undefined;
+let tailscaleState: { ready: boolean; address?: string } = { ready: false };
 const localApp = createArtifactApp({
   root,
   exposure: "local",
-  tailscaleReady: () => tailscaleReady,
+  tailscaleState: () => tailscaleState,
 });
 const tailscaleApp = createArtifactApp({ root, exposure: "tailscale" });
 const reconciler = new ListenerReconciler(async (hostname) => {
   const app = hostname === "127.0.0.1" ? localApp : tailscaleApp;
   const server = Bun.serve({ fetch: app.fetch, hostname, port });
-  if (hostname !== "127.0.0.1") tailscaleReady = true;
+  if (hostname !== "127.0.0.1") tailscaleState = { ready: true, address: hostname };
   return {
     close: async () => {
       await server.stop(true);
-      if (hostname !== "127.0.0.1") tailscaleReady = false;
+      if (hostname !== "127.0.0.1") tailscaleState = { ready: false };
     },
   };
 });
 
-await reconciler.reconcile(undefined);
+await reconciler.reconcile(detectTailscaleIPv4(authoritativeTailscaleAddress));
 
 async function reconcileRemote(): Promise<void> {
   try {
-    await reconciler.reconcile(detectTailscaleIPv4());
+    await reconciler.reconcile(detectTailscaleIPv4(authoritativeTailscaleAddress));
   } catch (error) {
     console.error("host-artifact Tailscale listener reconciliation failed", error);
   } finally {

@@ -16,8 +16,15 @@ export function isExpectedHealth(status: number, body: unknown): boolean {
 }
 
 export function hasReadyTailscaleListener(status: number, body: unknown): boolean {
-  return isExpectedHealth(status, body)
-    && (body as Record<string, unknown>).tailscaleReady === true;
+  return getReadyTailscaleAddress(status, body) !== undefined;
+}
+
+export function getReadyTailscaleAddress(status: number, body: unknown): string | undefined {
+  if (!isExpectedHealth(status, body)) return undefined;
+  const value = body as Record<string, unknown>;
+  return value.tailscaleReady === true && typeof value.tailscaleAddress === "string"
+    ? value.tailscaleAddress
+    : undefined;
 }
 
 export function buildArtifactUrl(base: string, id: string, relativePath: string): string {

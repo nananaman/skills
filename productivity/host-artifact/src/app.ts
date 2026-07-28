@@ -8,15 +8,21 @@ import { ARTIFACT_ID_PATTERN, HEALTH_PATH, type Exposure } from "./config.js";
 export function createArtifactApp(options: {
   root: string;
   exposure?: Exposure;
-  tailscaleReady?: () => boolean;
+  tailscaleState?: () => { ready: boolean; address?: string };
 }): Hono {
   const app = new Hono();
-  app.get(HEALTH_PATH, (context) => context.json({
-    service: "host-artifact",
-    version: 1,
-    status: "ok",
-    ...(options.tailscaleReady ? { tailscaleReady: options.tailscaleReady() } : {}),
-  }));
+  app.get(HEALTH_PATH, (context) => {
+    const tailscale = options.tailscaleState?.();
+    return context.json({
+      service: "host-artifact",
+      version: 1,
+      status: "ok",
+      ...(tailscale ? {
+        tailscaleReady: tailscale.ready,
+        ...(tailscale.address ? { tailscaleAddress: tailscale.address } : {}),
+      } : {}),
+    });
+  });
   app.get("/:id/*", async (context) => {
     const id = context.req.param("id");
     if (!ARTIFACT_ID_PATTERN.test(id)) return context.notFound();

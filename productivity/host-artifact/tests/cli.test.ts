@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildArtifactUrl,
   ensureReady,
+  getReadyTailscaleAddress,
   hasReadyTailscaleListener,
   isExpectedHealth,
   publishVerified,
@@ -67,6 +68,7 @@ test("Tailscale readiness requires the expected health identity and a bound list
     version: 1,
     status: "ok",
     tailscaleReady: true,
+    tailscaleAddress: "100.64.0.9",
   });
   const unbound = hasReadyTailscaleListener(200, {
     service: "host-artifact",
@@ -78,6 +80,28 @@ test("Tailscale readiness requires the expected health identity and a bound list
   // Assert
   assert.equal(ready, true);
   assert.equal(unbound, false);
+});
+
+test("Tailscale address is returned only for a ready listener", () => {
+  // Arrange & Act
+  const ready = getReadyTailscaleAddress(200, {
+    service: "host-artifact",
+    version: 1,
+    status: "ok",
+    tailscaleReady: true,
+    tailscaleAddress: "100.64.0.9",
+  });
+  const unready = getReadyTailscaleAddress(200, {
+    service: "host-artifact",
+    version: 1,
+    status: "ok",
+    tailscaleReady: false,
+    tailscaleAddress: "100.64.0.9",
+  });
+
+  // Assert
+  assert.equal(ready, "100.64.0.9");
+  assert.equal(unready, undefined);
 });
 
 test("artifact URL encodes each path segment without changing separators", () => {

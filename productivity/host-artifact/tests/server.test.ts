@@ -55,7 +55,10 @@ test("health endpoint reports readiness without listing artifacts", async () => 
 test("health endpoint reports whether the Tailscale listener is bound", async () => {
   // Arrange
   const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const app = createArtifactApp({ root, tailscaleReady: () => true });
+  const app = createArtifactApp({
+    root,
+    tailscaleState: () => ({ ready: true, address: "100.64.0.9" }),
+  });
 
   // Act
   const response = await app.request("http://localhost/.well-known/host-artifact/health");
@@ -66,6 +69,7 @@ test("health endpoint reports whether the Tailscale listener is bound", async ()
     version: 1,
     status: "ok",
     tailscaleReady: true,
+    tailscaleAddress: "100.64.0.9",
   });
 });
 

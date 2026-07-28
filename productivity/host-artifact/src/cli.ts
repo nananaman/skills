@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import {
   buildArtifactUrl,
   ensureReady,
+  getReadyTailscaleAddress,
   hasReadyTailscaleListener,
   isExpectedHealth,
   publishVerified,
@@ -11,7 +12,6 @@ import {
 } from "./cli-lib.js";
 import { DEFAULT_PORT, DEFAULT_PUBLISH_ROOT, HEALTH_PATH } from "./config.js";
 import { hostArtifact, removeArtifact } from "./publisher.js";
-import { detectTailscaleIPv4 } from "./tailscale.js";
 
 const execFileAsync = promisify(execFile);
 const base = `http://127.0.0.1:${DEFAULT_PORT}`;
@@ -34,14 +34,18 @@ const artifactWaitDependencies = {
   wait: async (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
 };
 
-async function isTailscaleListenerReady(): Promise<boolean> {
-  return waitForArtifact(`${base}${HEALTH_PATH}`, {
+async function readyTailscaleAddress(): Promise<string | undefined> {
+  let address: string | undefined;
+  await waitForArtifact(`${base}${HEALTH_PATH}`, {
     ...artifactWaitDependencies,
     fetchStatus: async (url: string) => {
       const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
-      return hasReadyTailscaleListener(response.status, await response.json()) ? 200 : 503;
+      const body = await response.json();
+      address = getReadyTailscaleAddress(response.status, body);
+      return hasReadyTailscaleListener(response.status, body) ? 200 : 503;
     },
   });
+  return address;
 }
 
 async function verifiedUrls(
@@ -56,13 +60,12 @@ async function verifiedUrls(
   const result: { urls: { localhost: string; tailscale?: string }; tailscaleUnavailable?: string } = {
     urls: { localhost },
   };
-  const tailscale = exposeToTailscale ? detectTailscaleIPv4() : undefined;
+  const tailscale = exposeToTailscale ? await readyTailscaleAddress() : undefined;
   if (exposeToTailscale && !tailscale) {
     result.tailscaleUnavailable = "Tailscale IPv4 is unavailable";
   } else if (tailscale) {
     const remote = buildArtifactUrl(`http://${tailscale}:${DEFAULT_PORT}`, id, relativePath);
-    if (await isTailscaleListenerReady()) result.urls.tailscale = remote;
-    else result.tailscaleUnavailable = "Tailscale listener did not become ready";
+    result.urls.tailscale = remote;
   }
   return result;
 }
@@ -94,7 +97,7 @@ async function main(): Promise<void> {
   }
   if (command === "status") {
     const healthy = await isHealthy();
-    const tailscale = detectTailscaleIPv4();
+    const tailscale = healthy ? await readyTailscaleAddress() : undefined;
     process.stdout.write(`${JSON.stringify({
       healthy,
       localhost: base,
