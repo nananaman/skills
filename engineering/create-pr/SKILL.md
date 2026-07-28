@@ -100,6 +100,7 @@ disable-model-invocation: true
    `Review notes` には、後続の review gate 確認後に、review gate の種類、実行した skill / command、対象 base、結果を書く。review gate が不要な docs-only 変更なら、その理由を書く。
 
    commit body に implementation plan がある場合は、template の末尾または標準 body の末尾へ次を追加する。
+   plan 用の見出しは追加せず、`<details>`、`<summary>Implementation plan</summary>`、`</details>` を PR body に literal な HTML tag として含める。
 
    ```md
    <details>
@@ -110,8 +111,9 @@ disable-model-invocation: true
    </details>
    ```
 
-   plan 原文を要約・編集しない。
+   `Implementation-Plan:` と `End-Implementation-Plan` の marker 自体は転記せず、その間の plan 原文だけを要約・編集せずに入れる。
    marker 内と折りたたみ内が一致することを確認する。
+   PR 作成前に body file を読み直し、opening tag、summary、closing tag がそれぞれ一つあり、この順で並んでいることを確認する。欠けている場合は PR を作成しない。
 
 7. review gate を確認する。
    - docs-only の変更なら review gate は不要。
@@ -140,7 +142,15 @@ disable-model-invocation: true
 
    ユーザーが明示的に ready PR 作成を指示した場合だけ、`--draft` を外してよい。
 
-9. 作成後に URL と reviewer 向け要点を報告する。
+9. 作成後に PR body を取得して確認する。
+
+   ```bash
+   gh pr view --json body,url
+   ```
+
+   implementation plan がある場合は、作成前と同じ三つの tag が GitHub 上の body に literal に保存され、plan がその内側にあることを確認する。満たさない場合は完了とせず、正しい body file を使って修正する。
+
+10. URL と reviewer 向け要点を報告する。
 
 ## Existing PR Handling
 
