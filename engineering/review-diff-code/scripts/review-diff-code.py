@@ -15,13 +15,10 @@ import tempfile
 from string import Template
 
 
-REVIEWERS = (
-    ("behavioral-safety", "Behavioral Safety"),
-    ("design-quality", "Design Quality"),
-    ("adversarial", "Adversarial"),
-)
 NO_FINDINGS = {"No actionable findings", "No actionable findings."}
 FINDING_HEADING = re.compile(r"^### \[(critical|high|medium|low)\] .+")
+REVIEWER_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+ADVERSARIAL_QUESTION = "変更が安全だという主張を反証できるか"
 REQUIRED_FINDING_FIELDS = ("- Target:", "- Problem:", "- Evidence:", "- Suggested fix:")
 SKILL_DIR = Path(__file__).resolve().parent.parent
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
@@ -52,9 +49,12 @@ def parse_args() -> argparse.Namespace:
         help="Directory under which a private run directory is created.",
     )
 
-    for command in ("reset-context", "validate-context", "route", "collect", "cleanup"):
+    for command in ("reset-context", "validate-context", "collect", "cleanup"):
         subparser = subparsers.add_parser(command)
         subparser.add_argument("--run-dir", type=Path, required=True)
+    route = subparsers.add_parser("route")
+    route.add_argument("--run-dir", type=Path, required=True)
+    route.add_argument("--roster-file", type=Path, required=True)
 
     return parser.parse_args()
 
@@ -558,10 +558,59 @@ def render_review_context(
     return rendered
 
 
-def build_reviewer_prompt(reviewer_id: str, bundle: str, impact_context: str) -> str:
-    prompt_template = Template((PROMPT_DIR / f"{reviewer_id}.md").read_text())
+def read_reviewer_roster(path: Path) -> list[dict[str, str]]:
+    try:
+        raw = read_regular_utf8(path.resolve(strict=True), 100_000)
+        roster = json.loads(raw)
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+        raise ReviewError("reviewer_roster_invalid", "reviewer roster is not valid JSON") from error
+    if not isinstance(roster, list) or not 2 <= len(roster) <= 4:
+        raise ReviewError(
+            "reviewer_roster_invalid",
+            "reviewer roster must contain one adversarial and one to three additional reviewers",
+        )
+    expected_fields = {"id", "name", "question", "reason", "context_mode"}
+    validated: list[dict[str, str]] = []
+    for reviewer in roster:
+        if (
+            not isinstance(reviewer, dict)
+            or set(reviewer) != expected_fields
+            or not all(isinstance(value, str) and value.strip() for value in reviewer.values())
+            or not REVIEWER_ID.fullmatch(reviewer["id"])
+            or reviewer["context_mode"] not in {"impact", "implementation"}
+        ):
+            raise ReviewError("reviewer_roster_invalid", "reviewer roster entry is invalid")
+        validated.append({key: reviewer[key].strip() for key in expected_fields})
+    reviewer_ids = [reviewer["id"] for reviewer in validated]
+    if len(reviewer_ids) != len(set(reviewer_ids)):
+        raise ReviewError("reviewer_roster_invalid", "reviewer ids must be unique")
+    adversarial = [reviewer for reviewer in validated if reviewer["id"] == "adversarial"]
+    if (
+        len(adversarial) != 1
+        or adversarial[0]["context_mode"] != "implementation"
+        or adversarial[0]["question"] != ADVERSARIAL_QUESTION
+    ):
+        raise ReviewError(
+            "reviewer_roster_invalid",
+            "roster must contain exactly one blind adversarial reviewer with the fixed question",
+        )
+    return validated
+
+
+def build_reviewer_prompt(
+    reviewer: dict[str, str],
+    bundle: str,
+    impact_context: str,
+) -> str:
+    template_name = "adversarial.md" if reviewer["id"] == "adversarial" else "reviewer.md"
+    prompt_template = Template((PROMPT_DIR / template_name).read_text())
     return prompt_template.substitute(
-        impact_context_section="" if reviewer_id == "adversarial" else impact_context.rstrip(),
+        reviewer_name=reviewer["name"],
+        review_question=reviewer["question"],
+        selection_reason=reviewer["reason"],
+        impact_context_section=(
+            impact_context.rstrip() if reviewer["context_mode"] == "impact" else ""
+        ),
         change_bundle=bundle.rstrip(),
     ).rstrip() + "\n"
 
@@ -778,12 +827,20 @@ def reset_context_review(args: argparse.Namespace) -> int:
 def route_review(args: argparse.Namespace) -> int:
     run_dir, manifest = load_run(args.run_dir)
     repo = Path(manifest["repo"]).resolve(strict=True)
+    roster = read_reviewer_roster(args.roster_file)
     reviewers_root = run_dir / "reviewers"
     if manifest.get("state") == "routed":
+        if manifest.get("reviewers") != roster:
+            raise ReviewError("run_protocol_invalid", "reviewer roster changed after routing")
         validate_routed_artifacts(run_dir)
         return print_routed_review(run_dir)
     if manifest.get("state") != "prepared":
         raise ReviewError("run_protocol_invalid", "review run is not ready for routing")
+    if manifest.get("reviewers") not in (None, roster):
+        raise ReviewError("run_protocol_invalid", "reviewer roster changed during routing")
+    if manifest.get("reviewers") is None:
+        manifest["reviewers"] = roster
+        write_manifest(run_dir, manifest)
     if reviewers_root.exists() or reviewers_root.is_symlink():
         validate_routed_artifacts(run_dir)
         manifest["state"] = "routed"
@@ -807,17 +864,18 @@ def route_review(args: argparse.Namespace) -> int:
     )
     impact_context = render_review_context(repo, context, context_diff)
     prompts = {
-        reviewer_id: build_reviewer_prompt(
-            reviewer_id,
+        reviewer["id"]: build_reviewer_prompt(
+            reviewer,
             implementation_bundle,
             impact_context,
         )
-        for reviewer_id, _ in REVIEWERS
+        for reviewer in roster
     }
     staging = Path(tempfile.mkdtemp(prefix=".reviewers-", dir=run_dir))
     try:
         prompt_digests: dict[str, str] = {}
-        for reviewer_id, _ in REVIEWERS:
+        for reviewer in roster:
+            reviewer_id = reviewer["id"]
             reviewer_dir = staging / reviewer_id
             reviewer_dir.mkdir()
             (reviewer_dir / "prompt.md").write_text(prompts[reviewer_id])
@@ -842,29 +900,35 @@ def route_review(args: argparse.Namespace) -> int:
 
 
 def print_routed_review(run_dir: Path) -> int:
-    reviewers = {
-        reviewer_id: {
+    _, manifest = load_run(run_dir)
+    reviewers = {}
+    for reviewer in manifest["reviewers"]:
+        reviewer_id = reviewer["id"]
+        reviewers[reviewer_id] = {
             "prompt_file": str(run_dir / "reviewers" / reviewer_id / "prompt.md"),
             "result_file": str(run_dir / "reviewers" / reviewer_id / "result.md"),
         }
-        for reviewer_id, _ in REVIEWERS
-    }
     print(json.dumps({"run_dir": str(run_dir), "reviewers": reviewers}, ensure_ascii=False))
     return 0
 
 
 def validate_routed_artifacts(run_dir: Path) -> None:
+    _, manifest = load_run(run_dir)
+    reviewers = manifest.get("reviewers")
+    if not isinstance(reviewers, list):
+        raise ReviewError("run_protocol_invalid", "reviewer roster is missing")
+    reviewer_ids = [reviewer["id"] for reviewer in reviewers]
     reviewers_root = run_dir / "reviewers"
     if not reviewers_root.exists() or not stat.S_ISDIR(reviewers_root.lstat().st_mode):
         raise ReviewError("run_protocol_invalid", "reviewer artifact root is invalid")
-    expected_root_entries = {"integrity.json", *(reviewer_id for reviewer_id, _ in REVIEWERS)}
+    expected_root_entries = {"integrity.json", *reviewer_ids}
     if {path.name for path in reviewers_root.iterdir()} != expected_root_entries:
         raise ReviewError("run_protocol_invalid", "reviewer artifact root has invalid members")
     try:
         integrity = json.loads(read_regular_utf8(reviewers_root / "integrity.json", 20_000))
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
         raise ReviewError("run_protocol_invalid", "reviewer integrity record is invalid") from error
-    expected_ids = {reviewer_id for reviewer_id, _ in REVIEWERS}
+    expected_ids = set(reviewer_ids)
     if (
         not isinstance(integrity, dict)
         or set(integrity) != {"version", "prompt_digests"}
@@ -873,7 +937,7 @@ def validate_routed_artifacts(run_dir: Path) -> None:
         or set(integrity["prompt_digests"]) != expected_ids
     ):
         raise ReviewError("run_protocol_invalid", "reviewer integrity schema is invalid")
-    for reviewer_id, _ in REVIEWERS:
+    for reviewer_id in reviewer_ids:
         reviewer_dir = reviewers_root / reviewer_id
         prompt_file = reviewer_dir / "prompt.md"
         if (
@@ -914,7 +978,9 @@ def collect_review(args: argparse.Namespace) -> int:
     validate_repository_state(manifest, repo)
     validate_routed_artifacts(run_dir)
     results: list[tuple[str, str, str, str]] = []
-    for reviewer_id, title in REVIEWERS:
+    for reviewer in manifest["reviewers"]:
+        reviewer_id = reviewer["id"]
+        title = reviewer["name"]
         result_file = run_dir / "reviewers" / reviewer_id / "result.md"
         status, output = read_reviewer_result(result_file)
         results.append((reviewer_id, title, status, output))
@@ -938,7 +1004,7 @@ def collect_review(args: argparse.Namespace) -> int:
 
 
 def cleanup_review(args: argparse.Namespace) -> int:
-    run_dir, _ = load_run(args.run_dir)
+    run_dir, manifest = load_run(args.run_dir)
     known_files = {
         RUN_MARKER,
         MANIFEST_NAME,
@@ -948,7 +1014,8 @@ def cleanup_review(args: argparse.Namespace) -> int:
         "reviewers/integrity.json",
     }
     known_directories = {"context-builder", "reviewers"}
-    for reviewer_id, _ in REVIEWERS:
+    for reviewer in manifest.get("reviewers", []):
+        reviewer_id = reviewer["id"]
         known_files.update(
             {
                 f"reviewers/{reviewer_id}/prompt.md",

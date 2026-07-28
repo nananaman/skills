@@ -1,7 +1,7 @@
 # Engineering Skills
 
-コード作業、設計文書、task 分解、一時 plan、レビュー、PR 作成に使う skill 群です。
-PRD、Design Doc、独立実行可能な task、実装用 plan、TDD による実装、テスト記述、実装後レビュー、レビューしやすい PR 作成までの導線を扱います。
+コード作業、設計文書、task 分解、一時 plan、実装、レビュー、PR 作成に使う skill 群です。
+PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBuilder / Criticによる実装、TDD、実装後レビュー、レビューしやすいPR作成までの導線を扱います。
 
 ## どの Skill を使うか
 
@@ -13,6 +13,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、TDD による�
 - Design Doc を設計判断・task 分割へ進める文書に磨く → [`polish-design-doc`](./polish-design-doc/SKILL.md)
 - 合意済みの要求・設計を独立実行可能な task 群へ分解する → [`task-breakdown`](./task-breakdown/SKILL.md)
 - issue を取得し、grill 後に一時的な実装 plan を作る → [`create-plan`](./create-plan/SKILL.md)
+- quality barに向けてBuilderとCriticの実装loopを編成する → [`implement`](./implement/SKILL.md)
 - 実行コードのロジック・状態遷移・データ変換・処理規則の変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
@@ -33,10 +34,11 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、TDD による�
 5. issue を取得したら `create-plan` で grill と調査を行い、untracked の一時 plan を作る。
 6. 実行コードのロジック・状態遷移・データ変換・処理規則を変更するときは、`tdd` で RED → GREEN → Refactor の順に進める。
 7. テストを書くときは、`test-writing-style` で既存テスト文化と読みやすさを揃える。
-8. 実装後、plan を保持したまま `review-diff-code` で差分を確認する。
-9. 大きなlocal差分を人間へ説明するときは、必要に応じて `explain-diff` で意図別の確認画面を作る。
-10. review 後、plan 原文を commit body に保存して plan file を削除する。
-11. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
+8. 長い実装loopが必要なtaskでは、明示的に`implement`を使い、goalとquality barに対してBuilder / Criticを編成する。
+9. 実装後、planを保持したまま`review-diff-code`で差分を一度評価し、finding ledgerを確認する。修正が必要なら実装workflowへ戻す。
+10. 大きなlocal差分を人間へ説明するときは、必要に応じて `explain-diff` で意図別の確認画面を作る。
+11. review 後、plan 原文を commit body に保存して plan file を削除する。
+12. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
 
 ## Skill 一覧
 
@@ -64,10 +66,13 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、TDD による�
 - **[`create-plan`](./create-plan/SKILL.md)** — issue を取得した後、grill と調査を経て一時的な実装 plan を作成する。
   - Use when: `create-plan <issue>`、個別 task の実装前設計、`plans/<task>-<slug>.md` の作成
   - Type: `user-invoked`
+- **[`implement`](./implement/SKILL.md)** — goalとquality barに対するBuilder / Criticの実装loopを編成する。
+  - Use when: `implement`の明示起動、複数unitや反復評価を伴う実装、actual artifactとreferenceの比較
+  - Type: `user-invoked`
 - **[`create-pr`](./create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`
-- **[`review-diff-code`](./review-diff-code/SKILL.md)** — 現在の diff / branch diff / PR diff を3つの独立contextで批判的にレビューする。
+- **[`review-diff-code`](./review-diff-code/SKILL.md)** — 現在のdiff / branch diff / PR diffをrisk-based reviewerとblind Adversarialで一度評価する。
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
 - **[`explain-diff`](./explain-diff/SKILL.md)** — local差分を変更意図ごと・リスク順に解説する人間向けHTMLを生成する。

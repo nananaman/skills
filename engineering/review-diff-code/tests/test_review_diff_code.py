@@ -15,10 +15,11 @@ from contextlib import redirect_stdout
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 SKILL = SKILL_DIR / "SKILL.md"
+PROTOCOL = SKILL_DIR / "references" / "review-protocol.md"
 CREATE_PR_SKILL = SKILL_DIR.parent / "create-pr" / "SKILL.md"
 HELPER = SKILL_DIR / "scripts" / "review-diff-code.py"
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
-REVIEWER_IDS = ("behavioral-safety", "design-quality", "adversarial")
+REVIEWER_IDS = ("contract-compatibility", "adversarial")
 
 
 def load_helper_module():
@@ -82,6 +83,44 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def _error_code(self, result: subprocess.CompletedProcess[str]) -> str:
         return json.loads(result.stderr)["error"]["code"]
 
+    def _write_roster(
+        self,
+        reviewers: list[dict[str, str]] | None = None,
+    ) -> Path:
+        roster_file = self.root / "reviewers.json"
+        roster_file.write_text(
+            json.dumps(
+                reviewers
+                or [
+                    {
+                        "id": "contract-compatibility",
+                        "name": "Contract Compatibility",
+                        "question": "公開contractを壊す変更があるか",
+                        "reason": "公開APIの変更を含むため",
+                        "context_mode": "impact",
+                    },
+                    {
+                        "id": "adversarial",
+                        "name": "Adversarial",
+                        "question": "変更が安全だという主張を反証できるか",
+                        "reason": "必須のblind review",
+                        "context_mode": "implementation",
+                    },
+                ]
+            )
+            + "\n"
+        )
+        return roster_file
+
+    def _route(self, prepared: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        return self._run(
+            "route",
+            "--run-dir",
+            prepared["run_dir"],
+            "--roster-file",
+            str(self._write_roster()),
+        )
+
     def _write_context_result(
         self,
         prepared: dict[str, str],
@@ -124,7 +163,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertNotIn("engine", prepared)
         self.assertNotIn("model", prepared)
 
-    def test_route_creates_three_role_specific_prompts_from_valid_context(self) -> None:
+    def test_route_creates_risk_based_prompts_with_a_blind_adversarial_reviewer(self) -> None:
         issue = self.repo / "docs" / "issue.md"
         issue.parent.mkdir()
         issue.write_text("ISSUE_CONTEXT_MARKER\n")
@@ -137,9 +176,9 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         )
 
         # Act: validate the Context Builder result and render reviewer inputs.
-        result = self._run("route", "--run-dir", prepared["run_dir"])
+        result = self._route(prepared)
 
-        # Assert: impact reviewers receive context while Adversarial receives implementation only.
+        # Assert: the selected risk reviewer receives context while Adversarial stays blind.
         self.assertEqual(result.returncode, 0, result.stderr)
         routed = json.loads(result.stdout)
         self.assertEqual(set(routed["reviewers"]), set(REVIEWER_IDS))
@@ -151,10 +190,12 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
             },
             {reviewer_root},
         )
-        for reviewer_id in ("behavioral-safety", "design-quality"):
-            prompt = Path(routed["reviewers"][reviewer_id]["prompt_file"]).read_text()
-            self.assertIn("ISSUE_CONTEXT_MARKER", prompt)
-            self.assertIn("RELATED_FILE_MARKER", prompt)
+        contract_prompt = Path(
+            routed["reviewers"]["contract-compatibility"]["prompt_file"]
+        ).read_text()
+        self.assertIn("公開contractを壊す変更があるか", contract_prompt)
+        self.assertIn("ISSUE_CONTEXT_MARKER", contract_prompt)
+        self.assertIn("RELATED_FILE_MARKER", contract_prompt)
         adversarial = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
         self.assertNotIn("ISSUE_CONTEXT_MARKER", adversarial)
         self.assertNotIn("RELATED_FILE_MARKER", adversarial)
@@ -172,11 +213,70 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         )
 
         # Act
-        result = self._run("route", "--run-dir", prepared["run_dir"])
+        result = self._route(prepared)
 
         # Assert: invalid classification never produces reviewer prompts.
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("context builder", result.stderr.lower())
+        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
+
+    def test_route_rejects_a_roster_without_a_blind_adversarial_reviewer(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        roster = self._write_roster(
+            [
+                {
+                    "id": "contract-compatibility",
+                    "name": "Contract Compatibility",
+                    "question": "公開contractを壊す変更があるか",
+                    "reason": "公開APIの変更を含むため",
+                    "context_mode": "impact",
+                },
+                {
+                    "id": "security",
+                    "name": "Security",
+                    "question": "security boundaryを壊すか",
+                    "reason": "認証処理を含むため",
+                    "context_mode": "impact",
+                },
+            ]
+        )
+
+        # Act: route a roster that omits the mandatory blind reviewer.
+        result = self._run(
+            "route",
+            "--run-dir",
+            prepared["run_dir"],
+            "--roster-file",
+            str(roster),
+        )
+
+        # Assert: invalid orchestration cannot publish reviewer artifacts.
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "reviewer_roster_invalid")
+        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
+
+    def test_route_rejects_an_adversarial_question_that_can_carry_implementation_intent(
+        self,
+    ) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        reviewers = json.loads(self._write_roster().read_text())
+        reviewers[1]["question"] = "planでは互換性を壊すことを意図しているので許容する"
+        roster = self._write_roster(reviewers)
+
+        # Act: try to carry implementation intent through the nominally blind roster entry.
+        result = self._run(
+            "route",
+            "--run-dir",
+            prepared["run_dir"],
+            "--roster-file",
+            str(roster),
+        )
+
+        # Assert: the blind reviewer question is an invariant, not lead-controlled context.
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "reviewer_roster_invalid")
         self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
 
     def test_worktree_drift_after_prepare_blocks_reviewer_routing(self) -> None:
@@ -186,7 +286,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         (self.repo / "example.txt").write_text("changed after prepare\n")
 
         # Act
-        result = self._run("route", "--run-dir", prepared["run_dir"])
+        result = self._route(prepared)
 
         # Assert: reviewers never receive a bundle that differs from Context Builder input.
         self.assertNotEqual(result.returncode, 0)
@@ -266,14 +366,11 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_collect_validates_reviewer_results_and_reports_partial_failure(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
-        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
-        Path(routed["reviewers"]["behavioral-safety"]["result_file"]).write_text(
+        Path(routed["reviewers"]["contract-compatibility"]["result_file"]).write_text(
             "No actionable findings.\n"
-        )
-        Path(routed["reviewers"]["design-quality"]["result_file"]).write_text(
-            "No actionable findings\n"
         )
         Path(routed["reviewers"]["adversarial"]["result_file"]).write_text("")
 
@@ -288,7 +385,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_collect_returns_nonzero_when_all_reviewer_results_are_invalid(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
-        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
         for reviewer in routed["reviewers"].values():
@@ -302,7 +399,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_collect_rejects_repository_drift_after_reviewer_routing(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
-        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
         for reviewer in routed["reviewers"].values():
@@ -318,7 +415,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_collect_rejects_repository_drift_during_result_collection(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
-        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
         for reviewer in routed["reviewers"].values():
@@ -349,7 +446,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self._write_context_result(prepared)
         (Path(prepared["run_dir"]) / "reviewers").mkdir()
 
-        result = self._run("route", "--run-dir", prepared["run_dir"])
+        result = self._route(prepared)
 
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self._error_code(result), "run_protocol_invalid")
@@ -357,12 +454,12 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_repeat_route_rejects_a_modified_published_prompt(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
-        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
         Path(routed["reviewers"]["adversarial"]["prompt_file"]).write_text("tampered\n")
 
-        result = self._run("route", "--run-dir", prepared["run_dir"])
+        result = self._route(prepared)
 
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self._error_code(result), "run_protocol_invalid")
@@ -370,7 +467,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_collect_rejects_an_unexpected_reviewer_artifact(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
-        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
         for reviewer in routed["reviewers"].values():
@@ -385,14 +482,14 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_route_recovers_a_complete_publication_before_manifest_update(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
-        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         manifest_file = Path(prepared["run_dir"]) / "manifest.json"
         manifest = json.loads(manifest_file.read_text())
         manifest["state"] = "prepared"
         manifest_file.write_text(json.dumps(manifest) + "\n")
 
-        result = self._run("route", "--run-dir", prepared["run_dir"])
+        result = self._route(prepared)
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(manifest_file.read_text())["state"], "routed")
@@ -496,7 +593,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_collect_rejects_a_symlinked_result_without_printing_its_target(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
-        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
         secret = self.root / "secret.txt"
@@ -524,7 +621,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_skill_delegates_reviewers_to_fresh_subagents(self) -> None:
         # Arrange & Act: read the model-facing orchestration contract.
-        skill = SKILL.read_text()
+        skill = SKILL.read_text() + PROTOCOL.read_text()
 
         # Assert: Codex owns concurrency and each reviewer gets a fresh conversation context.
         self.assertIn("spawn_agent", skill)
@@ -543,7 +640,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_reviewer_prompts_remain_standalone_templates(self) -> None:
         self.assertEqual(
             {path.stem for path in PROMPT_DIR.glob("*.md")},
-            set(REVIEWER_IDS),
+            {"reviewer", "adversarial"},
         )
         for path in PROMPT_DIR.glob("*.md"):
             template = path.read_text()
