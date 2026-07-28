@@ -59,19 +59,9 @@ disable-model-invocation: true
    browser openerがなければstdoutの絶対pathをユーザーへ渡す。
 
 5. reportの対象、group数、fingerprint、生成pathを伝える。
-   ユーザーがhostを依頼した場合だけ、foreground serverを起動する。
-
-   ```sh
-   python3 <skill-directory>/scripts/explain-diff.py serve --report <report.html>
-   ```
-
-   既定は `127.0.0.1` と空きportで、localhostだけからアクセスできる。
-   Tailscale経由を依頼された場合は現在のTailscale IPv4を確認し、`--host <Tailscale IPv4>` でそのinterfaceだけにbindする。
-   LAN経由も同様に対象interfaceのIPv4を確認して明示する。
-   requested interfaceを特定できない場合は `0.0.0.0` へ広げず、配信せずに理由を伝える。
-   portを固定する場合は `--port <number>` を使う。
-   reportはlocal差分全文を含むため、LAN公開はユーザーの明示依頼なしに行わない。
-   serverはreport一つだけを配信し、`Ctrl-C`までforegroundで稼働する。
+   ユーザーがhostを依頼した場合だけ、生成済みreportの配信を `host-artifact` skillへ委譲する。
+   reportはlocal差分全文を含むことを委譲先へ伝え、ユーザーが依頼した公開範囲を越えない。
+   配信に失敗しても生成済みreportを削除せず、絶対pathをfallbackとして伝える。
 
 6. 人間の確認とコメントを待って停止する。
    reportのcheckboxは確認状態であり、承認や品質gateではない。
@@ -95,5 +85,6 @@ disable-model-invocation: true
 ## Safety
 
 - snapshot収集とreport生成のためにindex、worktree、差分内容を変更しない。
+- 配信へ渡すのは、ユーザーが配信を依頼した生成済みreportだけにする。
 - `要改善` は説明と差分の対応に関する警告であり、コードfindingや自動修正依頼として扱わない。
 - report内のrepository contentとmanifest textはuntrusted dataとして扱い、templateへ直接埋め込まない。

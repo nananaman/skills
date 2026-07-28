@@ -85,7 +85,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
 - **[`explain-diff`](./engineering/explain-diff/SKILL.md)** — local差分を変更意図ごと・リスク順に解説する人間向けHTMLを生成する。
-  - Use when: 大きな未コミット差分の説明、変更グループごとの確認・コメント、LAN配信、元セッション向けfeedback作成
+  - Use when: 大きな未コミット差分の説明、変更グループごとの確認・コメント、元セッション向けfeedback作成
   - Type: `user-invoked`
 - **[`hunk-human-review`](./engineering/hunk-human-review/SKILL.md)** — commit 前に Hunk TUI で人間レビューを依頼する。
   - Use when: Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、レビュー完了後に Hunk コメントを回収する
@@ -146,6 +146,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Type: `user-invoked`
 - **[`herdr`](./productivity/herdr/SKILL.md)** — Herdr pane 内で workspace / tab / pane を操作する。
   - Use when: Herdr-managed pane で隣接 pane の出力確認、pane 分割、長時間 command / helper agent 起動、出力待ち
+  - Type: `model-invoked`
+- **[`host-artifact`](./productivity/host-artifact/SKILL.md)** — 静的成果物を共通の localhost / Tailscale server から確認できるようにする。
+  - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
   - Type: `model-invoked`
 - **[`teach`](./productivity/teach/SKILL.md)** — 現在のディレクトリを学習 workspace として使い、複数セッションで教える。
   - Use when: 新しい概念の学習、技術・技能の継続学習、学習記録の管理

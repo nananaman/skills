@@ -9,6 +9,7 @@
 - ユーザーが明示的に計画や設計を質問攻めして詰めたい → [`grill-me`](./grill-me/SKILL.md)
 - 現在の会話を別 agent へ引き継げる形に圧縮する → [`handoff`](./handoff/SKILL.md)
 - Herdr pane 内で隣接 pane の出力確認、pane 分割、長時間 command の実行を行う → [`herdr`](./herdr/SKILL.md)
+- sandbox 内で生成した静的成果物を localhost / Tailscale から確認できるようにする → [`host-artifact`](./host-artifact/SKILL.md)
 - 現在の directory を学習 workspace として使う → [`teach`](./teach/SKILL.md)
 - system prompt、agent instructions、tool description、skill、prompt stack を診断・改善する → [`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)
 
@@ -19,7 +20,8 @@
 3. 作業が長くなったら `handoff` で次の agent が読める状態に圧縮する。
 4. 学習目的の directory では `teach` で記録を残しながら複数セッションで進める。
 5. Herdr-managed pane では `herdr` で長時間 command や helper agent を sibling pane に分離する。
-6. agent-facing prompt は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。
+6. browser で確認する静的成果物は `host-artifact` で共通 server の capability path へ配置する。
+7. agent-facing prompt は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。
 
 ## Skill 一覧
 
@@ -34,6 +36,9 @@
   - Type: `user-invoked`
 - **[`herdr`](./herdr/SKILL.md)** — Herdr-managed pane 内で workspace / tab / pane を操作する。
   - Use when: 隣接 pane の出力確認、pane 分割、長時間 command / helper agent 起動、出力待ち
+  - Type: `model-invoked`
+- **[`host-artifact`](./host-artifact/SKILL.md)** — 静的成果物を共通の localhost / Tailscale server から確認できるようにする。
+  - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
   - Type: `model-invoked`
 - **[`teach`](./teach/SKILL.md)** — 現在のディレクトリを学習 workspace として使い、複数セッションで教える。
   - Use when: 新しい概念の学習、技術・技能の継続学習、学習記録の管理
