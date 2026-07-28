@@ -82,6 +82,47 @@ export async function hostArtifact(input: string, options: PublisherOptions): Pr
   throw new Error("could not allocate a unique artifact id");
 }
 
+export async function updateArtifact(
+  id: string,
+  input: string,
+  options: Pick<PublisherOptions, "root">,
+): Promise<HostedArtifact> {
+  validateId(id);
+  const source = path.resolve(input);
+  await validateTree(source);
+  const sourceStat = await lstat(source);
+  if (!sourceStat.isFile()) throw new Error("update input must be a regular file");
+
+  const root = await validatePublishRoot(options.root);
+  const artifactRoot = path.join(root, id);
+  const artifactStat = await lstat(artifactRoot);
+  if (artifactStat.isSymbolicLink() || !artifactStat.isDirectory()) throw new Error("artifact must be a real directory");
+  const entries = await readdir(artifactRoot);
+  if (entries.length !== 1) throw new Error("only single-file artifacts can be updated");
+  const relativePath = entries[0]!;
+  if (relativePath !== path.basename(source)) throw new Error("update filename must match the hosted filename");
+
+  const destination = path.join(artifactRoot, relativePath);
+  const destinationStat = await lstat(destination);
+  if (destinationStat.isSymbolicLink() || !destinationStat.isFile()) {
+    throw new Error("only single-file artifacts can be updated");
+  }
+  const temporary = path.join(artifactRoot, `.update-${randomBytes(6).toString("hex")}`);
+  try {
+    await cp(source, temporary, { errorOnExist: true });
+    const temporaryStat = await lstat(temporary);
+    if (!temporaryStat.isFile() || temporaryStat.isSymbolicLink()) throw new Error("update copy must be a regular file");
+    if (await realpath(root) !== root || await realpath(artifactRoot) !== artifactRoot) {
+      throw new Error("publish root identity changed");
+    }
+    await rename(temporary, destination);
+    return { id, relativePath };
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
 export async function removeArtifact(id: string, options: Pick<PublisherOptions, "root">): Promise<void> {
   validateId(id);
   const root = await validatePublishRoot(options.root);

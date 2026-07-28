@@ -64,6 +64,33 @@ code diffの独立評価には`review-diff-code`を使えるが、すべてのar
 progressにはgoal、quality bar、unit、Builder / Critic、current status、accepted / rejected / fixed、残るlargest gapを含める。
 progress artifact自体を成果物にせず、作業規模に比例させる。
 
+user が hosted progress を依頼した場合だけ、自己完結した単一 HTML として progress artifact を作り、`host-artifact` で配信する。
+最初の `host` で得た artifact ID と URL を維持し、material iteration ごとに HTML を書き換えて `host-artifact update <artifact-id> <html-file>` を実行する。
+HTML は同じ URL へ1〜2秒間隔で HEAD request を送り、`ETag` が変わった場合だけ reload する。
+polling failure は進行を止めず次回 interval で再試行し、完了時には polling を停止した最終 HTML へ更新してよい。
+
+```html
+<script>
+let currentEtag;
+async function checkForUpdate() {
+  try {
+    const response = await fetch(location.href, { method: "HEAD", cache: "no-store" });
+    if (!response.ok) return;
+    const nextEtag = response.headers.get("ETag");
+    if (currentEtag && nextEtag && nextEtag !== currentEtag) {
+      location.reload();
+      return;
+    }
+    currentEtag = nextEtag;
+  } catch {
+    // Temporary listener or network failures are retried by the next interval.
+  }
+}
+void checkForUpdate();
+setInterval(checkForUpdate, 1500);
+</script>
+```
+
 ## Completion
 
 次のいずれかで終了する。

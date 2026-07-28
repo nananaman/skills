@@ -11,7 +11,7 @@ import {
   waitForArtifact,
 } from "./cli-lib.js";
 import { DEFAULT_PORT, DEFAULT_PUBLISH_ROOT, HEALTH_PATH } from "./config.js";
-import { hostArtifact, removeArtifact } from "./publisher.js";
+import { hostArtifact, removeArtifact, updateArtifact } from "./publisher.js";
 
 const execFileAsync = promisify(execFile);
 const base = `http://127.0.0.1:${DEFAULT_PORT}`;
@@ -96,6 +96,19 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ removed: value })}\n`);
     return;
   }
+  if (command === "update" && value) {
+    const [input, ...options] = flags;
+    if (!input || options.length > 0) throw new Error("usage: host-artifact update ARTIFACT_ID PATH");
+    await ensureReady({ isHealthy, ensureService });
+    const artifact = await updateArtifact(value, input, { root: DEFAULT_PUBLISH_ROOT });
+    const verification = await verifiedUrls(
+      artifact.id,
+      artifact.relativePath,
+      artifact.id.startsWith("tailscale-"),
+    );
+    process.stdout.write(`${JSON.stringify({ ...artifact, ...verification })}\n`);
+    return;
+  }
   if (command === "status") {
     const healthy = await isHealthy();
     const tailscale = healthy ? await readyTailscaleAddress() : undefined;
@@ -107,7 +120,7 @@ async function main(): Promise<void> {
     if (!healthy) process.exitCode = 1;
     return;
   }
-  throw new Error("usage: host-artifact <host PATH | remove ARTIFACT_ID | status>");
+  throw new Error("usage: host-artifact <host PATH | update ARTIFACT_ID PATH | remove ARTIFACT_ID | status>");
 }
 
 main().catch((error: unknown) => {

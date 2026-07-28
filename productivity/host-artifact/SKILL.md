@@ -25,13 +25,21 @@ description: agent が生成した単一 file または静的 directory を snap
    `--tailscale` を指定した場合だけ `urls.tailscale` も返す。
    CLI は localhost の成果物 route を実際に取得し、Tailscale URL は対応 listener の bind 完了も確認してから返す。
    Tailscale listener が期限内にreadyにならない場合は、検証済みの `urls.localhost` と `tailscaleUnavailable` を返す。
-3. 配信が不要になり user が削除を依頼した場合は、host 時に返された ID だけを削除する。
+3. 配信済みの単一 file を同じ capability URL で更新する場合は、host 時に返された ID と同じ basename の file を指定する。
+
+   ```sh
+   host-artifact update <artifact-id> <file>
+   ```
+
+   更新後も ID、公開 scope、relative path は変わらない。
+   directory artifact、別 basename、symlink、dotfile、特殊 file は更新に使えない。
+4. 配信が不要になり user が削除を依頼した場合は、host 時に返された ID だけを削除する。
 
    ```sh
    host-artifact remove <artifact-id>
    ```
 
-4. service 状態だけを確認する場合は `status` を使う。artifact 一覧は取得しない。
+5. service 状態だけを確認する場合は `status` を使う。artifact 一覧は取得しない。
 
    ```sh
    host-artifact status
@@ -40,6 +48,9 @@ description: agent が生成した単一 file または静的 directory を snap
 ## Contract
 
 - `host` は入力を配信 root へコピーし、元 file を直接公開しない。
+- `update` は source を artifact directory 内の一時 file へコピーして検証し、既存 file を atomic rename で差し替える。更新前の file を直接変更しない。
+- `update` 後の route 検証に失敗しても、確立済み artifact を削除しない。
+- file response は内容の SHA-256 に基づく `ETag` を GET と HEAD で返し、一致する `If-None-Match` には `304 Not Modified` を返す。
 - `host-artifact` command は Bun で checked-in TypeScript を直接実行する。生成済み JavaScript を配布物に含めない。
 - 配信 root は service activation が事前に作成する。CLI は root や親 directory を作成せず、実 directory でない場合は停止する。
 - 既定の ID は `local-<32hex>` で loopback listener だけから配信する。`--tailscale` の ID は `tailscale-<32hex>` で loopback と Tailscale listener の両方から配信する。

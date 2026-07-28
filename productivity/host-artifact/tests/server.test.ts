@@ -25,6 +25,62 @@ test("capability route serves static content with safe headers", async () => {
   assert.equal(await response.text(), "<h1>ok</h1>");
 });
 
+test("capability route identifies the served content with an ETag", async () => {
+  // Arrange
+  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const id = `local-${"1".repeat(32)}`;
+  await mkdir(path.join(root, id));
+  await writeFile(path.join(root, id, "report.html"), "version one");
+  const app = createArtifactApp({ root });
+
+  // Act
+  const first = await app.request(`http://localhost/${id}/report.html`);
+  await writeFile(path.join(root, id, "report.html"), "version two");
+  const second = await app.request(`http://localhost/${id}/report.html`);
+
+  // Assert
+  assert.match(first.headers.get("etag") ?? "", /^"[a-f0-9]{64}"$/);
+  assert.notEqual(second.headers.get("etag"), first.headers.get("etag"));
+});
+
+test("HEAD returns the same ETag as GET without a response body", async () => {
+  // Arrange
+  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const id = `local-${"2".repeat(32)}`;
+  await mkdir(path.join(root, id));
+  await writeFile(path.join(root, id, "report.html"), "progress");
+  const app = createArtifactApp({ root });
+  const url = `http://localhost/${id}/report.html`;
+  const get = await app.request(url);
+
+  // Act
+  const head = await app.request(url, { method: "HEAD" });
+
+  // Assert
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get("etag"), get.headers.get("etag"));
+  assert.equal(await head.text(), "");
+});
+
+test("matching If-None-Match returns 304 without content", async () => {
+  // Arrange
+  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const id = `local-${"3".repeat(32)}`;
+  await mkdir(path.join(root, id));
+  await writeFile(path.join(root, id, "report.html"), "progress");
+  const app = createArtifactApp({ root });
+  const url = `http://localhost/${id}/report.html`;
+  const etag = (await app.request(url)).headers.get("etag");
+  assert(etag);
+
+  // Act
+  const response = await app.request(url, { headers: { "If-None-Match": etag } });
+
+  // Assert
+  assert.equal(response.status, 304);
+  assert.equal(await response.text(), "");
+});
+
 test("root and unknown capability do not disclose an artifact listing", async () => {
   // Arrange
   const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
