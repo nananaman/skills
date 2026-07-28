@@ -11,7 +11,7 @@ import {
   waitForArtifact,
 } from "./cli-lib.js";
 import { DEFAULT_PORT, DEFAULT_PUBLISH_ROOT, HEALTH_PATH } from "./config.js";
-import { hostArtifact, removeArtifact } from "./publisher.js";
+import { hostArtifact, removeArtifact, updateArtifact } from "./publisher.js";
 
 const execFileAsync = promisify(execFile);
 const base = `http://127.0.0.1:${DEFAULT_PORT}`;
@@ -74,12 +74,16 @@ async function main(): Promise<void> {
   const [command, value, ...flags] = process.argv.slice(2);
   if (command === "host" && value) {
     const exposeToTailscale = flags.includes("--tailscale");
-    if (flags.some((flag) => flag !== "--tailscale")) throw new Error("unknown host option");
+    const liveReload = !flags.includes("--no-reload");
+    if (flags.some((flag) => flag !== "--tailscale" && flag !== "--no-reload")) {
+      throw new Error("unknown host option");
+    }
     await ensureReady({ isHealthy, ensureService });
     const published = await publishVerified({
       publish: () => hostArtifact(value, {
         root: DEFAULT_PUBLISH_ROOT,
         scope: exposeToTailscale ? "tailscale" : "local",
+        liveReload,
       }),
       verify: (artifact) => verifiedUrls(artifact.id, artifact.relativePath, exposeToTailscale),
       remove: (id) => removeArtifact(id, { root: DEFAULT_PUBLISH_ROOT }),
@@ -96,6 +100,19 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ removed: value })}\n`);
     return;
   }
+  if (command === "update" && value) {
+    const [input, ...options] = flags;
+    if (!input || options.length > 0) throw new Error("usage: host-artifact update ARTIFACT_ID PATH");
+    await ensureReady({ isHealthy, ensureService });
+    const artifact = await updateArtifact(value, input, { root: DEFAULT_PUBLISH_ROOT });
+    const verification = await verifiedUrls(
+      artifact.id,
+      artifact.relativePath,
+      artifact.id.startsWith("tailscale-"),
+    );
+    process.stdout.write(`${JSON.stringify({ ...artifact, ...verification })}\n`);
+    return;
+  }
   if (command === "status") {
     const healthy = await isHealthy();
     const tailscale = healthy ? await readyTailscaleAddress() : undefined;
@@ -107,7 +124,7 @@ async function main(): Promise<void> {
     if (!healthy) process.exitCode = 1;
     return;
   }
-  throw new Error("usage: host-artifact <host PATH | remove ARTIFACT_ID | status>");
+  throw new Error("usage: host-artifact <host PATH [--tailscale] [--no-reload] | update ARTIFACT_ID PATH | remove ARTIFACT_ID | status>");
 }
 
 main().catch((error: unknown) => {

@@ -25,6 +25,81 @@ test("capability route serves static content with safe headers", async () => {
   assert.equal(await response.text(), "<h1>ok</h1>");
 });
 
+test("capability route identifies the served content with an ETag", async () => {
+  // Arrange
+  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const id = `local-${"1".repeat(32)}`;
+  await mkdir(path.join(root, id));
+  await writeFile(path.join(root, id, "report.html"), "version one");
+  const app = createArtifactApp({ root });
+
+  // Act
+  const first = await app.request(`http://localhost/${id}/report.html`);
+  await writeFile(path.join(root, id, "report.html"), "version two");
+  const second = await app.request(`http://localhost/${id}/report.html`);
+
+  // Assert
+  assert.match(first.headers.get("etag") ?? "", /^"[a-f0-9]{64}"$/);
+  assert.notEqual(second.headers.get("etag"), first.headers.get("etag"));
+});
+
+test("HEAD returns the same ETag as GET without a response body", async () => {
+  // Arrange
+  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const id = `local-${"2".repeat(32)}`;
+  await mkdir(path.join(root, id));
+  await writeFile(path.join(root, id, "report.html"), "progress");
+  const app = createArtifactApp({ root });
+  const url = `http://localhost/${id}/report.html`;
+  const get = await app.request(url);
+
+  // Act
+  const head = await app.request(url, { method: "HEAD" });
+
+  // Assert
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get("etag"), get.headers.get("etag"));
+  assert.equal(await head.text(), "");
+});
+
+test("live HTML exposes its displayed source version on HEAD", async () => {
+  // Arrange
+  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const id = `local-live-${"4".repeat(32)}`;
+  const version = "a".repeat(64);
+  await mkdir(path.join(root, id));
+  await writeFile(
+    path.join(root, id, "progress.html"),
+    `<script data-host-artifact-live-reload data-host-artifact-version="${version}"></script>`,
+  );
+  const app = createArtifactApp({ root });
+
+  // Act
+  const response = await app.request(`http://localhost/${id}/progress.html`, { method: "HEAD" });
+
+  // Assert
+  assert.equal(response.headers.get("x-host-artifact-version"), version);
+});
+
+test("matching If-None-Match returns 304 without content", async () => {
+  // Arrange
+  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const id = `local-${"3".repeat(32)}`;
+  await mkdir(path.join(root, id));
+  await writeFile(path.join(root, id, "report.html"), "progress");
+  const app = createArtifactApp({ root });
+  const url = `http://localhost/${id}/report.html`;
+  const etag = (await app.request(url)).headers.get("etag");
+  assert(etag);
+
+  // Act
+  const response = await app.request(url, { headers: { "If-None-Match": etag } });
+
+  // Assert
+  assert.equal(response.status, 304);
+  assert.equal(await response.text(), "");
+});
+
 test("root and unknown capability do not disclose an artifact listing", async () => {
   // Arrange
   const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
@@ -111,7 +186,8 @@ test("Tailscale app rejects local artifacts and serves tailscale artifacts", asy
   const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
   const localId = `local-${"7".repeat(32)}`;
   const remoteId = `tailscale-${"8".repeat(32)}`;
-  for (const id of [localId, remoteId]) {
+  const liveRemoteId = `tailscale-live-${"5".repeat(32)}`;
+  for (const id of [localId, remoteId, liveRemoteId]) {
     await mkdir(path.join(root, id));
     await writeFile(path.join(root, id, "index.html"), id);
   }
@@ -120,10 +196,12 @@ test("Tailscale app rejects local artifacts and serves tailscale artifacts", asy
   // Act
   const local = await app.request(`http://localhost/${localId}/index.html`);
   const remote = await app.request(`http://localhost/${remoteId}/index.html`);
+  const liveRemote = await app.request(`http://localhost/${liveRemoteId}/index.html`);
 
   // Assert
   assert.equal(local.status, 404);
   assert.equal(remote.status, 200);
+  assert.equal(liveRemote.status, 200);
 });
 
 test("encoded spaces delimiters percent and non-ASCII roundtrip to the same file", async () => {

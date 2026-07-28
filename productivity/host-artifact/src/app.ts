@@ -1,9 +1,11 @@
 import { constants } from "node:fs";
+import { createHash } from "node:crypto";
 import { lstat, open, realpath } from "node:fs/promises";
 import path from "node:path";
 import { Hono } from "hono";
 import { getMimeType } from "hono/utils/mime";
 import { ARTIFACT_ID_PATTERN, HEALTH_PATH, type Exposure } from "./config.js";
+import { ARTIFACT_VERSION_HEADER } from "./live-reload.js";
 
 export function createArtifactApp(options: {
   root: string;
@@ -62,6 +64,14 @@ export function createArtifactApp(options: {
       context.header("Cache-Control", "no-store");
       context.header("X-Content-Type-Options", "nosniff");
       context.header("Content-Type", getMimeType(resolved) ?? "application/octet-stream");
+      const etag = `"${createHash("sha256").update(body).digest("hex")}"`;
+      context.header("ETag", etag);
+      if (id.includes("-live-")) {
+        const versions = [...body.toString("utf8").matchAll(/data-host-artifact-version="([a-f0-9]{64})"/g)];
+        const version = versions.at(-1)?.[1];
+        if (version) context.header(ARTIFACT_VERSION_HEADER, version);
+      }
+      if (context.req.header("If-None-Match") === etag) return context.body(null, 304);
       const arrayBuffer = body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
       return context.body(arrayBuffer);
     } catch {

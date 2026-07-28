@@ -64,6 +64,10 @@ code diffの独立評価には`review-diff-code`を使えるが、すべてのar
 progressにはgoal、quality bar、unit、Builder / Critic、current status、accepted / rejected / fixed、残るlargest gapを含める。
 progress artifact自体を成果物にせず、作業規模に比例させる。
 
+user が hosted progress を依頼した場合だけ、自己完結した単一 HTML として progress artifact を作り、`host-artifact` で配信する。
+最初の `host` で得た artifact ID と URL を維持し、material iteration ごとに HTML を書き換えて `host-artifact update <artifact-id> <html-file>` を実行する。
+HTML の live reload は `host-artifact` が配信用 copy へ付与するため、progress生成側で polling script を持たない。
+
 ## Completion
 
 次のいずれかで終了する。
