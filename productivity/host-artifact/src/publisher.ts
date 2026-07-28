@@ -1,13 +1,15 @@
 import { randomBytes } from "node:crypto";
-import { cp, lstat, mkdir, realpath, readdir, rename, rm } from "node:fs/promises";
+import { cp, lstat, mkdir, readFile, realpath, readdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ARTIFACT_ID_PATTERN } from "./config.js";
 import type { Exposure } from "./config.js";
+import { withLiveReload } from "./live-reload.js";
 
 export interface PublisherOptions {
   root: string;
   idGenerator?: () => string;
   scope?: Exposure;
+  liveReload?: boolean;
 }
 
 export interface HostedArtifact {
@@ -40,6 +42,9 @@ export async function hostArtifact(input: string, options: PublisherOptions): Pr
   await validateTree(source);
   const root = await validatePublishRoot(options.root);
   const sourceStat = await lstat(source);
+  const liveReload = sourceStat.isFile()
+    && path.extname(source).toLowerCase() === ".html"
+    && options.liveReload !== false;
   if (sourceStat.isDirectory()) {
     const index = path.join(source, "index.html");
     try {
@@ -52,7 +57,7 @@ export async function hostArtifact(input: string, options: PublisherOptions): Pr
   for (let attempt = 0; attempt < 16; attempt++) {
     const randomId = options.idGenerator?.() ?? randomBytes(16).toString("hex");
     if (!/^[a-f0-9]{32}$/.test(randomId)) throw new Error("invalid generated artifact id");
-    const id = `${options.scope ?? "local"}-${randomId}`;
+    const id = `${options.scope ?? "local"}${liveReload ? "-live" : ""}-${randomId}`;
     validateId(id);
     const temporary = path.join(root, `staging-${id}-${randomBytes(6).toString("hex")}`);
     const destination = path.join(root, id);
@@ -65,7 +70,9 @@ export async function hostArtifact(input: string, options: PublisherOptions): Pr
         relativePath = "index.html";
       } else if (stat.isFile()) {
         relativePath = path.basename(source);
-        await cp(source, path.join(temporary, relativePath), { errorOnExist: true });
+        const copied = path.join(temporary, relativePath);
+        await cp(source, copied, { errorOnExist: true });
+        if (liveReload) await writeFile(copied, withLiveReload(await readFile(copied)));
       } else {
         throw new Error("input must be a regular file or directory");
       }
@@ -112,6 +119,9 @@ export async function updateArtifact(
     await cp(source, temporary, { errorOnExist: true });
     const temporaryStat = await lstat(temporary);
     if (!temporaryStat.isFile() || temporaryStat.isSymbolicLink()) throw new Error("update copy must be a regular file");
+    if (id.includes("-live-")) {
+      await writeFile(temporary, withLiveReload(await readFile(temporary)));
+    }
     if (await realpath(root) !== root || await realpath(artifactRoot) !== artifactRoot) {
       throw new Error("publish root identity changed");
     }
