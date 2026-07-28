@@ -1,7 +1,14 @@
 #!/usr/bin/env bun
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { buildArtifactUrl, ensureReady, isExpectedHealth, publishVerified, waitForArtifact } from "./cli-lib.js";
+import {
+  buildArtifactUrl,
+  ensureReady,
+  hasReadyTailscaleListener,
+  isExpectedHealth,
+  publishVerified,
+  waitForArtifact,
+} from "./cli-lib.js";
 import { DEFAULT_PORT, DEFAULT_PUBLISH_ROOT, HEALTH_PATH } from "./config.js";
 import { hostArtifact, removeArtifact } from "./publisher.js";
 import { detectTailscaleIPv4 } from "./tailscale.js";
@@ -27,6 +34,16 @@ const artifactWaitDependencies = {
   wait: async (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
 };
 
+async function isTailscaleListenerReady(): Promise<boolean> {
+  return waitForArtifact(`${base}${HEALTH_PATH}`, {
+    ...artifactWaitDependencies,
+    fetchStatus: async (url: string) => {
+      const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
+      return hasReadyTailscaleListener(response.status, await response.json()) ? 200 : 503;
+    },
+  });
+}
+
 async function verifiedUrls(
   id: string,
   relativePath: string,
@@ -44,8 +61,8 @@ async function verifiedUrls(
     result.tailscaleUnavailable = "Tailscale IPv4 is unavailable";
   } else if (tailscale) {
     const remote = buildArtifactUrl(`http://${tailscale}:${DEFAULT_PORT}`, id, relativePath);
-    if (await waitForArtifact(remote, artifactWaitDependencies)) result.urls.tailscale = remote;
-    else result.tailscaleUnavailable = "Tailscale artifact route did not become reachable";
+    if (await isTailscaleListenerReady()) result.urls.tailscale = remote;
+    else result.tailscaleUnavailable = "Tailscale listener did not become ready";
   }
   return result;
 }

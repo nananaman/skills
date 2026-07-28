@@ -15,6 +15,11 @@ export function isExpectedHealth(status: number, body: unknown): boolean {
   return value.service === "host-artifact" && value.version === 1 && value.status === "ok";
 }
 
+export function hasReadyTailscaleListener(status: number, body: unknown): boolean {
+  return isExpectedHealth(status, body)
+    && (body as Record<string, unknown>).tailscaleReady === true;
+}
+
 export function buildArtifactUrl(base: string, id: string, relativePath: string): string {
   const encoded = relativePath.split("/").map(encodeURIComponent).join("/");
   return `${base}/${id}/${encoded}`;

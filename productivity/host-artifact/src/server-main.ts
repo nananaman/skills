@@ -10,12 +10,23 @@ function argument(name: string, fallback: string): string {
 
 const port = Number(argument("--port", String(DEFAULT_PORT)));
 const root = argument("--publish-root", DEFAULT_PUBLISH_ROOT);
-const localApp = createArtifactApp({ root, exposure: "local" });
+let tailscaleReady = false;
+const localApp = createArtifactApp({
+  root,
+  exposure: "local",
+  tailscaleReady: () => tailscaleReady,
+});
 const tailscaleApp = createArtifactApp({ root, exposure: "tailscale" });
 const reconciler = new ListenerReconciler(async (hostname) => {
   const app = hostname === "127.0.0.1" ? localApp : tailscaleApp;
   const server = Bun.serve({ fetch: app.fetch, hostname, port });
-  return { close: async () => server.stop(true) };
+  if (hostname !== "127.0.0.1") tailscaleReady = true;
+  return {
+    close: async () => {
+      await server.stop(true);
+      if (hostname !== "127.0.0.1") tailscaleReady = false;
+    },
+  };
 });
 
 await reconciler.reconcile(undefined);

@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildArtifactUrl, ensureReady, isExpectedHealth, publishVerified, waitForArtifact } from "../src/cli-lib.js";
+import {
+  buildArtifactUrl,
+  ensureReady,
+  hasReadyTailscaleListener,
+  isExpectedHealth,
+  publishVerified,
+  waitForArtifact,
+} from "../src/cli-lib.js";
 
 test("healthy service does not invoke the ensure wrapper", async () => {
   // Arrange
@@ -51,6 +58,26 @@ test("health validation rejects unrelated successful JSON responses", async () =
   // Assert
   assert.equal(valid, true);
   assert.equal(unrelated, false);
+});
+
+test("Tailscale readiness requires the expected health identity and a bound listener", () => {
+  // Arrange & Act
+  const ready = hasReadyTailscaleListener(200, {
+    service: "host-artifact",
+    version: 1,
+    status: "ok",
+    tailscaleReady: true,
+  });
+  const unbound = hasReadyTailscaleListener(200, {
+    service: "host-artifact",
+    version: 1,
+    status: "ok",
+    tailscaleReady: false,
+  });
+
+  // Assert
+  assert.equal(ready, true);
+  assert.equal(unbound, false);
 });
 
 test("artifact URL encodes each path segment without changing separators", () => {

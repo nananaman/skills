@@ -5,9 +5,18 @@ import { Hono } from "hono";
 import { getMimeType } from "hono/utils/mime";
 import { ARTIFACT_ID_PATTERN, HEALTH_PATH, type Exposure } from "./config.js";
 
-export function createArtifactApp(options: { root: string; exposure?: Exposure }): Hono {
+export function createArtifactApp(options: {
+  root: string;
+  exposure?: Exposure;
+  tailscaleReady?: () => boolean;
+}): Hono {
   const app = new Hono();
-  app.get(HEALTH_PATH, (context) => context.json({ service: "host-artifact", version: 1, status: "ok" }));
+  app.get(HEALTH_PATH, (context) => context.json({
+    service: "host-artifact",
+    version: 1,
+    status: "ok",
+    ...(options.tailscaleReady ? { tailscaleReady: options.tailscaleReady() } : {}),
+  }));
   app.get("/:id/*", async (context) => {
     const id = context.req.param("id");
     if (!ARTIFACT_ID_PATTERN.test(id)) return context.notFound();

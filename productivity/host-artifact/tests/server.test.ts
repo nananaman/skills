@@ -52,6 +52,23 @@ test("health endpoint reports readiness without listing artifacts", async () => 
   assert.deepEqual(await response.json(), { service: "host-artifact", version: 1, status: "ok" });
 });
 
+test("health endpoint reports whether the Tailscale listener is bound", async () => {
+  // Arrange
+  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const app = createArtifactApp({ root, tailscaleReady: () => true });
+
+  // Act
+  const response = await app.request("http://localhost/.well-known/host-artifact/health");
+
+  // Assert
+  assert.deepEqual(await response.json(), {
+    service: "host-artifact",
+    version: 1,
+    status: "ok",
+    tailscaleReady: true,
+  });
+});
+
 test("encoded traversal and dotfile paths are not served", async () => {
   // Arrange
   const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));

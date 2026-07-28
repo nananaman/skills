@@ -23,8 +23,8 @@ description: agent が生成した単一 file または静的 directory を snap
 
 2. JSON output の `urls.localhost` を返す。
    `--tailscale` を指定した場合だけ `urls.tailscale` も返す。
-   CLI は各 URL の成果物 route が実際に取得できた場合だけ URL を返す。
-   Tailscale route が期限内に到達できない場合は、検証済みの `urls.localhost` と `tailscaleUnavailable` を返す。
+   CLI は localhost の成果物 route を実際に取得し、Tailscale URL は対応 listener の bind 完了も確認してから返す。
+   Tailscale listener が期限内にreadyにならない場合は、検証済みの `urls.localhost` と `tailscaleUnavailable` を返す。
 3. 配信が不要になり user が削除を依頼した場合は、host 時に返された ID だけを削除する。
 
    ```sh
