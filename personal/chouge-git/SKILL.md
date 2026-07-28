@@ -37,6 +37,12 @@ Git / GitHub 運用に関しては、対象 project に明文化された規則�
 
 既存 commit、branch 名、PR title は明文化された規則として扱わない。
 
+## GitHub Tool Routing
+
+local checkoutを特定できるGitHub操作は、local `git` と `gh` を既定経路にする。
+GitHub connectorは、ユーザーが明示した場合、local checkoutがなくconnectorが適する場合、または`gh`に必要な機能がない場合だけ使う。
+`gh`が失敗した場合は、connectorへ切り替える前に実行経路と失敗原因を診断する。
+
 ## Commit Message
 
 project に明文化された commit 規約がある場合はそれに従う。
