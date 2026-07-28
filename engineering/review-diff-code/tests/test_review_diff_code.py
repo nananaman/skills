@@ -1,125 +1,41 @@
 from __future__ import annotations
 
+import json
+import importlib.util
+import io
 import os
 from pathlib import Path
 import subprocess
 import tempfile
-import textwrap
+from types import SimpleNamespace
 import unittest
+from unittest import mock
+from contextlib import redirect_stdout
 
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 SKILL = SKILL_DIR / "SKILL.md"
+CREATE_PR_SKILL = SKILL_DIR.parent / "create-pr" / "SKILL.md"
 HELPER = SKILL_DIR / "scripts" / "review-diff-code.py"
-LEGACY_HELPER = SKILL_DIR / "scripts" / "review-diff-code"
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
-CONTEXT_BUILDER_PROMPT = SKILL_DIR / "assets" / "context-builder.md"
-REVIEWER_IDS = {"behavioral-safety", "design-quality", "adversarial"}
+REVIEWER_IDS = ("behavioral-safety", "design-quality", "adversarial")
 
 
-FAKE_ENGINE = r"""#!/usr/bin/env python3
-import json
-import os
-from pathlib import Path
-import sys
-import time
-
-prompt = sys.stdin.read()
-first_line = prompt.splitlines()[0]
-title = next(
-    title for marker, title in (
-        ("Context Builder", "Context Builder"),
-        ("Behavioral Safety", "Behavioral Safety"),
-        ("Design Quality", "Design Quality"),
-        ("adversarial", "Adversarial"),
-    ) if marker in first_line
-)
-stem = Path(os.environ["FAKE_CAPTURE_DIR"]) / f"{title.replace(' ', '_').replace('/', '_')}.{os.getpid()}"
-Path(str(stem) + ".prompt").write_text(prompt)
-Path(str(stem) + ".cwd").write_text(str(Path.cwd()) + "\n")
-Path(str(stem) + ".args").write_text("\n".join(sys.argv[1:]) + "\n")
-print("FAKE_ENGINE_STDERR_MARKER", file=sys.stderr)
-if title == "Context Builder":
-    if os.getenv("FAKE_MALFORMED_CONTEXT_BUILDER"):
-        print("not json")
-        raise SystemExit(0)
-    changed_line = next(line for line in prompt.splitlines() if line.startswith("changed_files_json: "))
-    changed_files = json.loads(changed_line.removeprefix("changed_files_json: "))
-    context_files = [path for path in changed_files if "issue" in path.lower()]
-    implementation_files = [path for path in changed_files if path not in context_files]
-    if os.getenv("FAKE_INCOMPLETE_CLASSIFICATION_CONTEXT_BUILDER"):
-        implementation_files = implementation_files[1:]
-    output = {
-        "implementation_files": implementation_files,
-        "context_files": context_files,
-        "related_files": [{"path": "related.txt", "lines": "1"}],
-    }
-    if os.getenv("FAKE_INVALID_RELATED_FILE_CONTEXT_BUILDER"):
-        output["related_files"] = [{"path": "related.txt", "lines": 1}]
-    if os.getenv("FAKE_INVALID_RELATED_LINES_CONTEXT_BUILDER"):
-        output["related_files"][0]["lines"] = "999"
-    print(json.dumps(output))
-    raise SystemExit(0)
-if os.getenv("FAKE_FAIL_REVIEWER") in (title, "all"):
-    print("Error: simulated reviewer failure", file=sys.stderr)
-    raise SystemExit(7)
-if os.getenv("FAKE_SLEEP_REVIEWER") == title:
-    time.sleep(10)
-if os.getenv("FAKE_EMPTY_REVIEWER") == title:
-    raise SystemExit(0)
-if os.getenv("FAKE_PREFIXED_SENTINEL_REVIEWER") == title:
-    print("unrequested preface")
-    print("No actionable findings.")
-    raise SystemExit(0)
-if os.getenv("FAKE_NO_PERIOD_REVIEWER") == title:
-    print("No actionable findings")
-    raise SystemExit(0)
-if os.getenv("FAKE_HEADING_ONLY_REVIEWER") == title:
-    print("### [medium] Incomplete finding")
-    raise SystemExit(0)
-if os.getenv("FAKE_DIRECT_FINDING_REVIEWER") == title:
-    print("### [medium] Direct finding without section heading")
-    print("- Target: example.txt:1")
-    print("- Problem: example problem")
-    print("- Evidence: example evidence")
-    print("- Suggested fix: example fix")
-    raise SystemExit(0)
-print("No actionable findings.")
-"""
+def load_helper_module():
+    spec = importlib.util.spec_from_file_location("review_diff_code_helper", HELPER)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-FAKE_BWRAP = r"""#!/usr/bin/env python3
-import os
-from pathlib import Path
-import sys
-
-prompt = sys.stdin.read()
-capture = Path(os.environ["FAKE_CAPTURE_DIR"])
-(capture / "bwrap.args").write_text("\n".join(sys.argv[1:]) + "\n")
-first_line = prompt.splitlines()[0]
-title = next(
-    title for marker, title in (
-        ("Behavioral Safety", "Behavioral Safety"),
-        ("Design Quality", "Design Quality"),
-        ("adversarial", "Adversarial"),
-    ) if marker in first_line
-)
-(capture / f"{title.replace(' ', '_')}.{os.getpid()}.prompt").write_text(prompt)
-print("No actionable findings.")
-"""
-
-
-class ReviewDiffCodeCliTest(unittest.TestCase):
+class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.repo = self.root / "repo"
-        self.bin = self.root / "bin"
-        self.capture = self.root / "capture"
-        self.bin.mkdir()
-        self.capture.mkdir()
+        self.runs = self.root / "runs"
         self._make_repo()
-        self._write_executable("pi", FAKE_ENGINE)
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -144,199 +60,342 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         self._git("add", "example.txt")
         self._git("commit", "-qm", "second")
 
-    def _write_executable(self, name: str, content: str) -> Path:
-        path = self.bin / name
-        path.write_text(textwrap.dedent(content))
-        path.chmod(0o755)
-        return path
-
-    def _run(self, *args: str, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-        env = os.environ.copy()
-        env.pop("HERDR_ENV", None)
-        env.update(
-            {
-                "PATH": f"{self.bin}:{env['PATH']}",
-                "FAKE_CAPTURE_DIR": str(self.capture),
-            }
-        )
-        if extra_env:
-            env.update(extra_env)
+    def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [str(HELPER), *args],
             cwd=self.repo,
-            env=env,
             text=True,
             capture_output=True,
             check=False,
         )
 
-    def _captured_prompt(self, title: str) -> Path:
-        matches = list(self.capture.glob(f"{title.replace(' ', '_')}.*.prompt"))
-        self.assertEqual(len(matches), 1)
-        return matches[0]
-
-    def test_python_entrypoint_is_the_only_review_runner(self) -> None:
-        self.assertTrue(HELPER.is_file())
-        self.assertTrue(os.access(HELPER, os.X_OK))
-        self.assertFalse(LEGACY_HELPER.exists())
-
-    def test_skill_routes_semantic_closeout_changes_without_excluding_normal_fixes(self) -> None:
-        # Arrange & Act: metadata is the public discovery contract for model invocation.
-        description = next(
-            line.removeprefix("description: ")
-            for line in SKILL.read_text().splitlines()
-            if line.startswith("description: ")
-        )
-
-        # Assert: semantic implementation surfaces route to review, with only non-semantic diffs skippable.
-        for trigger in ("コード", "設定", "テスト", "schema", "依存関係", "agent指示", "closeout review"):
-            self.assertIn(trigger, description)
-        for skippable in ("コメント", "誤字", "空白", "formatter"):
-            self.assertIn(skippable, description)
-        self.assertNotIn("通常実装、修正だけの依頼では使わない", description)
-
-    def test_skill_has_one_review_orchestration_path_in_every_environment(self) -> None:
-        # Arrange & Act: the skill body is the public orchestration contract.
-        skill = SKILL.read_text()
-
-        # Assert: review execution belongs to the helper and has no terminal-specific branch.
-        self.assertIn("reviewer orchestration", skill)
-        for terminal_contract in ("HERDR_ENV", "Herdr", "herdr", "--collect", "review専用tab"):
-            self.assertNotIn(terminal_contract, skill)
-
-    def test_panel_option_is_not_part_of_the_public_interface(self) -> None:
-        result = self._run("--panel", "legacy")
-        help_result = self._run("--help")
-
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("unrecognized arguments: --panel legacy", result.stderr)
-        self.assertNotIn("--panel", help_result.stdout)
-
-    def test_context_builder_runs_first_and_reviewers_are_bundle_only(self) -> None:
-        result = self._run("--engine", "pi", "--mode", "branch", "--base", "HEAD~1")
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("| Behavioral Safety | success |", result.stdout)
-        self.assertIn("| Design Quality | success |", result.stdout)
-        self.assertIn("| Adversarial | success |", result.stdout)
-        self.assertEqual(len(list(self.capture.glob("*.prompt"))), 4)
-        builder = self._captured_prompt("Context Builder")
-        builder_stem = str(builder).removesuffix(".prompt")
-        self.assertEqual(
-            Path(Path(builder_stem + ".cwd").read_text().strip()).resolve(),
-            self.repo.resolve(),
-        )
-        self.assertIn("read,grep,find,ls", Path(builder_stem + ".args").read_text())
-        for title in ("Behavioral Safety", "Design Quality", "Adversarial"):
-            reviewer = self._captured_prompt(title)
-            stem = str(reviewer).removesuffix(".prompt")
-            self.assertNotEqual(Path(stem + ".cwd").read_text().strip(), str(self.repo))
-            self.assertNotIn("read,grep,find,ls", Path(stem + ".args").read_text())
-        reviewer_cwds = {
-            self._captured_prompt(title).with_suffix(".cwd").read_text().strip()
-            for title in ("Behavioral Safety", "Design Quality", "Adversarial")
-        }
-        self.assertEqual(len(reviewer_cwds), 3)
-        self.assertIn("RELATED_FILE_MARKER", self._captured_prompt("Behavioral Safety").read_text())
-        self.assertIn("RELATED_FILE_MARKER", self._captured_prompt("Design Quality").read_text())
-        self.assertNotIn("RELATED_FILE_MARKER", self._captured_prompt("Adversarial").read_text())
-
-    def test_herdr_environment_runs_the_standard_reviewers(self) -> None:
-        # Arrange & Act: a terminal environment marker is present during a normal review.
+    def _prepare(self, *args: str) -> dict[str, str]:
         result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"HERDR_ENV": "1"},
+            "prepare",
+            "--run-root",
+            str(self.runs),
+            *args,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def _error_code(self, result: subprocess.CompletedProcess[str]) -> str:
+        return json.loads(result.stderr)["error"]["code"]
+
+    def _write_context_result(
+        self,
+        prepared: dict[str, str],
+        *,
+        implementation_files: list[str] | None = None,
+        context_files: list[str] | None = None,
+        related_files: list[dict[str, str]] | None = None,
+    ) -> None:
+        Path(prepared["context_result_file"]).write_text(
+            json.dumps(
+                {
+                    "implementation_files": (
+                        ["example.txt"] if implementation_files is None else implementation_files
+                    ),
+                    "context_files": [] if context_files is None else context_files,
+                    "related_files": (
+                        [{"path": "related.txt", "lines": "1"}]
+                        if related_files is None
+                        else related_files
+                    ),
+                }
+            )
         )
 
-        # Assert: terminal state does not change helper orchestration or reviewer isolation.
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("orchestrator: helper", result.stdout)
-        self.assertIn("reviewer_isolation: bundle_only", result.stdout)
-        self.assertEqual(len(list(self.capture.glob("*.prompt"))), 4)
+    def test_prepare_creates_context_builder_artifacts_without_starting_an_engine(self) -> None:
+        # Arrange & Act: prepare a branch review from the public CLI.
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
 
-    def test_collect_option_is_not_part_of_the_public_interface(self) -> None:
+        # Assert: the main agent receives a self-contained prompt/result protocol.
+        run_dir = Path(prepared["run_dir"])
+        self.assertTrue(run_dir.is_dir())
+        self.assertEqual(run_dir.stat().st_mode & 0o777, 0o700)
+        prompt = Path(prepared["context_prompt_file"]).read_text()
+        self.assertIn('changed_files_json: ["example.txt"]', prompt)
+        self.assertIn("+second", prompt)
+        self.assertEqual(
+            Path(prepared["context_result_file"]),
+            run_dir / "context-builder" / "result.json",
+        )
+        self.assertNotIn("engine", prepared)
+        self.assertNotIn("model", prepared)
+
+    def test_route_creates_three_role_specific_prompts_from_valid_context(self) -> None:
+        issue = self.repo / "docs" / "issue.md"
+        issue.parent.mkdir()
+        issue.write_text("ISSUE_CONTEXT_MARKER\n")
+        self._git("add", "docs/issue.md")
+        prepared = self._prepare("--mode", "local")
+        self._write_context_result(
+            prepared,
+            implementation_files=[],
+            context_files=["docs/issue.md"],
+        )
+
+        # Act: validate the Context Builder result and render reviewer inputs.
+        result = self._run("route", "--run-dir", prepared["run_dir"])
+
+        # Assert: impact reviewers receive context while Adversarial receives implementation only.
+        self.assertEqual(result.returncode, 0, result.stderr)
+        routed = json.loads(result.stdout)
+        self.assertEqual(set(routed["reviewers"]), set(REVIEWER_IDS))
+        reviewer_root = Path(prepared["run_dir"]) / "reviewers"
+        self.assertEqual(
+            {
+                Path(reviewer["prompt_file"]).parent.parent
+                for reviewer in routed["reviewers"].values()
+            },
+            {reviewer_root},
+        )
+        for reviewer_id in ("behavioral-safety", "design-quality"):
+            prompt = Path(routed["reviewers"][reviewer_id]["prompt_file"]).read_text()
+            self.assertIn("ISSUE_CONTEXT_MARKER", prompt)
+            self.assertIn("RELATED_FILE_MARKER", prompt)
+        adversarial = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
+        self.assertNotIn("ISSUE_CONTEXT_MARKER", adversarial)
+        self.assertNotIn("RELATED_FILE_MARKER", adversarial)
+
+    def test_invalid_context_result_blocks_reviewer_routing(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        Path(prepared["context_result_file"]).write_text(
+            json.dumps(
+                {
+                    "implementation_files": [],
+                    "context_files": [],
+                    "related_files": [{"path": "related.txt", "lines": "999"}],
+                }
+            )
+        )
+
         # Act
-        result = self._run("--collect", str(self.root))
-        help_result = self._run("--help")
+        result = self._run("route", "--run-dir", prepared["run_dir"])
 
-        # Assert: the removed terminal-specific protocol cannot be invoked.
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("unrecognized arguments: --collect", result.stderr)
-        self.assertNotIn("--collect", help_result.stdout)
+        # Assert: invalid classification never produces reviewer prompts.
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("context builder", result.stderr.lower())
+        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
 
-    def test_issue_documents_are_routed_only_to_impact_reviewers(self) -> None:
-        issue = self.repo / "docs" / "issues" / "001.md"
-        issue.parent.mkdir(parents=True)
-        issue.write_text("ISSUE_FILE_CONTENT_MARKER\n")
+    def test_worktree_drift_after_prepare_blocks_reviewer_routing(self) -> None:
+        (self.repo / "example.txt").write_text("dirty before prepare\n")
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        (self.repo / "example.txt").write_text("changed after prepare\n")
 
-        result = self._run("--engine", "pi", "--mode", "local")
+        # Act
+        result = self._run("route", "--run-dir", prepared["run_dir"])
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        for title in ("Behavioral Safety", "Design Quality"):
-            prompt = self._captured_prompt(title).read_text()
-            self.assertIn("ISSUE_FILE_CONTENT_MARKER", prompt)
-            self.assertIn("# Context file diff", prompt)
-        adversarial = self._captured_prompt("Adversarial").read_text()
-        self.assertNotIn("ISSUE_FILE_CONTENT_MARKER", adversarial)
-        self.assertNotIn("docs/issues/001.md", adversarial)
+        # Assert: reviewers never receive a bundle that differs from Context Builder input.
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "repository_drift")
+        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
 
-    def test_issue_only_commit_does_not_leak_its_diff_to_adversarial(self) -> None:
-        issue = self.repo / "docs" / "issues" / "001.md"
-        issue.parent.mkdir(parents=True)
-        issue.write_text("ISSUE_FILE_CONTENT_MARKER\n")
-        self._git("add", "docs/issues/001.md")
-        self._git("commit", "-qm", "add issue")
+    def test_validate_context_accepts_a_complete_context_builder_result(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
 
-        result = self._run("--engine", "pi", "--mode", "commit", "--commit", "HEAD")
+        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        adversarial = self._captured_prompt("Adversarial").read_text()
-        self.assertNotIn("ISSUE_FILE_CONTENT_MARKER", adversarial)
-        self.assertNotIn("docs/issues/001.md", adversarial)
+        self.assertEqual(json.loads(result.stdout)["status"], "valid")
 
-    def test_git_pathspec_magic_cannot_expand_implementation_selection(self) -> None:
-        magic = self.repo / ":(glob)**"
-        magic.write_text("implementation marker\n")
-        issue = self.repo / "docs" / "issues" / "001.md"
-        issue.parent.mkdir(parents=True)
-        issue.write_text("ISSUE_FILE_CONTENT_MARKER\n")
-        self._git("add", ":(glob)**", "docs/issues/001.md")
+    def test_validate_context_rejects_an_invalid_result_before_routing(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        Path(prepared["context_result_file"]).write_text("{}\n")
 
-        cases = (
-            ("local", ("--mode", "local")),
-            ("branch", ("--mode", "branch", "--base", "HEAD~1")),
-            ("commit", ("--mode", "commit", "--commit", "HEAD")),
+        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "context_result_invalid")
+        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
+
+    def test_validate_context_rejects_a_symlinked_result_without_reading_its_target(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        secret = self.root / "secret-context.json"
+        secret.write_text(
+            json.dumps(
+                {
+                    "implementation_files": ["example.txt"],
+                    "context_files": [],
+                    "related_files": [{"path": "related.txt", "lines": "1"}],
+                }
+            )
+            + "\n"
         )
-        for name, arguments in cases:
-            if name == "branch":
-                self._git("commit", "-qm", "add implementation and issue")
-            with self.subTest(mode=name):
-                result = self._run("--engine", "pi", *arguments)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                adversarial = self._captured_prompt("Adversarial").read_text()
-                self.assertIn("implementation marker", adversarial)
-                self.assertNotIn("ISSUE_FILE_CONTENT_MARKER", adversarial)
-                self.assertNotIn("docs/issues/001.md", adversarial)
-                for path in self.capture.iterdir():
-                    path.unlink()
+        Path(prepared["context_result_file"]).symlink_to(secret)
 
-    def test_invalid_context_builder_output_blocks_reviewers(self) -> None:
-        for environment in (
-            {"FAKE_MALFORMED_CONTEXT_BUILDER": "1"},
-            {"FAKE_INCOMPLETE_CLASSIFICATION_CONTEXT_BUILDER": "1"},
-            {"FAKE_INVALID_RELATED_FILE_CONTEXT_BUILDER": "1"},
-            {"FAKE_INVALID_RELATED_LINES_CONTEXT_BUILDER": "1"},
-        ):
-            with self.subTest(environment=environment):
-                result = self._run(
-                    "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-                    extra_env=environment,
-                )
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("context builder", result.stderr.lower())
-                self.assertEqual(len(list(self.capture.glob("*.prompt"))), 1)
-                for path in self.capture.iterdir():
-                    path.unlink()
+        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "context_result_invalid")
+
+    def test_validate_context_rejects_oversized_related_file_evidence(self) -> None:
+        oversized = self.repo / "oversized-related.txt"
+        oversized.write_text("x" * 2_000_001)
+        self._git("add", "oversized-related.txt")
+        self._git("commit", "-qm", "add oversized related file")
+        (self.repo / "example.txt").write_text("review target\n")
+        self._git("add", "example.txt")
+        self._git("commit", "-qm", "add review target")
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(
+            prepared,
+            related_files=[{"path": "oversized-related.txt", "lines": "1"}],
+        )
+
+        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "context_result_invalid")
+
+    def test_reset_context_removes_a_previous_attempt_result(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        result_file = Path(prepared["context_result_file"])
+        result_file.write_text('{"stale": true}\n')
+
+        # Act
+        result = self._run("reset-context", "--run-dir", prepared["run_dir"])
+
+        # Assert: a fresh Context Builder cannot accidentally reuse the previous attempt.
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(result_file.exists())
+
+    def test_collect_validates_reviewer_results_and_reports_partial_failure(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        routed = json.loads(routed_result.stdout)
+        Path(routed["reviewers"]["behavioral-safety"]["result_file"]).write_text(
+            "No actionable findings.\n"
+        )
+        Path(routed["reviewers"]["design-quality"]["result_file"]).write_text(
+            "No actionable findings\n"
+        )
+        Path(routed["reviewers"]["adversarial"]["result_file"]).write_text("")
+
+        # Act
+        result = self._run("collect", "--run-dir", prepared["run_dir"])
+
+        # Assert: valid results remain usable but an invalid reviewer forbids a clean result.
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("overall_status: partial_failure", result.stdout)
+        self.assertIn("| Adversarial | protocol_failure(empty_output) |", result.stdout)
+
+    def test_collect_returns_nonzero_when_all_reviewer_results_are_invalid(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        routed = json.loads(routed_result.stdout)
+        for reviewer in routed["reviewers"].values():
+            Path(reviewer["result_file"]).write_text("")
+
+        result = self._run("collect", "--run-dir", prepared["run_dir"])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("overall_status: failed", result.stdout)
+
+    def test_collect_rejects_repository_drift_after_reviewer_routing(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        routed = json.loads(routed_result.stdout)
+        for reviewer in routed["reviewers"].values():
+            Path(reviewer["result_file"]).write_text("No actionable findings.\n")
+        (self.repo / "example.txt").write_text("changed during review\n")
+
+        result = self._run("collect", "--run-dir", prepared["run_dir"])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "repository_drift")
+        self.assertNotIn("overall_status: success", result.stdout)
+
+    def test_collect_rejects_repository_drift_during_result_collection(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        routed = json.loads(routed_result.stdout)
+        for reviewer in routed["reviewers"].values():
+            Path(reviewer["result_file"]).write_text("No actionable findings.\n")
+        helper = load_helper_module()
+        original_reader = helper.read_reviewer_result
+        changed = False
+
+        def read_and_mutate(path: Path):
+            nonlocal changed
+            result = original_reader(path)
+            if not changed:
+                (self.repo / "example.txt").write_text("changed during collect\n")
+                changed = True
+            return result
+
+        with mock.patch.object(helper, "read_reviewer_result", side_effect=read_and_mutate):
+            with redirect_stdout(io.StringIO()):
+                with self.assertRaises(helper.ReviewError) as raised:
+                    helper.collect_review(
+                        SimpleNamespace(run_dir=Path(prepared["run_dir"]))
+                    )
+
+        self.assertEqual(raised.exception.code, "repository_drift")
+
+    def test_route_refuses_a_preexisting_reviewer_artifact_root(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        (Path(prepared["run_dir"]) / "reviewers").mkdir()
+
+        result = self._run("route", "--run-dir", prepared["run_dir"])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "run_protocol_invalid")
+
+    def test_repeat_route_rejects_a_modified_published_prompt(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        routed = json.loads(routed_result.stdout)
+        Path(routed["reviewers"]["adversarial"]["prompt_file"]).write_text("tampered\n")
+
+        result = self._run("route", "--run-dir", prepared["run_dir"])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "run_protocol_invalid")
+
+    def test_collect_rejects_an_unexpected_reviewer_artifact(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        routed = json.loads(routed_result.stdout)
+        for reviewer in routed["reviewers"].values():
+            Path(reviewer["result_file"]).write_text("No actionable findings.\n")
+        (Path(prepared["run_dir"]) / "reviewers" / "unexpected.txt").write_text("extra\n")
+
+        result = self._run("collect", "--run-dir", prepared["run_dir"])
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "run_protocol_invalid")
+
+    def test_route_recovers_a_complete_publication_before_manifest_update(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        manifest_file = Path(prepared["run_dir"]) / "manifest.json"
+        manifest = json.loads(manifest_file.read_text())
+        manifest["state"] = "prepared"
+        manifest_file.write_text(json.dumps(manifest) + "\n")
+
+        result = self._run("route", "--run-dir", prepared["run_dir"])
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(manifest_file.read_text())["state"], "routed")
 
     def test_local_mode_includes_staged_unstaged_and_untracked_content(self) -> None:
         (self.repo / "example.txt").write_text("first\nsecond\nstaged\n")
@@ -344,10 +403,9 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         (self.repo / "example.txt").write_text("first\nsecond\nstaged\nunstaged\n")
         (self.repo / "new-file.txt").write_text("untracked marker\n")
 
-        result = self._run("--engine", "pi", "--mode", "local")
+        prepared = self._prepare("--mode", "local")
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        prompt = self._captured_prompt("Behavioral Safety").read_text()
+        prompt = Path(prepared["context_prompt_file"]).read_text()
         self.assertIn("+staged", prompt)
         self.assertIn("+unstaged", prompt)
         self.assertIn("untracked marker", prompt)
@@ -357,325 +415,140 @@ class ReviewDiffCodeCliTest(unittest.TestCase):
         secret.write_text("OUTSIDE_SECRET_MARKER\n")
         (self.repo / "outside-link").symlink_to(secret)
 
-        result = self._run("--engine", "pi", "--mode", "local")
+        prepared = self._prepare("--mode", "local")
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        prompt = self._captured_prompt("Behavioral Safety").read_text()
+        prompt = Path(prepared["context_prompt_file"]).read_text()
         self.assertIn("skipped: symbolic link", prompt)
         self.assertNotIn("OUTSIDE_SECRET_MARKER", prompt)
 
-    def test_local_mode_skips_non_null_binary_files(self) -> None:
-        (self.repo / "binary-data").write_bytes(b"\x01\x02\x03\x04BINARY_MARKER")
+    def test_cleanup_removes_only_a_helper_owned_run_directory(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        unrelated = self.root / "unrelated"
+        unrelated.mkdir()
 
-        result = self._run("--engine", "pi", "--mode", "local")
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        prompt = self._captured_prompt("Behavioral Safety").read_text()
-        self.assertIn("skipped: binary file", prompt)
-        self.assertNotIn("BINARY_MARKER", prompt)
-
-    def test_commit_mode_includes_selected_commit(self) -> None:
-        result = self._run("--engine", "pi", "--mode", "commit", "--commit", "HEAD")
+        result = self._run("cleanup", "--run-dir", prepared["run_dir"])
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        prompt = self._captured_prompt("Behavioral Safety").read_text()
-        self.assertIn("commit: HEAD", prompt)
-        self.assertIn("+second", prompt)
+        self.assertFalse(Path(prepared["run_dir"]).exists())
+        self.assertTrue(unrelated.exists())
 
-    def test_one_reviewer_failure_returns_partial_failure(self) -> None:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"FAKE_FAIL_REVIEWER": "Adversarial"},
-        )
+    def test_cleanup_refuses_a_run_directory_with_unknown_content(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        unknown = Path(prepared["run_dir"]) / "unknown.txt"
+        unknown.write_text("must survive\n")
 
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("overall_status: partial_failure", result.stdout)
-        self.assertIn("| Adversarial | failed(7) |", result.stdout)
-        self.assertNotIn("Error: simulated reviewer failure", result.stdout)
+        # Act
+        result = self._run("cleanup", "--run-dir", prepared["run_dir"])
 
-    def test_all_reviewer_failures_return_non_zero(self) -> None:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"FAKE_FAIL_REVIEWER": "all"},
-        )
-
+        # Assert: cleanup never recursively deletes files outside its protocol.
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("overall_status: failed", result.stdout)
+        self.assertTrue(unknown.exists())
+        self.assertTrue(Path(prepared["run_dir"]).exists())
 
-    def test_reviewer_timeout_returns_partial_failure(self) -> None:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1", "--timeout-sec", "1",
-            extra_env={"FAKE_SLEEP_REVIEWER": "Adversarial"},
-        )
+    def test_cleanup_refuses_a_symlinked_protocol_directory(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        run_dir = Path(prepared["run_dir"])
+        context_dir = run_dir / "context-builder"
+        external = self.root / "external-context"
+        external.mkdir()
+        external_prompt = external / "prompt.md"
+        external_prompt.write_text("must survive\n")
+        (context_dir / "prompt.md").unlink()
+        context_dir.rmdir()
+        context_dir.symlink_to(external, target_is_directory=True)
 
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("| Adversarial | timeout |", result.stdout)
+        # Act
+        result = self._run("cleanup", "--run-dir", prepared["run_dir"])
 
-    def test_invalid_reviewer_outputs_are_protocol_failures(self) -> None:
-        for environment in (
-            {"FAKE_EMPTY_REVIEWER": "Adversarial"},
-            {"FAKE_PREFIXED_SENTINEL_REVIEWER": "Adversarial"},
-        ):
-            with self.subTest(environment=environment):
-                result = self._run(
-                    "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-                    extra_env=environment,
-                )
-                self.assertIn("overall_status: partial_failure", result.stdout)
-                self.assertIn("protocol_failure", result.stdout)
-                for path in self.capture.iterdir():
-                    path.unlink()
-
-    def test_direct_finding_heading_is_valid(self) -> None:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"FAKE_DIRECT_FINDING_REVIEWER": "Adversarial"},
-        )
-
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("overall_status: success", result.stdout)
-
-    def test_heading_without_required_finding_fields_is_a_protocol_failure(self) -> None:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"FAKE_HEADING_ONLY_REVIEWER": "Adversarial"},
-        )
-
-        self.assertIn("overall_status: partial_failure", result.stdout)
-        self.assertIn("| Adversarial | protocol_failure(invalid_format) |", result.stdout)
-
-    def test_no_finding_sentinel_accepts_an_omitted_final_period(self) -> None:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"FAKE_NO_PERIOD_REVIEWER": "Adversarial"},
-        )
-
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("overall_status: success", result.stdout)
-
-    def test_invalid_timeout_environment_is_reported_without_a_traceback(self) -> None:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"REVIEW_DIFF_CODE_TIMEOUT_SEC": "invalid"},
-        )
-
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("invalid REVIEW_DIFF_CODE_TIMEOUT_SEC", result.stderr)
-        self.assertNotIn("Traceback", result.stderr)
-
-    def test_help_ignores_an_invalid_timeout_environment(self) -> None:
-        result = self._run("--help", extra_env={"REVIEW_DIFF_CODE_TIMEOUT_SEC": "invalid"})
-
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("usage:", result.stdout)
-
-    def test_explicit_timeout_overrides_an_invalid_timeout_environment(self) -> None:
-        result = self._run(
-            "--engine", "pi", "--mode", "branch", "--base", "HEAD~1", "--timeout-sec", "2",
-            extra_env={"REVIEW_DIFF_CODE_TIMEOUT_SEC": "invalid"},
-        )
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("timeout_sec: 2", result.stdout)
-
-    def test_failure_stderr_requires_explicit_opt_in(self) -> None:
-        result = self._run(
-            "--show-failure-stderr", "--engine", "pi", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"FAKE_FAIL_REVIEWER": "Adversarial"},
-        )
-
-        self.assertIn("Error: simulated reviewer failure", result.stdout)
-
-    def test_codex_reviewers_use_bundle_only_sandbox(self) -> None:
-        self._write_executable("codex", FAKE_ENGINE)
-        self._write_executable("bwrap", FAKE_BWRAP)
-        self._write_executable(
-            "file",
-            """#!/usr/bin/env python3
-import sys
-print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
-""",
-        )
-        codex_home = self.root / "codex-home"
-        codex_home.mkdir()
-        (codex_home / "auth.json").write_text("{}\n")
-
-        result = self._run(
-            "--engine", "codex", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"CODEX_HOME": str(codex_home)},
-        )
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        bwrap_args = (self.capture / "bwrap.args").read_text()
-        self.assertIn("--unshare-all", bwrap_args)
-        self.assertIn(str(codex_home / "auth.json"), bwrap_args)
-        self.assertNotIn(str(self.repo), bwrap_args)
-        self.assertIn("gpt-5.6-luna", bwrap_args)
-        self.assertIn('model_reasoning_effort="medium"', bwrap_args)
-
-        builder = self._captured_prompt("Context Builder")
-        builder_args = Path(str(builder).removesuffix(".prompt") + ".args").read_text()
-        self.assertNotIn("--ask-for-approval", builder_args)
-
-    def test_nono_wrapped_codex_uses_fresh_bundle_only_sandbox_without_bwrap(self) -> None:
-        raw_bin = self.root / "raw-bin"
-        raw_bin.mkdir()
-        package_root = self.root / "codex-package"
-        launcher = package_root / "bin" / "codex.js"
-        launcher.parent.mkdir(parents=True)
-        launcher.write_text("#!/bin/sh\nexit 98\n")
-        launcher.chmod(0o755)
-        raw_codex = raw_bin / "codex"
-        raw_codex.symlink_to(launcher)
-        native_codex = package_root / "node_modules" / "@openai" / "codex-test" / "vendor" / "test-target" / "bin" / "codex"
-        native_codex.parent.mkdir(parents=True)
-        native_codex.write_text(textwrap.dedent(FAKE_ENGINE))
-        native_codex.chmod(0o755)
-        codex_home = self.root / "codex-home"
-        codex_home.mkdir()
-        (codex_home / "auth.json").write_text("{}\n")
-        self._write_executable(
-            "codex",
-            """#!/bin/sh
-exec nono run --silent --profile test-codex --allow-cwd -- codex "$@"
-""",
-        )
-        self._write_executable(
-            "nono",
-            """#!/usr/bin/env python3
-import os
-from pathlib import Path
-import subprocess
-import sys
-
-capture = Path(os.environ["FAKE_CAPTURE_DIR"])
-(capture / "nono.args").write_text("\\n".join(sys.argv[1:]) + "\\n")
-separator = sys.argv.index("--")
-command = sys.argv[separator + 1:]
-command[0] = str(Path(os.environ["FAKE_RAW_CODEX"]))
-raise SystemExit(subprocess.run(command).returncode)
-""",
-        )
-
-        result = self._run(
-            "--engine", "codex", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={
-                "FAKE_RAW_CODEX": str(native_codex),
-                "PATH": f"{self.bin}:{raw_bin}:{os.environ['PATH']}",
-                "CODEX_HOME": str(codex_home),
-                "NONO_CAP_FILE": "",
-            },
-        )
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        nono_args = (self.capture / "nono.args").read_text()
-        self.assertNotIn("--profile", nono_args)
-        self.assertIn(f"--allow-cwd\n--read-file\n{codex_home / 'auth.json'}\n--", nono_args)
-        self.assertIn(str(native_codex), nono_args)
-        self.assertNotIn(str(self.repo), nono_args)
-
-    def test_nested_nono_codex_review_fails_closed(self) -> None:
-        self._write_executable("codex", FAKE_ENGINE + "\n# nono run --profile test-codex --allow-cwd -- codex\n")
-        self._write_executable("nono", "#!/bin/sh\nexit 99\n")
-
-        result = self._run(
-            "--show-failure-stderr", "--engine", "codex", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"NONO_CAP_FILE": "/tmp/existing-capability.json"},
-        )
-
+        # Assert: cleanup does not traverse a protocol directory symlink.
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("cannot create bundle-only Codex isolation inside an existing nono sandbox", result.stdout)
+        self.assertTrue(external_prompt.exists())
+        self.assertTrue(context_dir.is_symlink())
 
-    def test_auto_engine_falls_back_when_context_builder_cannot_start(self) -> None:
-        self._write_executable(
-            "pi",
-            """#!/bin/sh
-echo 'pi authentication required' >&2
-exit 1
-""",
-        )
-        self._write_executable("codex", FAKE_ENGINE)
-        self._write_executable("bwrap", FAKE_BWRAP)
-        self._write_executable(
-            "file",
-            """#!/usr/bin/env python3
-import sys
-print(f"{sys.argv[1]}: ELF 64-bit LSB pie executable, static-pie linked")
-""",
-        )
-        codex_home = self.root / "codex-home"
-        codex_home.mkdir()
-        (codex_home / "auth.json").write_text("{}\n")
+    def test_manifest_update_failure_preserves_the_previous_manifest(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        run_dir = Path(prepared["run_dir"])
+        manifest_file = run_dir / "manifest.json"
+        previous = manifest_file.read_text()
+        helper = load_helper_module()
 
-        result = self._run(
-            "--engine", "auto", "--mode", "branch", "--base", "HEAD~1",
-            extra_env={"CODEX_HOME": str(codex_home)},
-        )
+        with mock.patch.object(helper.os, "replace", side_effect=OSError("interrupted")):
+            with self.assertRaises(OSError):
+                helper.write_manifest(run_dir, {"state": "routed"})
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("engine: codex", result.stdout)
+        self.assertEqual(manifest_file.read_text(), previous)
 
-    def test_claude_context_builder_gets_read_tools_and_reviewers_get_none(self) -> None:
-        self._write_executable("claude", FAKE_ENGINE)
+    def test_cleanup_rejects_symlinked_run_metadata(self) -> None:
+        for metadata_name in (".review-diff-code-run", "manifest.json"):
+            with self.subTest(metadata_name=metadata_name):
+                prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+                metadata = Path(prepared["run_dir"]) / metadata_name
+                external = self.root / f"external-{metadata_name.lstrip('.')}"
+                external.write_text(metadata.read_text())
+                metadata.unlink()
+                metadata.symlink_to(external)
 
-        result = self._run("--engine", "claude", "--mode", "branch", "--base", "HEAD~1")
+                result = self._run("cleanup", "--run-dir", prepared["run_dir"])
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        builder = self._captured_prompt("Context Builder")
-        builder_args = Path(str(builder).removesuffix(".prompt") + ".args").read_text()
-        self.assertIn("--tools\nRead,Grep,Glob", builder_args)
-        for title in ("Behavioral Safety", "Design Quality", "Adversarial"):
-            reviewer = self._captured_prompt(title)
-            reviewer_args = Path(str(reviewer).removesuffix(".prompt") + ".args").read_text()
-            self.assertIn("--tools\n\n", reviewer_args)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(external.exists())
 
-    def test_reviewer_prompts_are_standalone_japanese_templates(self) -> None:
+    def test_collect_rejects_a_symlinked_result_without_printing_its_target(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(prepared)
+        routed_result = self._run("route", "--run-dir", prepared["run_dir"])
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        routed = json.loads(routed_result.stdout)
+        secret = self.root / "secret.txt"
+        secret.write_text("OUTSIDE_SECRET_MARKER\n")
+        for reviewer_id, reviewer in routed["reviewers"].items():
+            result_file = Path(reviewer["result_file"])
+            if reviewer_id == "adversarial":
+                result_file.symlink_to(secret)
+            else:
+                result_file.write_text("No actionable findings.\n")
+
+        # Act
+        result = self._run("collect", "--run-dir", prepared["run_dir"])
+
+        # Assert: invalid output is reported without echoing untrusted file contents.
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("| Adversarial | protocol_failure(invalid_result_file) |", result.stdout)
+        self.assertNotIn("OUTSIDE_SECRET_MARKER", result.stdout)
+
+    def test_create_pr_delegates_review_gate_to_the_skill_contract(self) -> None:
+        create_pr = CREATE_PR_SKILL.read_text()
+
+        self.assertIn("`review-diff-code`", create_pr)
+        self.assertNotIn("review-diff-code.py --mode", create_pr)
+
+    def test_skill_delegates_reviewers_to_fresh_subagents(self) -> None:
+        # Arrange & Act: read the model-facing orchestration contract.
+        skill = SKILL.read_text()
+
+        # Assert: Codex owns concurrency and each reviewer gets a fresh conversation context.
+        self.assertIn("spawn_agent", skill)
+        self.assertIn('fork_turns="none"', skill)
+        self.assertIn("context-level isolation", skill)
+        self.assertNotIn("fresh sandbox", skill)
+        self.assertNotIn("bundle-only", skill)
+
+    def test_engine_process_options_are_not_part_of_the_public_interface(self) -> None:
+        result = self._run("--help")
+
+        self.assertEqual(result.returncode, 0)
+        for removed_option in ("--engine", "--model", "--thinking", "--timeout-sec"):
+            self.assertNotIn(removed_option, result.stdout)
+
+    def test_reviewer_prompts_remain_standalone_templates(self) -> None:
         self.assertEqual(
-            {path.name for path in PROMPT_DIR.glob("*.md")},
-            {"behavioral-safety.md", "design-quality.md", "adversarial.md"},
+            {path.stem for path in PROMPT_DIR.glob("*.md")},
+            set(REVIEWER_IDS),
         )
         for path in PROMPT_DIR.glob("*.md"):
             template = path.read_text()
-            self.assertRegex(template, r"[ぁ-んァ-ヶ一-龠]")
             self.assertIn("$change_bundle", template)
-            self.assertNotIn("fresh context", template)
-            self.assertNotIn("$reviewer_title", template)
-            self.assertNotIn("$engine", template)
-            self.assertNotIn("$model", template)
-            self.assertNotIn("$thinking_line", template)
-
-        runner = HELPER.read_text()
-        self.assertNotIn("Assume the supplied diff is wrong.", runner)
-        self.assertNotIn("You are an independent", runner)
-
-    def test_reviewer_prompt_template_renders_bundle_without_runner_metadata(self) -> None:
-        result = self._run("--engine", "pi", "--mode", "branch", "--base", "HEAD~1")
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        prompt = self._captured_prompt("Behavioral Safety").read_text()
-        self.assertIn("# 変更bundle", prompt)
-        self.assertIn("+second", prompt)
-        self.assertNotIn("# レビュー情報", prompt)
-        self.assertNotIn("engine: pi", prompt)
-        self.assertNotIn("thinking: low", prompt)
-        self.assertNotRegex(prompt, r"\$[A-Za-z_{]")
-
-    def test_context_builder_policy_is_a_prompt_asset(self) -> None:
-        template = CONTEXT_BUILDER_PROMPT.read_text()
-
-        self.assertIn("$changed_files_json", template)
-        self.assertIn("$raw_change_bundle", template)
-        self.assertIn("untrusted", template)
-        self.assertIn('"related_files"', template)
-        for removed_field in (
-            "unclassified_files",
-            "issue_context",
-            "related_implementation",
-            "impact_coverage",
-            "unresolved_impact",
-        ):
-            self.assertNotIn(removed_field, template)
-        self.assertNotIn("--prompt-file", HELPER.read_text())
+            self.assertRegex(template, r"[ぁ-んァ-ヶ一-龠]")
 
 
 if __name__ == "__main__":
