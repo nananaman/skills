@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { createArtifactApp } from "./app.js";
 import { DEFAULT_PORT, DEFAULT_PUBLISH_ROOT } from "./config.js";
 import { ListenerReconciler } from "./listeners.js";
@@ -10,7 +11,7 @@ function argument(name: string, fallback: string): string {
 
 const port = Number(argument("--port", String(DEFAULT_PORT)));
 const root = argument("--publish-root", DEFAULT_PUBLISH_ROOT);
-const authoritativeTailscaleAddress = argument("--tailscale-address", "") || undefined;
+const tailscaleAddressFile = argument("--tailscale-address-file", "");
 let tailscaleState: { ready: boolean; address?: string } = { ready: false };
 const localApp = createArtifactApp({
   root,
@@ -30,11 +31,20 @@ const reconciler = new ListenerReconciler(async (hostname) => {
   };
 });
 
-await reconciler.reconcile(detectTailscaleIPv4(authoritativeTailscaleAddress));
+async function currentTailscaleAddress(): Promise<string | undefined> {
+  if (!tailscaleAddressFile) return undefined;
+  try {
+    return (await readFile(tailscaleAddressFile, "utf8")).trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+await reconciler.reconcile(detectTailscaleIPv4(await currentTailscaleAddress()));
 
 async function reconcileRemote(): Promise<void> {
   try {
-    await reconciler.reconcile(detectTailscaleIPv4(authoritativeTailscaleAddress));
+    await reconciler.reconcile(detectTailscaleIPv4(await currentTailscaleAddress()));
   } catch (error) {
     console.error("host-artifact Tailscale listener reconciliation failed", error);
   } finally {

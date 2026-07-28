@@ -91,6 +91,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "remove" && value) {
+    if (flags.length > 0) throw new Error("unknown remove option");
     await removeArtifact(value, { root: DEFAULT_PUBLISH_ROOT });
     process.stdout.write(`${JSON.stringify({ removed: value })}\n`);
     return;
