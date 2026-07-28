@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
-import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -27,50 +26,37 @@ REQUIRED_FINDING_FIELDS = ("- Target:", "- Problem:", "- Evidence:", "- Suggeste
 SKILL_DIR = Path(__file__).resolve().parent.parent
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
 CONTEXT_BUILDER_TEMPLATE = SKILL_DIR / "assets" / "context-builder.md"
+RUN_MARKER = ".review-diff-code-run"
+MANIFEST_NAME = "manifest.json"
 
 
-@dataclass(frozen=True)
-class ReviewerResult:
-    reviewer_id: str
-    title: str
-    status: str
-    stdout: str
-    stderr: str
+class ReviewError(RuntimeError):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Strict, diff-focused code review with three independent reviewers."
+        description="Prepare and validate artifacts for a subagent-based diff review."
     )
-    timeout_environment = os.getenv("REVIEW_DIFF_CODE_TIMEOUT_SEC", "600")
-    parser.add_argument("--mode", choices=("auto", "branch", "local", "commit"), default="auto")
-    parser.add_argument("--base", help="Base ref for branch mode")
-    parser.add_argument("--commit", default="HEAD", help="Commit ref for commit mode")
-    parser.add_argument("--engine", choices=("auto", "pi", "codex", "claude"), default=os.getenv("REVIEW_DIFF_CODE_ENGINE", "auto"))
-    parser.add_argument("--model", default="", help="Override model for the selected engine")
-    parser.add_argument("--thinking", default="", help="Override thinking level when supported")
-    parser.add_argument("--timeout-sec", type=positive_int, default=600)
-    parser.add_argument("--show-failure-stderr", action="store_true", help="Show raw failed-reviewer stderr; it may repeat bundle data")
-    help_requested = any(argument in ("-h", "--help") for argument in sys.argv[1:])
-    timeout_overridden = any(
-        argument == "--timeout-sec" or argument.startswith("--timeout-sec=")
-        for argument in sys.argv[1:]
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    prepare = subparsers.add_parser("prepare", help="Create the Context Builder input.")
+    prepare.add_argument("--mode", choices=("auto", "branch", "local", "commit"), default="auto")
+    prepare.add_argument("--base", help="Base ref for branch mode")
+    prepare.add_argument("--commit", default="HEAD", help="Commit ref for commit mode")
+    prepare.add_argument(
+        "--run-root",
+        type=Path,
+        help="Directory under which a private run directory is created.",
     )
-    should_read_timeout_environment = not help_requested and not timeout_overridden
-    if should_read_timeout_environment:
-        try:
-            parser.set_defaults(timeout_sec=positive_int(timeout_environment))
-        except (ValueError, argparse.ArgumentTypeError):
-            parser.error(f"invalid REVIEW_DIFF_CODE_TIMEOUT_SEC: {timeout_environment}")
-    args = parser.parse_args()
-    return args
 
+    for command in ("reset-context", "validate-context", "route", "collect", "cleanup"):
+        subparser = subparsers.add_parser(command)
+        subparser.add_argument("--run-dir", type=Path, required=True)
 
-def positive_int(value: str) -> int:
-    parsed = int(value)
-    if parsed <= 0:
-        raise argparse.ArgumentTypeError("must be greater than zero")
-    return parsed
+    return parser.parse_args()
 
 
 def command_output(args: list[str], cwd: Path, *, check: bool = True) -> str:
@@ -82,34 +68,6 @@ def command_output(args: list[str], cwd: Path, *, check: bool = True) -> str:
 
 def repository_root() -> Path:
     return Path(command_output(["git", "rev-parse", "--show-toplevel"], Path.cwd()).strip())
-
-
-def select_engine(requested: str) -> str:
-    if requested != "auto":
-        if not shutil.which(requested):
-            raise RuntimeError(f"{requested} not found")
-        return requested
-    for candidate in ("pi", "codex", "claude"):
-        if shutil.which(candidate):
-            return candidate
-    raise RuntimeError("no supported review engine found: install pi, codex, or claude")
-
-
-def engine_candidates(requested: str) -> list[str]:
-    if requested != "auto":
-        return [select_engine(requested)]
-    candidates = [candidate for candidate in ("pi", "codex", "claude") if shutil.which(candidate)]
-    if not candidates:
-        raise RuntimeError("no supported review engine found: install pi, codex, or claude")
-    return candidates
-
-
-def engine_settings(engine: str, model: str, thinking: str) -> tuple[str, str]:
-    if engine == "pi":
-        return model or os.getenv("REVIEW_DIFF_CODE_PI_MODEL", ""), thinking or os.getenv("REVIEW_DIFF_CODE_PI_THINKING", "low")
-    if engine == "codex":
-        return model or os.getenv("REVIEW_DIFF_CODE_CODEX_MODEL", "gpt-5.6-luna"), thinking or os.getenv("REVIEW_DIFF_CODE_CODEX_THINKING", "medium")
-    return model or os.getenv("REVIEW_DIFF_CODE_CLAUDE_MODEL", "sonnet"), thinking
 
 
 def resolve_base(repo: Path, explicit: str | None) -> str:
@@ -179,7 +137,12 @@ def null_separated_paths(args: list[str], repo: Path) -> list[str]:
     return [os.fsdecode(path) for path in raw.split(b"\0") if path]
 
 
-def create_raw_bundle(repo: Path, mode: str, base: str | None, commit: str) -> tuple[str, str, list[str], str | None]:
+def create_raw_bundle(
+    repo: Path,
+    mode: str,
+    base: str | None,
+    commit: str,
+) -> tuple[str, str, list[str], str | None]:
     if mode == "auto":
         mode = "local" if has_dirty_work(repo) else "branch"
     parts = [
@@ -193,47 +156,144 @@ def create_raw_bundle(repo: Path, mode: str, base: str | None, commit: str) -> t
     if mode == "branch":
         resolved = resolve_base(repo, base)
         changed_files = null_separated_paths(
-            ["git", "diff", "--find-renames", "--name-only", "-z", f"{resolved}...HEAD"], repo
+            ["git", "diff", "--find-renames", "--name-only", "-z", f"{resolved}...HEAD"],
+            repo,
         )
         parts.extend(
             [
-                "# Target", f"mode: branch", f"base: {resolved}", "head: HEAD", "",
-                "# Diff stat", command_output(["git", "diff", "--find-renames", "--stat", f"{resolved}...HEAD"], repo).rstrip(), "",
-                "# Changed files", command_output(["git", "diff", "--find-renames", "--name-status", f"{resolved}...HEAD"], repo).rstrip(), "",
-                "# Diff", command_output(["git", "diff", "--find-renames", f"{resolved}...HEAD"], repo).rstrip(),
+                "# Target",
+                "mode: branch",
+                f"base: {resolved}",
+                "head: HEAD",
+                "",
+                "# Diff stat",
+                command_output(
+                    ["git", "diff", "--find-renames", "--stat", f"{resolved}...HEAD"],
+                    repo,
+                ).rstrip(),
+                "",
+                "# Changed files",
+                command_output(
+                    ["git", "diff", "--find-renames", "--name-status", f"{resolved}...HEAD"],
+                    repo,
+                ).rstrip(),
+                "",
+                "# Diff",
+                command_output(
+                    ["git", "diff", "--find-renames", f"{resolved}...HEAD"],
+                    repo,
+                ).rstrip(),
             ]
         )
     elif mode == "local":
-        changed_files = sorted(set(
-            null_separated_paths(["git", "diff", "--name-only", "-z"], repo)
-            + null_separated_paths(["git", "diff", "--cached", "--name-only", "-z"], repo)
-            + untracked_files(repo)
-        ))
+        changed_files = sorted(
+            set(
+                null_separated_paths(["git", "diff", "--name-only", "-z"], repo)
+                + null_separated_paths(["git", "diff", "--cached", "--name-only", "-z"], repo)
+                + untracked_files(repo)
+            )
+        )
         resolved = None
         parts.extend(
             [
-                "# Target", "mode: local", "",
-                "# Diff stat (unstaged)", command_output(["git", "diff", "--stat"], repo).rstrip(), "",
-                "# Diff stat (staged)", command_output(["git", "diff", "--cached", "--stat"], repo).rstrip(), "",
-                "# Untracked files", command_output(["git", "ls-files", "--others", "--exclude-standard"], repo).rstrip(), "",
-                "# Diff (unstaged)", command_output(["git", "diff", "--find-renames"], repo).rstrip(), "",
-                "# Diff (staged)", command_output(["git", "diff", "--cached", "--find-renames"], repo).rstrip(), "",
-                "# Untracked file contents", untracked_contents(repo).rstrip(),
+                "# Target",
+                "mode: local",
+                "",
+                "# Diff stat (unstaged)",
+                command_output(["git", "diff", "--stat"], repo).rstrip(),
+                "",
+                "# Diff stat (staged)",
+                command_output(["git", "diff", "--cached", "--stat"], repo).rstrip(),
+                "",
+                "# Untracked files",
+                command_output(
+                    ["git", "ls-files", "--others", "--exclude-standard"],
+                    repo,
+                ).rstrip(),
+                "",
+                "# Diff (unstaged)",
+                command_output(["git", "diff", "--find-renames"], repo).rstrip(),
+                "",
+                "# Diff (staged)",
+                command_output(["git", "diff", "--cached", "--find-renames"], repo).rstrip(),
+                "",
+                "# Untracked file contents",
+                untracked_contents(repo).rstrip(),
             ]
         )
     else:
         changed_files = null_separated_paths(
-            ["git", "show", "--format=", "--find-renames", "--name-only", "-z", commit], repo
+            ["git", "show", "--format=", "--find-renames", "--name-only", "-z", commit],
+            repo,
         )
         resolved = None
         parts.extend(
             [
-                "# Target", "mode: commit", f"commit: {commit}", "",
-                "# Commit", command_output(["git", "show", "--find-renames", "--stat", "--oneline", "--decorate", "--no-ext-diff", commit], repo).rstrip(), "",
-                "# Diff", command_output(["git", "show", "--find-renames", "--format=fuller", "--no-ext-diff", commit], repo).rstrip(),
+                "# Target",
+                "mode: commit",
+                f"commit: {commit}",
+                "",
+                "# Commit",
+                command_output(
+                    [
+                        "git",
+                        "show",
+                        "--find-renames",
+                        "--stat",
+                        "--oneline",
+                        "--decorate",
+                        "--no-ext-diff",
+                        commit,
+                    ],
+                    repo,
+                ).rstrip(),
+                "",
+                "# Diff",
+                command_output(
+                    [
+                        "git",
+                        "show",
+                        "--find-renames",
+                        "--format=fuller",
+                        "--no-ext-diff",
+                        commit,
+                    ],
+                    repo,
+                ).rstrip(),
             ]
         )
     return mode, "\n".join(parts).rstrip() + "\n", changed_files, resolved
+
+
+def bundle_digest(bundle: str) -> str:
+    return hashlib.sha256(bundle.encode()).hexdigest()
+
+
+def repository_state_digest(repo: Path) -> str:
+    digest = hashlib.sha256()
+    for args in (
+        ["git", "rev-parse", "HEAD"],
+        ["git", "diff", "--binary", "--no-ext-diff"],
+        ["git", "diff", "--cached", "--binary", "--no-ext-diff"],
+    ):
+        digest.update(command_output(args, repo).encode())
+        digest.update(b"\0")
+    for relative in sorted(untracked_files(repo)):
+        path = repo / relative
+        digest.update(relative.encode())
+        digest.update(b"\0")
+        if path.is_symlink():
+            digest.update(b"symlink\0")
+            digest.update(os.readlink(path).encode())
+        elif path.is_file():
+            digest.update(b"file\0")
+            with path.open("rb") as source:
+                for chunk in iter(lambda: source.read(65_536), b""):
+                    digest.update(chunk)
+        else:
+            digest.update(b"other\0")
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def create_implementation_bundle(
@@ -246,41 +306,96 @@ def create_implementation_bundle(
     paths = ["--", *implementation_files]
     parts = ["# Repository", repo.name, "", "# Target", f"mode: {mode}"]
     if mode == "branch":
-        branch_diff = (
-            command_output(["git", "--literal-pathspecs", "diff", "--find-renames", f"{resolved_base}...HEAD", *paths], repo).rstrip()
-            if implementation_files else ""
+        diff = (
+            command_output(
+                [
+                    "git",
+                    "--literal-pathspecs",
+                    "diff",
+                    "--find-renames",
+                    f"{resolved_base}...HEAD",
+                    *paths,
+                ],
+                repo,
+            ).rstrip()
+            if implementation_files
+            else ""
         )
-        parts.extend([
-            f"base: {resolved_base}", "head: HEAD", "", "# Changed implementation files",
-            "\n".join(implementation_files), "", "# Implementation diff",
-            branch_diff,
-        ])
+        parts.extend(
+            [
+                f"base: {resolved_base}",
+                "head: HEAD",
+                "",
+                "# Changed implementation files",
+                "\n".join(implementation_files),
+                "",
+                "# Implementation diff",
+                diff,
+            ]
+        )
     elif mode == "local":
         allowed = set(implementation_files)
-        unstaged_diff = (
-            command_output(["git", "--literal-pathspecs", "diff", "--find-renames", *paths], repo).rstrip()
-            if implementation_files else ""
+        unstaged = (
+            command_output(
+                ["git", "--literal-pathspecs", "diff", "--find-renames", *paths],
+                repo,
+            ).rstrip()
+            if implementation_files
+            else ""
         )
-        staged_diff = (
-            command_output(["git", "--literal-pathspecs", "diff", "--cached", "--find-renames", *paths], repo).rstrip()
-            if implementation_files else ""
+        staged = (
+            command_output(
+                ["git", "--literal-pathspecs", "diff", "--cached", "--find-renames", *paths],
+                repo,
+            ).rstrip()
+            if implementation_files
+            else ""
         )
-        parts.extend([
-            "", "# Changed implementation files", "\n".join(implementation_files),
-            "", "# Diff (unstaged)", unstaged_diff,
-            "", "# Diff (staged)", staged_diff,
-            "", "# Untracked implementation file contents", untracked_contents(repo, allowed).rstrip(),
-        ])
+        parts.extend(
+            [
+                "",
+                "# Changed implementation files",
+                "\n".join(implementation_files),
+                "",
+                "# Diff (unstaged)",
+                unstaged,
+                "",
+                "# Diff (staged)",
+                staged,
+                "",
+                "# Untracked implementation file contents",
+                untracked_contents(repo, allowed).rstrip(),
+            ]
+        )
     else:
-        commit_diff = (
-            command_output(["git", "--literal-pathspecs", "show", "--find-renames", "--format=", "--no-ext-diff", commit, *paths], repo).rstrip()
-            if implementation_files else ""
+        diff = (
+            command_output(
+                [
+                    "git",
+                    "--literal-pathspecs",
+                    "show",
+                    "--find-renames",
+                    "--format=",
+                    "--no-ext-diff",
+                    commit,
+                    *paths,
+                ],
+                repo,
+            ).rstrip()
+            if implementation_files
+            else ""
         )
-        parts.extend([
-            f"commit: {commit}", "", "# Changed implementation files", "\n".join(implementation_files),
-            "", "# Implementation diff",
-            commit_diff,
-        ])
+        parts.extend(
+            [
+                f"commit: {commit}",
+                "",
+                "# Changed implementation files",
+                "\n".join(implementation_files),
+                "",
+                "# Implementation diff",
+                diff,
+            ]
+        )
     return "\n".join(parts).rstrip() + "\n"
 
 
@@ -296,20 +411,40 @@ def create_context_diff(
     paths = ["--", *context_files]
     if mode == "branch":
         return command_output(
-            ["git", "--literal-pathspecs", "diff", "--find-renames", f"{resolved_base}...HEAD", *paths],
+            [
+                "git",
+                "--literal-pathspecs",
+                "diff",
+                "--find-renames",
+                f"{resolved_base}...HEAD",
+                *paths,
+            ],
             repo,
         ).rstrip()
     if mode == "local":
         parts = [
-            command_output(["git", "--literal-pathspecs", "diff", "--find-renames", *paths], repo).rstrip(),
             command_output(
-                ["git", "--literal-pathspecs", "diff", "--cached", "--find-renames", *paths], repo
+                ["git", "--literal-pathspecs", "diff", "--find-renames", *paths],
+                repo,
+            ).rstrip(),
+            command_output(
+                ["git", "--literal-pathspecs", "diff", "--cached", "--find-renames", *paths],
+                repo,
             ).rstrip(),
             untracked_contents(repo, set(context_files)).rstrip(),
         ]
         return "\n".join(part for part in parts if part)
     return command_output(
-        ["git", "--literal-pathspecs", "show", "--find-renames", "--format=", "--no-ext-diff", commit, *paths],
+        [
+            "git",
+            "--literal-pathspecs",
+            "show",
+            "--find-renames",
+            "--format=",
+            "--no-ext-diff",
+            commit,
+            *paths,
+        ],
         repo,
     ).rstrip()
 
@@ -334,7 +469,10 @@ def repository_evidence_file(repo: Path, relative: str, field: str) -> Path:
     return resolved
 
 
-def related_file_range(repo: Path, item: dict[str, object]) -> tuple[Path, int, int]:
+def related_file_evidence(
+    repo: Path,
+    item: dict[str, object],
+) -> tuple[Path, int, int, list[str]]:
     if set(item) != {"path", "lines"}:
         raise RuntimeError("context builder related_files item has invalid fields")
     if not all(isinstance(item[key], str) and item[key] for key in ("path", "lines")):
@@ -343,19 +481,25 @@ def related_file_range(repo: Path, item: dict[str, object]) -> tuple[Path, int, 
     if not re.fullmatch(r"[1-9]\d*(?:-[1-9]\d*)?", lines):
         raise RuntimeError("context builder related_files lines must be a line or line range")
     path = repository_evidence_file(repo, item["path"], "related_files.path")
-    try:
-        source = path.read_text()
-    except UnicodeDecodeError as error:
-        raise RuntimeError("context builder related_files path must be UTF-8 text") from error
     start_text, separator, end_text = lines.partition("-")
     start = int(start_text)
     end = int(end_text) if separator else start
-    if end < start or end > len(source.splitlines()):
+    try:
+        source_lines = read_regular_utf8(path, 2_000_000).splitlines()
+    except (OSError, UnicodeDecodeError, ValueError) as error:
+        raise RuntimeError(
+            "context builder related_files path must be bounded UTF-8 text"
+        ) from error
+    if end < start or end > len(source_lines):
         raise RuntimeError("context builder related_files lines are outside its source file")
-    return path, start, end
+    return path, start, end, source_lines
 
 
-def parse_context_builder_output(stdout: str, changed_files: list[str], repo: Path) -> dict[str, object]:
+def parse_context_builder_output(
+    stdout: str,
+    changed_files: list[str],
+    repo: Path,
+) -> dict[str, object]:
     try:
         result = json.loads(stdout)
     except json.JSONDecodeError as error:
@@ -378,32 +522,43 @@ def parse_context_builder_output(stdout: str, changed_files: list[str], repo: Pa
     related = result.get("related_files")
     if not isinstance(related, list) or not all(isinstance(item, dict) for item in related):
         raise RuntimeError("context builder field related_files must be an object array")
+    validated_related = []
     for item in related:
-        related_file_range(repo, item)
+        _, start, end, source_lines = related_file_evidence(repo, item)
         if item["path"] in changed_files:
             raise RuntimeError("context builder related_files must not include changed files")
+        validated_related.append(
+            {
+                "path": item["path"],
+                "lines": item["lines"],
+                "content": "\n".join(source_lines[start - 1 : end]),
+            }
+        )
+    result["related_files"] = validated_related
     return result
 
 
-def render_review_context(repo: Path, context: dict[str, object], context_diff: str) -> str:
+def render_review_context(
+    repo: Path,
+    context: dict[str, object],
+    context_diff: str,
+) -> str:
     rendered = "# Review context"
     if context_diff:
         rendered += "\n\n# Context file diff\n\n```text\n" + context_diff.rstrip() + "\n```"
     related_files = []
     for item in context["related_files"]:
-        path, start, end = related_file_range(repo, item)
-        content = "\n".join(path.read_text().splitlines()[start - 1 : end])
-        related_files.append({"path": item["path"], "lines": item["lines"], "content": content})
+        related_files.append(item)
     if related_files:
-        rendered += "\n\n# Related files\n\n" + json.dumps(related_files, ensure_ascii=False, indent=2)
+        rendered += "\n\n# Related files\n\n" + json.dumps(
+            related_files,
+            ensure_ascii=False,
+            indent=2,
+        )
     return rendered
 
 
-def build_prompt(
-    reviewer_id: str,
-    bundle: str,
-    impact_context: str,
-) -> str:
+def build_reviewer_prompt(reviewer_id: str, bundle: str, impact_context: str) -> str:
     prompt_template = Template((PROMPT_DIR / f"{reviewer_id}.md").read_text())
     return prompt_template.substitute(
         impact_context_section="" if reviewer_id == "adversarial" else impact_context.rstrip(),
@@ -411,151 +566,16 @@ def build_prompt(
     ).rstrip() + "\n"
 
 
-def static_codex_command(model: str, thinking: str) -> list[str]:
-    bwrap = shutil.which("bwrap")
-    codex = shutil.which("codex")
-    if not bwrap or not codex:
-        raise RuntimeError("bwrap and codex are required for bundle-only Codex review")
-    codex_path = Path(codex).resolve()
-    file_output = command_output(["file", str(codex_path)], Path.cwd())
-    if "static-pie linked" not in file_output and "statically linked" not in file_output:
-        raise RuntimeError(f"bundle-only Codex review requires a static Codex executable: {codex_path}")
-    codex_home = Path(os.getenv("CODEX_HOME", Path.home() / ".codex"))
-    auth = codex_home / "auth.json"
-    if not auth.is_file():
-        raise RuntimeError(f"Codex auth file not found: {auth}")
-    codex_args = ["/bin/codex", "--ask-for-approval", "never", "--model", model]
-    if thinking:
-        codex_args.extend(["-c", f'model_reasoning_effort="{thinking}"'])
-    return [
-        bwrap, "--unshare-all", "--share-net", "--die-with-parent", "--new-session", "--clearenv",
-        "--dir", "/bin", "--ro-bind", str(codex_path), "/bin/codex",
-        "--dir", "/codex-home", "--ro-bind", str(auth), "/codex-home/auth.json",
-        "--dir", "/home", "--dir", "/home/codex",
-        "--dir", "/etc", "--dir", "/etc/ssl", "--ro-bind", "/etc/ssl/certs", "/etc/ssl/certs",
-        "--ro-bind", "/etc/hosts", "/etc/hosts", "--ro-bind", "/etc/resolv.conf", "/etc/resolv.conf",
-        "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", "/workspace", "--chdir", "/workspace",
-        "--setenv", "HOME", "/home/codex", "--setenv", "CODEX_HOME", "/codex-home", "--setenv", "PATH", "/bin",
-        "--setenv", "SSL_CERT_FILE", "/etc/ssl/certs/ca-certificates.crt",
-        *codex_args, "exec", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check", "-C", "/workspace", "-s", "read-only", "-",
-    ]
-
-
-def nono_codex_command(model: str, thinking: str) -> list[str] | None:
-    codex = shutil.which("codex")
-    nono = shutil.which("nono")
-    if not codex or not nono:
-        return None
-    codex_path = Path(codex).resolve()
-    try:
-        wrapper = codex_path.read_text()
-    except (OSError, UnicodeDecodeError):
-        return None
-    if not re.search(r"\bnono\s+run\b.*?\s--allow-cwd\s+--", wrapper, re.DOTALL):
-        return None
-    if os.getenv("NONO_CAP_FILE"):
-        raise RuntimeError("cannot create bundle-only Codex isolation inside an existing nono sandbox")
-    raw_codex = next(
-        (
-            candidate.resolve()
-            for directory in os.get_exec_path()
-            if (candidate := Path(directory) / "codex").is_file()
-            and os.access(candidate, os.X_OK)
-            and not candidate.samefile(codex_path)
-        ),
-        None,
-    )
-    if raw_codex is None:
-        raise RuntimeError("nono Codex wrapper found, but raw Codex executable was not found on PATH")
-    if raw_codex.read_bytes()[:2] == b"#!":
-        package_root = raw_codex.parent.parent
-        native_candidates = [
-            candidate.resolve()
-            for candidate in package_root.glob("node_modules/@openai/codex-*/vendor/*/bin/codex")
-            if candidate.is_file() and os.access(candidate, os.X_OK)
-        ]
-        if len(native_candidates) != 1:
-            raise RuntimeError("nono Codex isolation requires exactly one packaged native Codex executable")
-        raw_codex = native_candidates[0]
-    codex_home = Path(os.getenv("CODEX_HOME", Path.home() / ".codex"))
-    auth = codex_home / "auth.json"
-    if not auth.is_file():
-        raise RuntimeError(f"Codex auth file not found: {auth}")
-    codex_args = [str(raw_codex), "--dangerously-bypass-approvals-and-sandbox", "--model", model]
-    if thinking:
-        codex_args.extend(["-c", f'model_reasoning_effort="{thinking}"'])
-    codex_args.extend([
-        "exec", "--ephemeral", "--ignore-user-config", "--ignore-rules",
-        "--skip-git-repo-check", "-C", ".", "-",
-    ])
-    return [
-        nono, "run", "--silent", "--allow-cwd", "--read-file", str(auth), "--",
-        *codex_args,
-    ]
-
-
-def engine_command(engine: str, role: str, repo: Path, isolation_root: Path, model: str, thinking: str) -> tuple[list[str], Path]:
-    context_builder = role == "context-builder"
-    if engine == "pi":
-        args = ["pi", "--no-session", "--tools", "read,grep,find,ls" if context_builder else ""]
-        if model:
-            args.extend(["--model", model])
-        if thinking:
-            args.extend(["--thinking", thinking])
-        args.append("-p")
-        return args, repo if context_builder else isolation_root
-    if engine == "codex":
-        if not context_builder:
-            if nono_command := nono_codex_command(model, thinking):
-                return nono_command, isolation_root
-            return static_codex_command(model, thinking), isolation_root
-        args = ["codex", "--model", model]
-        if thinking:
-            args.extend(["-c", f'model_reasoning_effort="{thinking}"'])
-        args.extend(["exec", "--ephemeral", "-C", str(repo), "-s", "read-only", "-"])
-        return args, repo
-    args = ["claude", "--print", "--no-session-persistence", "--tools"]
-    args.append("Read,Grep,Glob" if context_builder else "")
-    args.extend(["--model", model])
-    return args, repo if context_builder else isolation_root
-
-
-def execute(command: list[str], cwd: Path, prompt: str, timeout: int) -> tuple[int, str, str, bool]:
-    process = subprocess.Popen(
-        command,
-        cwd=cwd,
-        text=True,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=True,
-    )
-    try:
-        stdout, stderr = process.communicate(prompt, timeout=timeout)
-        return process.returncode, stdout, stderr, False
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGTERM)
-        try:
-            stdout, stderr = process.communicate(timeout=2)
-        except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)
-            stdout, stderr = process.communicate()
-        return 124, stdout, stderr, True
-
-
 def validate_output(stdout: str) -> str:
     lines = [line.strip() for line in stdout.splitlines() if line.strip()]
     if not lines:
         return "protocol_failure(empty_output)"
-
     if "\n".join(lines) in NO_FINDINGS:
         return "success"
-
     if lines[0] == "## Findings":
         lines = lines[1:]
     if not lines or not FINDING_HEADING.fullmatch(lines[0]):
         return "protocol_failure(invalid_format)"
-
     heading_indexes = [index for index, line in enumerate(lines) if FINDING_HEADING.fullmatch(line)]
     for position, start in enumerate(heading_indexes):
         end = heading_indexes[position + 1] if position + 1 < len(heading_indexes) else len(lines)
@@ -565,152 +585,438 @@ def validate_output(stdout: str) -> str:
     return "success"
 
 
-def run_reviewer(
-    reviewer_id: str,
-    title: str,
-    repo: Path,
-    isolation_root: Path,
-    prompt: str,
-    engine: str,
-    model: str,
-    thinking: str,
-    timeout: int,
-) -> ReviewerResult:
+def read_regular_utf8(path: Path, maximum_size: int) -> str:
+    descriptor = -1
     try:
-        command, cwd = engine_command(engine, reviewer_id, repo, isolation_root, model, thinking)
-        returncode, stdout, stderr, timed_out = execute(command, cwd, prompt, timeout)
-    except Exception as error:
-        return ReviewerResult(reviewer_id, title, "failed(126)", "", str(error) + "\n")
-    if timed_out:
-        status = "timeout"
-    elif returncode != 0:
-        status = f"failed({returncode})"
-    else:
-        status = validate_output(stdout)
-    return ReviewerResult(reviewer_id, title, status, stdout, stderr)
+        flags = os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum_size:
+            raise ValueError("artifact is not a bounded regular file")
+        chunks: list[bytes] = []
+        remaining = maximum_size + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        output = b"".join(chunks)
+        if len(output) > maximum_size:
+            raise ValueError("artifact exceeds its size limit")
+        return output.decode("utf-8")
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
-def render_summary(
-    args: argparse.Namespace,
-    mode: str,
-    engine: str,
-    model: str,
-    thinking: str,
-    results: list[ReviewerResult],
-) -> int:
-    successes = sum(result.status == "success" for result in results)
+def read_reviewer_result(path: Path) -> tuple[str, str]:
+    try:
+        output = read_regular_utf8(path, 200_000)
+        return validate_output(output), output
+    except (OSError, UnicodeDecodeError, ValueError):
+        return "protocol_failure(invalid_result_file)", ""
+
+
+def create_run_directory(run_root: Path | None) -> Path:
+    root = run_root or Path(tempfile.gettempdir())
+    root.mkdir(parents=True, exist_ok=True)
+    run_dir = Path(tempfile.mkdtemp(prefix="review-diff-code-", dir=root)).resolve()
+    run_dir.chmod(0o700)
+    (run_dir / RUN_MARKER).write_text("review-diff-code\n")
+    return run_dir
+
+
+def write_manifest(run_dir: Path, manifest: dict[str, object]) -> None:
+    manifest_path = run_dir / MANIFEST_NAME
+    pending = run_dir / f"{MANIFEST_NAME}.pending"
+    payload = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode()
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(pending, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=False) as destination:
+            destination.write(payload)
+            destination.flush()
+            os.fsync(destination.fileno())
+        os.replace(pending, manifest_path)
+    except Exception:
+        if pending.exists() and stat.S_ISREG(pending.lstat().st_mode):
+            pending.unlink()
+        raise
+    finally:
+        os.close(descriptor)
+
+
+def load_run(run_dir_argument: Path) -> tuple[Path, dict[str, object]]:
+    if run_dir_argument.is_symlink():
+        raise RuntimeError("run directory must not be a symbolic link")
+    run_dir = run_dir_argument.resolve(strict=True)
+    marker = run_dir / RUN_MARKER
+    manifest_path = run_dir / MANIFEST_NAME
+    try:
+        marker_text = read_regular_utf8(marker, 100)
+        manifest_text = read_regular_utf8(manifest_path, 100_000)
+    except (OSError, UnicodeDecodeError, ValueError) as error:
+        raise RuntimeError("run metadata is missing or invalid") from error
+    if marker_text != "review-diff-code\n":
+        raise RuntimeError("run directory is not owned by review-diff-code")
+    try:
+        manifest = json.loads(manifest_text)
+    except json.JSONDecodeError as error:
+        raise RuntimeError("run manifest is missing or invalid") from error
+    if manifest.get("run_dir") != str(run_dir):
+        raise RuntimeError("run manifest does not match its directory")
+    return run_dir, manifest
+
+
+def prepare_review(args: argparse.Namespace) -> int:
+    repo = repository_root().resolve()
+    mode, raw_bundle, changed_files, resolved_base = create_raw_bundle(
+        repo,
+        args.mode,
+        args.base,
+        args.commit,
+    )
+    run_dir = create_run_directory(args.run_root)
+    context_dir = run_dir / "context-builder"
+    context_dir.mkdir()
+    prompt_file = context_dir / "prompt.md"
+    result_file = context_dir / "result.json"
+    prompt_file.write_text(build_context_builder_prompt(changed_files, raw_bundle))
+    manifest = {
+        "version": 1,
+        "run_dir": str(run_dir),
+        "repo": str(repo),
+        "mode": mode,
+        "resolved_base": resolved_base,
+        "commit": args.commit,
+        "changed_files": changed_files,
+        "bundle_digest": bundle_digest(raw_bundle),
+        "repository_state_digest": repository_state_digest(repo),
+        "state": "prepared",
+    }
+    write_manifest(run_dir, manifest)
+    print(
+        json.dumps(
+            {
+                "run_dir": str(run_dir),
+                "context_prompt_file": str(prompt_file),
+                "context_result_file": str(result_file),
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def validate_repository_state(manifest: dict[str, object], repo: Path) -> None:
+    repo = Path(manifest["repo"]).resolve(strict=True)
+    current_mode, current_bundle, current_files, current_base = create_raw_bundle(
+        repo,
+        manifest["mode"],
+        manifest["resolved_base"],
+        manifest["commit"],
+    )
+    if (
+        current_mode != manifest["mode"]
+        or current_base != manifest["resolved_base"]
+        or current_files != manifest["changed_files"]
+        or bundle_digest(current_bundle) != manifest["bundle_digest"]
+        or repository_state_digest(repo) != manifest["repository_state_digest"]
+    ):
+        raise ReviewError(
+            "repository_drift",
+            "repository changed after prepare; discard this run and prepare again",
+        )
+
+
+def validated_context(
+    run_dir: Path,
+    manifest: dict[str, object],
+    repo: Path,
+) -> dict[str, object]:
+    context_file = run_dir / "context-builder" / "result.json"
+    try:
+        context_raw = read_regular_utf8(context_file, 200_000)
+        return parse_context_builder_output(
+            context_raw,
+            manifest["changed_files"],
+            repo,
+        )
+    except (OSError, UnicodeDecodeError, ValueError, RuntimeError) as error:
+        raise ReviewError("context_result_invalid", str(error)) from error
+
+
+def validate_context_review(args: argparse.Namespace) -> int:
+    run_dir, manifest = load_run(args.run_dir)
+    repo = Path(manifest["repo"]).resolve(strict=True)
+    validate_repository_state(manifest, repo)
+    validated_context(run_dir, manifest, repo)
+    print(json.dumps({"run_dir": str(run_dir), "status": "valid"}))
+    return 0
+
+
+def reset_context_review(args: argparse.Namespace) -> int:
+    run_dir, manifest = load_run(args.run_dir)
+    if manifest.get("state") != "prepared":
+        raise ReviewError(
+            "run_protocol_invalid",
+            "context result can only be reset before reviewer routing",
+        )
+    result_file = run_dir / "context-builder" / "result.json"
+    if result_file.exists() or result_file.is_symlink():
+        if not stat.S_ISREG(result_file.lstat().st_mode):
+            raise ReviewError(
+                "run_protocol_invalid",
+                "context result is not a regular file",
+            )
+        result_file.unlink()
+    print(json.dumps({"run_dir": str(run_dir), "status": "reset"}))
+    return 0
+
+
+def route_review(args: argparse.Namespace) -> int:
+    run_dir, manifest = load_run(args.run_dir)
+    repo = Path(manifest["repo"]).resolve(strict=True)
+    reviewers_root = run_dir / "reviewers"
+    if manifest.get("state") == "routed":
+        validate_routed_artifacts(run_dir)
+        return print_routed_review(run_dir)
+    if manifest.get("state") != "prepared":
+        raise ReviewError("run_protocol_invalid", "review run is not ready for routing")
+    if reviewers_root.exists() or reviewers_root.is_symlink():
+        validate_routed_artifacts(run_dir)
+        manifest["state"] = "routed"
+        write_manifest(run_dir, manifest)
+        return print_routed_review(run_dir)
+    validate_repository_state(manifest, repo)
+    context = validated_context(run_dir, manifest, repo)
+    implementation_bundle = create_implementation_bundle(
+        repo,
+        manifest["mode"],
+        manifest["resolved_base"],
+        manifest["commit"],
+        context["implementation_files"],
+    )
+    context_diff = create_context_diff(
+        repo,
+        manifest["mode"],
+        manifest["resolved_base"],
+        manifest["commit"],
+        context["context_files"],
+    )
+    impact_context = render_review_context(repo, context, context_diff)
+    prompts = {
+        reviewer_id: build_reviewer_prompt(
+            reviewer_id,
+            implementation_bundle,
+            impact_context,
+        )
+        for reviewer_id, _ in REVIEWERS
+    }
+    staging = Path(tempfile.mkdtemp(prefix=".reviewers-", dir=run_dir))
+    try:
+        prompt_digests: dict[str, str] = {}
+        for reviewer_id, _ in REVIEWERS:
+            reviewer_dir = staging / reviewer_id
+            reviewer_dir.mkdir()
+            (reviewer_dir / "prompt.md").write_text(prompts[reviewer_id])
+            prompt_digests[reviewer_id] = bundle_digest(prompts[reviewer_id])
+        (staging / "integrity.json").write_text(
+            json.dumps(
+                {"version": 1, "prompt_digests": prompt_digests},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n"
+        )
+        validate_repository_state(manifest, repo)
+        staging.replace(reviewers_root)
+    except Exception:
+        if staging.exists():
+            shutil.rmtree(staging)
+        raise
+    manifest["state"] = "routed"
+    write_manifest(run_dir, manifest)
+    return print_routed_review(run_dir)
+
+
+def print_routed_review(run_dir: Path) -> int:
+    reviewers = {
+        reviewer_id: {
+            "prompt_file": str(run_dir / "reviewers" / reviewer_id / "prompt.md"),
+            "result_file": str(run_dir / "reviewers" / reviewer_id / "result.md"),
+        }
+        for reviewer_id, _ in REVIEWERS
+    }
+    print(json.dumps({"run_dir": str(run_dir), "reviewers": reviewers}, ensure_ascii=False))
+    return 0
+
+
+def validate_routed_artifacts(run_dir: Path) -> None:
+    reviewers_root = run_dir / "reviewers"
+    if not reviewers_root.exists() or not stat.S_ISDIR(reviewers_root.lstat().st_mode):
+        raise ReviewError("run_protocol_invalid", "reviewer artifact root is invalid")
+    expected_root_entries = {"integrity.json", *(reviewer_id for reviewer_id, _ in REVIEWERS)}
+    if {path.name for path in reviewers_root.iterdir()} != expected_root_entries:
+        raise ReviewError("run_protocol_invalid", "reviewer artifact root has invalid members")
+    try:
+        integrity = json.loads(read_regular_utf8(reviewers_root / "integrity.json", 20_000))
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+        raise ReviewError("run_protocol_invalid", "reviewer integrity record is invalid") from error
+    expected_ids = {reviewer_id for reviewer_id, _ in REVIEWERS}
+    if (
+        not isinstance(integrity, dict)
+        or set(integrity) != {"version", "prompt_digests"}
+        or integrity["version"] != 1
+        or not isinstance(integrity["prompt_digests"], dict)
+        or set(integrity["prompt_digests"]) != expected_ids
+    ):
+        raise ReviewError("run_protocol_invalid", "reviewer integrity schema is invalid")
+    for reviewer_id, _ in REVIEWERS:
+        reviewer_dir = reviewers_root / reviewer_id
+        prompt_file = reviewer_dir / "prompt.md"
+        if (
+            not reviewer_dir.exists()
+            or not stat.S_ISDIR(reviewer_dir.lstat().st_mode)
+            or not prompt_file.exists()
+            or not stat.S_ISREG(prompt_file.lstat().st_mode)
+        ):
+            raise ReviewError(
+                "run_protocol_invalid",
+                f"reviewer artifact is incomplete: {reviewer_id}",
+            )
+        members = {path.name for path in reviewer_dir.iterdir()}
+        if not {"prompt.md"} <= members <= {"prompt.md", "result.md"}:
+            raise ReviewError(
+                "run_protocol_invalid",
+                f"reviewer artifact has invalid members: {reviewer_id}",
+            )
+        try:
+            prompt = read_regular_utf8(prompt_file, 1_000_000)
+        except (OSError, UnicodeDecodeError, ValueError) as error:
+            raise ReviewError(
+                "run_protocol_invalid",
+                f"reviewer prompt is invalid: {reviewer_id}",
+            ) from error
+        if bundle_digest(prompt) != integrity["prompt_digests"][reviewer_id]:
+            raise ReviewError(
+                "run_protocol_invalid",
+                f"reviewer prompt digest mismatch: {reviewer_id}",
+            )
+
+
+def collect_review(args: argparse.Namespace) -> int:
+    run_dir, manifest = load_run(args.run_dir)
+    if manifest.get("state") != "routed":
+        raise RuntimeError("review run has not been routed")
+    repo = Path(manifest["repo"]).resolve(strict=True)
+    validate_repository_state(manifest, repo)
+    validate_routed_artifacts(run_dir)
+    results: list[tuple[str, str, str, str]] = []
+    for reviewer_id, title in REVIEWERS:
+        result_file = run_dir / "reviewers" / reviewer_id / "result.md"
+        status, output = read_reviewer_result(result_file)
+        results.append((reviewer_id, title, status, output))
+    validate_repository_state(manifest, repo)
+    successes = sum(status == "success" for _, _, status, _ in results)
     overall = "failed" if successes == 0 else "partial_failure" if successes < len(results) else "success"
     print("# Review Summary\n")
     print(f"overall_status: {overall}")
-    print(f"engine: {engine}")
-    print(f"model: {model or 'default'}")
-    print(f"thinking: {thinking or 'none'}")
-    print(f"timeout_sec: {args.timeout_sec}")
-    print(f"mode: {mode}")
-    print("orchestrator: helper")
-    print("context_builder: success")
-    print("reviewer_isolation: bundle_only")
-    print(f"failure_stderr: {'shown' if args.show_failure_stderr else 'suppressed'}\n")
+    print(f"mode: {manifest['mode']}")
+    print("orchestrator: codex_subagents")
+    print("reviewer_isolation: context_level\n")
     print("| Reviewer | Status |")
     print("| --- | --- |")
-    for result in results:
-        print(f"| {result.title} | {result.status} |")
+    for _, title, status, _ in results:
+        print(f"| {title} | {status} |")
     print("\n# Findings by Reviewer")
-    for result in results:
-        print(f"\n## {result.title}\n\nstatus: {result.status}\n")
-        print(result.stdout.rstrip() if result.stdout.strip() else "No output.")
-    failures = [result for result in results if result.status != "success" and result.stderr]
-    if failures:
-        print("\n# Diagnostics")
-        for result in failures:
-            print(f"\n## {result.title} stderr\n")
-            if args.show_failure_stderr:
-                print("```\n" + result.stderr.rstrip() + "\n```")
-            else:
-                size = len(result.stderr.encode())
-                print(f"suppressed: {size} bytes (rerun with --show-failure-stderr only if exposing bundle data is acceptable)")
-    print(f"review-diff-code target: {mode}", file=sys.stderr)
-    print(f"engine: {engine}", file=sys.stderr)
-    print(f"model: {model or 'default'}", file=sys.stderr)
-    if thinking:
-        print(f"thinking: {thinking}", file=sys.stderr)
-    print(f"overall_status: {overall}", file=sys.stderr)
+    for _, title, status, output in results:
+        print(f"\n## {title}\n\nstatus: {status}\n")
+        print(output.rstrip() if output.strip() else "No output.")
     return 1 if successes == 0 else 0
+
+
+def cleanup_review(args: argparse.Namespace) -> int:
+    run_dir, _ = load_run(args.run_dir)
+    known_files = {
+        RUN_MARKER,
+        MANIFEST_NAME,
+        f"{MANIFEST_NAME}.pending",
+        "context-builder/prompt.md",
+        "context-builder/result.json",
+        "reviewers/integrity.json",
+    }
+    known_directories = {"context-builder", "reviewers"}
+    for reviewer_id, _ in REVIEWERS:
+        known_files.update(
+            {
+                f"reviewers/{reviewer_id}/prompt.md",
+                f"reviewers/{reviewer_id}/result.md",
+            }
+        )
+        known_directories.add(f"reviewers/{reviewer_id}")
+    for relative in known_directories:
+        path = run_dir / relative
+        if path.exists() or path.is_symlink():
+            if not stat.S_ISDIR(path.lstat().st_mode):
+                raise ReviewError(
+                    "cleanup_refused",
+                    f"protocol directory is not a real directory: {relative}",
+                )
+    actual = {
+        str(path.relative_to(run_dir))
+        for path in run_dir.rglob("*")
+    }
+    unknown = actual - known_files - known_directories
+    if unknown:
+        raise ReviewError(
+            "cleanup_refused",
+            "run directory contains unknown content: " + ", ".join(sorted(unknown))
+        )
+    for relative in sorted(known_files, reverse=True):
+        path = run_dir / relative
+        if path.exists() or path.is_symlink():
+            path.unlink()
+    for relative in sorted(known_directories, reverse=True):
+        path = run_dir / relative
+        if path.exists():
+            path.rmdir()
+    run_dir.rmdir()
+    return 0
 
 
 def main() -> int:
     args = parse_args()
     try:
-        repo = repository_root()
-        mode, raw_bundle, changed_files, resolved_base = create_raw_bundle(repo, args.mode, args.base, args.commit)
-        with tempfile.TemporaryDirectory(prefix="review-diff-code-") as directory:
-            isolation_root = Path(directory) / "reviewer-root"
-            isolation_root.mkdir()
-            builder_prompt = build_context_builder_prompt(changed_files, raw_bundle)
-            builder_failures: list[str] = []
-            for engine in engine_candidates(args.engine):
-                model, thinking = engine_settings(engine, args.model, args.thinking)
-                try:
-                    builder_command, builder_cwd = engine_command(
-                        engine, "context-builder", repo, isolation_root, model, thinking
-                    )
-                    returncode, stdout, stderr, timed_out = execute(
-                        builder_command, builder_cwd, builder_prompt, args.timeout_sec
-                    )
-                    if timed_out:
-                        raise RuntimeError("timed out")
-                    if returncode != 0:
-                        detail = stderr.strip() if args.show_failure_stderr and stderr.strip() else f"exit {returncode}"
-                        raise RuntimeError(detail)
-                    context = parse_context_builder_output(stdout, changed_files, repo)
-                    break
-                except Exception as error:
-                    builder_failures.append(f"{engine}: {error}")
-                    if args.engine != "auto":
-                        raise RuntimeError(f"context builder failed: {error}") from error
-            else:
-                raise RuntimeError("context builder failed for all auto engines: " + "; ".join(builder_failures))
-            implementation_bundle = create_implementation_bundle(
-                repo,
-                mode,
-                resolved_base,
-                args.commit,
-                context["implementation_files"],
-            )
-            context_diff = create_context_diff(
-                repo,
-                mode,
-                resolved_base,
-                args.commit,
-                context["context_files"],
-            )
-            impact_context = render_review_context(repo, context, context_diff)
-            prompts = {
-                reviewer_id: build_prompt(reviewer_id, implementation_bundle, impact_context)
-                for reviewer_id, title in REVIEWERS
-            }
-            for reviewer_id, _ in REVIEWERS:
-                (isolation_root / reviewer_id).mkdir()
-            with ThreadPoolExecutor(max_workers=len(REVIEWERS)) as executor:
-                futures = [
-                    executor.submit(
-                        run_reviewer,
-                        reviewer_id,
-                        title,
-                        repo,
-                        isolation_root / reviewer_id,
-                        prompts[reviewer_id],
-                        engine,
-                        model,
-                        thinking,
-                        args.timeout_sec,
-                    )
-                    for reviewer_id, title in REVIEWERS
-                ]
-                results = [future.result() for future in futures]
-        return render_summary(args, mode, engine, model, thinking, results)
+        if args.command == "prepare":
+            return prepare_review(args)
+        if args.command == "reset-context":
+            return reset_context_review(args)
+        if args.command == "validate-context":
+            return validate_context_review(args)
+        if args.command == "route":
+            return route_review(args)
+        if args.command == "collect":
+            return collect_review(args)
+        return cleanup_review(args)
+    except ReviewError as error:
+        print(
+            json.dumps(
+                {"error": {"code": error.code, "message": str(error)}},
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 2
     except Exception as error:
-        print(f"review-diff-code: {error}", file=sys.stderr)
+        print(
+            json.dumps(
+                {"error": {"code": "internal_error", "message": str(error)}},
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
         return 2
 
 
