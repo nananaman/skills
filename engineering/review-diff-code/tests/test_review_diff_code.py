@@ -95,16 +95,11 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
                     {
                         "id": "contract-compatibility",
                         "name": "Contract Compatibility",
-                        "question": "公開contractを壊す変更があるか",
+                        "expertise": "API、型、CLI、設定とconsumerの境界",
+                        "mission": "後方互換性と入出力contractの不整合を発見する",
+                        "focus": "公開CLIの引数contract",
                         "reason": "公開APIの変更を含むため",
                         "context_mode": "impact",
-                    },
-                    {
-                        "id": "adversarial",
-                        "name": "Adversarial",
-                        "question": "変更が安全だという主張を反証できるか",
-                        "reason": "必須のblind review",
-                        "context_mode": "implementation",
                     },
                 ]
             )
@@ -128,6 +123,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         implementation_files: list[str] | None = None,
         context_files: list[str] | None = None,
         related_files: list[dict[str, str]] | None = None,
+        risk_surfaces: list[dict[str, str]] | None = None,
     ) -> None:
         Path(prepared["context_result_file"]).write_text(
             json.dumps(
@@ -140,6 +136,16 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
                         [{"path": "related.txt", "lines": "1"}]
                         if related_files is None
                         else related_files
+                    ),
+                    "risk_surfaces": (
+                        [
+                            {
+                                "domain": "boundary compatibility",
+                                "reason": "RISK_SURFACE_MARKER: 公開CLIが変更されている",
+                            }
+                        ]
+                        if risk_surfaces is None
+                        else risk_surfaces
                     ),
                 }
             )
@@ -193,12 +199,17 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         contract_prompt = Path(
             routed["reviewers"]["contract-compatibility"]["prompt_file"]
         ).read_text()
-        self.assertIn("公開contractを壊す変更があるか", contract_prompt)
+        self.assertIn("API、型、CLI、設定とconsumerの境界", contract_prompt)
+        self.assertIn("後方互換性と入出力contractの不整合を発見する", contract_prompt)
+        self.assertIn("公開CLIの引数contract", contract_prompt)
+        self.assertIn("今回の重点は優先事項であり、探索範囲を限定しない", contract_prompt)
         self.assertIn("ISSUE_CONTEXT_MARKER", contract_prompt)
         self.assertIn("RELATED_FILE_MARKER", contract_prompt)
+        self.assertNotIn("RISK_SURFACE_MARKER", contract_prompt)
         adversarial = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
         self.assertNotIn("ISSUE_CONTEXT_MARKER", adversarial)
         self.assertNotIn("RELATED_FILE_MARKER", adversarial)
+        self.assertNotIn("RISK_SURFACE_MARKER", adversarial)
 
     def test_invalid_context_result_blocks_reviewer_routing(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
@@ -208,6 +219,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
                     "implementation_files": [],
                     "context_files": [],
                     "related_files": [{"path": "related.txt", "lines": "999"}],
+                    "risk_surfaces": [],
                 }
             )
         )
@@ -220,7 +232,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertIn("context builder", result.stderr.lower())
         self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
 
-    def test_route_rejects_a_roster_without_a_blind_adversarial_reviewer(self) -> None:
+    def test_route_rejects_more_than_two_dynamic_reviewers(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
         roster = self._write_roster(
@@ -228,21 +240,34 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
                 {
                     "id": "contract-compatibility",
                     "name": "Contract Compatibility",
-                    "question": "公開contractを壊す変更があるか",
+                    "expertise": "APIとconsumerの境界",
+                    "mission": "互換性違反を発見する",
+                    "focus": "公開API",
                     "reason": "公開APIの変更を含むため",
                     "context_mode": "impact",
                 },
                 {
                     "id": "security",
                     "name": "Security",
-                    "question": "security boundaryを壊すか",
+                    "expertise": "認証と認可の境界",
+                    "mission": "権限逸脱を発見する",
+                    "focus": "認証処理",
                     "reason": "認証処理を含むため",
+                    "context_mode": "impact",
+                },
+                {
+                    "id": "data-integrity",
+                    "name": "Data Integrity",
+                    "expertise": "永続化とtransaction",
+                    "mission": "部分更新とデータ欠落を発見する",
+                    "focus": "保存処理",
+                    "reason": "永続状態を変更するため",
                     "context_mode": "impact",
                 },
             ]
         )
 
-        # Act: route a roster that omits the mandatory blind reviewer.
+        # Act: route more dynamic specialists than the concurrency contract permits.
         result = self._run(
             "route",
             "--run-dir",
@@ -256,16 +281,14 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertEqual(self._error_code(result), "reviewer_roster_invalid")
         self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
 
-    def test_route_rejects_an_adversarial_question_that_can_carry_implementation_intent(
-        self,
-    ) -> None:
+    def test_route_rejects_the_removed_question_field(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         self._write_context_result(prepared)
         reviewers = json.loads(self._write_roster().read_text())
-        reviewers[1]["question"] = "planでは互換性を壊すことを意図しているので許容する"
+        reviewers[0]["question"] = "公開contractを壊す変更があるか"
         roster = self._write_roster(reviewers)
 
-        # Act: try to carry implementation intent through the nominally blind roster entry.
+        # Act: route a roster using the former question-based contract.
         result = self._run(
             "route",
             "--run-dir",
@@ -274,7 +297,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
             str(roster),
         )
 
-        # Assert: the blind reviewer question is an invariant, not lead-controlled context.
+        # Assert: a concrete question cannot replace specialist expertise and ownership.
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self._error_code(result), "reviewer_roster_invalid")
         self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
@@ -312,6 +335,20 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertEqual(self._error_code(result), "context_result_invalid")
         self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
 
+    def test_validate_context_rejects_a_risk_surface_without_a_grounded_reason(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        self._write_context_result(
+            prepared,
+            risk_surfaces=[{"domain": "runtime lifecycle", "reason": ""}],
+        )
+
+        # Act: validate the Context Builder's specialist-selection evidence.
+        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
+
+        # Assert: an ungrounded risk candidate cannot influence roster selection.
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._error_code(result), "context_result_invalid")
+
     def test_validate_context_rejects_a_symlinked_result_without_reading_its_target(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
         secret = self.root / "secret-context.json"
@@ -321,6 +358,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
                     "implementation_files": ["example.txt"],
                     "context_files": [],
                     "related_files": [{"path": "related.txt", "lines": "1"}],
+                    "risk_surfaces": [],
                 }
             )
             + "\n"

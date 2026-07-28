@@ -18,7 +18,11 @@ from string import Template
 NO_FINDINGS = {"No actionable findings", "No actionable findings."}
 FINDING_HEADING = re.compile(r"^### \[(critical|high|medium|low)\] .+")
 REVIEWER_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-ADVERSARIAL_QUESTION = "変更が安全だという主張を反証できるか"
+ADVERSARIAL_REVIEWER = {
+    "id": "adversarial",
+    "name": "Adversarial",
+    "context_mode": "implementation",
+}
 REQUIRED_FINDING_FIELDS = ("- Target:", "- Problem:", "- Evidence:", "- Suggested fix:")
 SKILL_DIR = Path(__file__).resolve().parent.parent
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
@@ -506,7 +510,12 @@ def parse_context_builder_output(
         raise RuntimeError(f"context builder returned invalid JSON: {error}") from error
     if not isinstance(result, dict):
         raise RuntimeError("context builder output must be a JSON object")
-    if set(result) != {"implementation_files", "context_files", "related_files"}:
+    if set(result) != {
+        "implementation_files",
+        "context_files",
+        "related_files",
+        "risk_surfaces",
+    }:
         raise RuntimeError("context builder output has invalid fields")
     classifications: dict[str, list[str]] = {}
     for key in ("implementation_files", "context_files"):
@@ -535,6 +544,21 @@ def parse_context_builder_output(
             }
         )
     result["related_files"] = validated_related
+    risk_surfaces = result.get("risk_surfaces")
+    if not isinstance(risk_surfaces, list) or not all(
+        isinstance(item, dict) for item in risk_surfaces
+    ):
+        raise RuntimeError("context builder field risk_surfaces must be an object array")
+    for item in risk_surfaces:
+        if (
+            set(item) != {"domain", "reason"}
+            or not all(isinstance(value, str) and value.strip() for value in item.values())
+        ):
+            raise RuntimeError("context builder risk_surfaces item is invalid")
+    result["risk_surfaces"] = [
+        {"domain": item["domain"].strip(), "reason": item["reason"].strip()}
+        for item in risk_surfaces
+    ]
     return result
 
 
@@ -564,12 +588,20 @@ def read_reviewer_roster(path: Path) -> list[dict[str, str]]:
         roster = json.loads(raw)
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
         raise ReviewError("reviewer_roster_invalid", "reviewer roster is not valid JSON") from error
-    if not isinstance(roster, list) or not 2 <= len(roster) <= 4:
+    if not isinstance(roster, list) or not 1 <= len(roster) <= 2:
         raise ReviewError(
             "reviewer_roster_invalid",
-            "reviewer roster must contain one adversarial and one to three additional reviewers",
+            "reviewer roster must contain one or two dynamic reviewers",
         )
-    expected_fields = {"id", "name", "question", "reason", "context_mode"}
+    expected_fields = {
+        "id",
+        "name",
+        "expertise",
+        "mission",
+        "focus",
+        "reason",
+        "context_mode",
+    }
     validated: list[dict[str, str]] = []
     for reviewer in roster:
         if (
@@ -578,23 +610,14 @@ def read_reviewer_roster(path: Path) -> list[dict[str, str]]:
             or not all(isinstance(value, str) and value.strip() for value in reviewer.values())
             or not REVIEWER_ID.fullmatch(reviewer["id"])
             or reviewer["context_mode"] not in {"impact", "implementation"}
+            or reviewer["id"] == "adversarial"
         ):
             raise ReviewError("reviewer_roster_invalid", "reviewer roster entry is invalid")
         validated.append({key: reviewer[key].strip() for key in expected_fields})
     reviewer_ids = [reviewer["id"] for reviewer in validated]
     if len(reviewer_ids) != len(set(reviewer_ids)):
         raise ReviewError("reviewer_roster_invalid", "reviewer ids must be unique")
-    adversarial = [reviewer for reviewer in validated if reviewer["id"] == "adversarial"]
-    if (
-        len(adversarial) != 1
-        or adversarial[0]["context_mode"] != "implementation"
-        or adversarial[0]["question"] != ADVERSARIAL_QUESTION
-    ):
-        raise ReviewError(
-            "reviewer_roster_invalid",
-            "roster must contain exactly one blind adversarial reviewer with the fixed question",
-        )
-    return validated
+    return [*validated, ADVERSARIAL_REVIEWER.copy()]
 
 
 def build_reviewer_prompt(
@@ -606,8 +629,10 @@ def build_reviewer_prompt(
     prompt_template = Template((PROMPT_DIR / template_name).read_text())
     return prompt_template.substitute(
         reviewer_name=reviewer["name"],
-        review_question=reviewer["question"],
-        selection_reason=reviewer["reason"],
+        reviewer_expertise=reviewer.get("expertise", ""),
+        reviewer_mission=reviewer.get("mission", ""),
+        review_focus=reviewer.get("focus", ""),
+        selection_reason=reviewer.get("reason", ""),
         impact_context_section=(
             impact_context.rstrip() if reviewer["context_mode"] == "impact" else ""
         ),
