@@ -6,8 +6,6 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import ipaddress
 import json
 import os
 from pathlib import Path
@@ -17,7 +15,6 @@ import stat
 import subprocess
 import sys
 import tempfile
-from urllib.parse import urlsplit
 
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
@@ -591,88 +588,6 @@ def verify_command(args: argparse.Namespace) -> int:
     return 0
 
 
-def report_handler(report: Path) -> type[BaseHTTPRequestHandler]:
-    report_bytes = report.read_bytes()
-
-    class ReportHandler(BaseHTTPRequestHandler):
-        def send_report(self, include_body: bool) -> None:
-            request_path = urlsplit(self.path).path
-            if request_path not in {"/", "/report.html"}:
-                self.send_error(404)
-                return
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(report_bytes)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            if include_body:
-                self.wfile.write(report_bytes)
-
-        def do_GET(self) -> None:
-            self.send_report(include_body=True)
-
-        def do_HEAD(self) -> None:
-            self.send_report(include_body=False)
-
-        def log_message(self, format_string: str, *args: object) -> None:
-            print(f"http: {format_string % args}", file=sys.stderr)
-
-    return ReportHandler
-
-
-def is_loopback_host(host: str) -> bool:
-    normalized = host.strip().lower().strip("[]")
-    if normalized == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(normalized).is_loopback
-    except ValueError:
-        return False
-
-
-def serve_report(
-    report: Path,
-    *,
-    host: str = "127.0.0.1",
-    port: int = 0,
-    server_factory: object = ThreadingHTTPServer,
-) -> int:
-    report = report.resolve()
-    if not report.is_file():
-        raise ValueError(f"report does not exist: {report}")
-    if b'data-explain-diff-report="1"' not in report.read_bytes():
-        raise ValueError(f"file is not an explain-diff report: {report}")
-    if not 0 <= port <= 65535:
-        raise ValueError("port must be between 0 and 65535")
-    server = server_factory((host, port), report_handler(report))
-    bound_host, bound_port = server.server_address[:2]
-    if not is_loopback_host(host):
-        scope = (
-            "all configured interfaces"
-            if host in {"0.0.0.0", "::"}
-            else f"the selected interface {host}"
-        )
-        print(f"WARNING: report contains the full local diff and is reachable through {scope}.")
-    if host in {"0.0.0.0", "::"}:
-        print(f"Local URL:  http://127.0.0.1:{bound_port}/report.html")
-        print(f"Remote URL: http://<this-mac-ip>:{bound_port}/report.html")
-    else:
-        display_host = f"[{bound_host}]" if ":" in str(bound_host) else bound_host
-        print(f"Serving: http://{display_host}:{bound_port}/report.html")
-    print("Press Ctrl-C to stop.")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("Server stopped.")
-    finally:
-        server.server_close()
-    return 0
-
-
-def serve_command(args: argparse.Namespace) -> int:
-    return serve_report(Path(args.report), host=args.host, port=args.port)
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -688,11 +603,6 @@ def build_parser() -> argparse.ArgumentParser:
     verify = subparsers.add_parser("verify", help="現在のlocal差分とfingerprintを照合する")
     verify.add_argument("--fingerprint", required=True)
     verify.set_defaults(handler=verify_command)
-    serve = subparsers.add_parser("serve", help="生成済みreportを指定interfaceで配信する")
-    serve.add_argument("--report", required=True)
-    serve.add_argument("--host", default="127.0.0.1")
-    serve.add_argument("--port", type=int, default=0)
-    serve.set_defaults(handler=serve_command)
     return parser
 
 

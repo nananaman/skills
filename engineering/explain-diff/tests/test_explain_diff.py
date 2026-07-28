@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import base64
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr
 import importlib.util
 import io
 import os
@@ -24,24 +24,6 @@ sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 
-class FakeHttpServer:
-    created_address: tuple[str, int] | None = None
-    served = False
-    closed = False
-
-    def __init__(self, address: tuple[str, int], handler: object) -> None:
-        type(self).created_address = address
-        self.server_address = (address[0], 43123)
-        self.handler = handler
-
-    def serve_forever(self) -> None:
-        type(self).served = True
-        raise KeyboardInterrupt
-
-    def server_close(self) -> None:
-        type(self).closed = True
-
-
 class ExplainDiffCliTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -55,9 +37,6 @@ class ExplainDiffCliTest(unittest.TestCase):
         (self.repo / "unstaged.txt").write_text("base\n", encoding="utf-8")
         self._git("add", "mixed.txt", "unstaged.txt")
         self._git("commit", "-qm", "base")
-        FakeHttpServer.created_address = None
-        FakeHttpServer.served = False
-        FakeHttpServer.closed = False
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -933,88 +912,14 @@ class ExplainDiffCliTest(unittest.TestCase):
         self.assertEqual(2, stats["additions"])
         self.assertEqual(1, stats["deletions"])
 
-    def test_serve_defaults_to_loopback_with_an_ephemeral_port(self) -> None:
-        # Arrange: 生成済みレポートを用意し、fake server で socket 境界を隔離する。
-        report = self.root / "report.html"
-        report.write_text(
-            '<!doctype html><html data-explain-diff-report="1"><title>Report</title></html>',
-            encoding="utf-8",
-        )
-        output = io.StringIO()
+    def test_cli_rejects_the_removed_serve_command(self) -> None:
+        # Arrange: 配信責務を host-artifact へ移した後の CLI contract を使う。
+        parser = MODULE.build_parser()
 
-        # Act: hostを指定せず、fakeがCtrl-Cを再現するまでserverを動かす。
-        with redirect_stdout(output):
-            result = MODULE.serve_report(report, server_factory=FakeHttpServer)
-
-        # Assert: remote interfaceへ公開せず、localhostだけで配信する。
-        self.assertEqual(0, result)
-        self.assertEqual(("127.0.0.1", 0), FakeHttpServer.created_address)
-        self.assertNotIn("WARNING", output.getvalue())
-        self.assertIn("127.0.0.1:43123/report.html", output.getvalue())
-
-    def test_serve_cli_defaults_to_loopback(self) -> None:
-        # Arrange & Act: hostを省略したserve commandを解析する。
-        args = MODULE.build_parser().parse_args(["serve", "--report", "report.html"])
-
-        # Assert: CLI入口もlocalhost以外へ暗黙に公開しない。
-        self.assertEqual("127.0.0.1", args.host)
-
-    def test_serve_hosts_one_report_on_an_explicit_remote_interface(self) -> None:
-        # Arrange: 生成済みレポートを用意し、fake server で socket 境界を隔離する。
-        report = self.root / "report.html"
-        report.write_text(
-            '<!doctype html><html data-explain-diff-report="1"><title>Report</title></html>',
-            encoding="utf-8",
-        )
-        output = io.StringIO()
-
-        # Act: fake が Ctrl-C を再現するまで foreground server を動かす。
-        with redirect_stdout(output):
-            result = MODULE.serve_report(
-                report,
-                host="0.0.0.0",
-                port=0,
-                server_factory=FakeHttpServer,
-            )
-
-        # Assert: 明示された全interface bind、port、警告、URL、終了処理を観測できる。
-        self.assertEqual(0, result)
-        self.assertEqual(("0.0.0.0", 0), FakeHttpServer.created_address)
-        self.assertTrue(FakeHttpServer.served)
-        self.assertTrue(FakeHttpServer.closed)
-        self.assertIn("all configured interfaces", output.getvalue())
-        self.assertIn("43123/report.html", output.getvalue())
-
-    def test_serve_rejects_a_file_that_is_not_an_explain_diff_report(self) -> None:
-        # Arrange: serve に任意のローカル HTML を指定する。
-        arbitrary = self.root / "arbitrary.html"
-        arbitrary.write_text("<!doctype html><title>Not a report</title>", encoding="utf-8")
-
-        # Act & Assert: listen socket を作る前に検証で停止する。
-        with self.assertRaisesRegex(ValueError, "explain-diff report"):
-            MODULE.serve_report(arbitrary, server_factory=FakeHttpServer)
-        self.assertIsNone(FakeHttpServer.created_address)
-
-    def test_serve_warns_when_an_explicit_host_is_not_loopback(self) -> None:
-        # Arrange: 全 interface の既定値ではなく Tailscale 範囲の address を使う。
-        report = self.root / "report.html"
-        report.write_text(
-            '<!doctype html><html data-explain-diff-report="1"></html>',
-            encoding="utf-8",
-        )
-        output = io.StringIO()
-
-        # Act: 隔離した socket 境界から配信する。
-        with redirect_stdout(output):
-            MODULE.serve_report(
-                report,
-                host="100.64.0.10",
-                server_factory=FakeHttpServer,
-            )
-
-        # Assert: remote 到達可能な明示 bind でも差分公開の警告を表示する。
-        self.assertIn("WARNING", output.getvalue())
-        self.assertIn("full local diff", output.getvalue())
+        # Act & Assert: explain-diff 自身には server command を残さない。
+        with redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                parser.parse_args(["serve", "--report", "report.html"])
 
 
 if __name__ == "__main__":
