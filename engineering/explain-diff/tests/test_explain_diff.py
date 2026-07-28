@@ -913,7 +913,7 @@ class ExplainDiffCliTest(unittest.TestCase):
         self.assertEqual(1, stats["deletions"])
 
     def test_cli_rejects_the_removed_serve_command(self) -> None:
-        # Arrange: 配信責務を host-artifact へ移した後の CLI contract を使う。
+        # Arrange: 配信責務を分離した後の CLI contract を使う。
         parser = MODULE.build_parser()
 
         # Act & Assert: explain-diff 自身には server command を残さない。

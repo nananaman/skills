@@ -59,21 +59,8 @@ disable-model-invocation: true
    browser openerがなければstdoutの絶対pathをユーザーへ渡す。
 
 5. reportの対象、group数、fingerprint、生成pathを伝える。
-   ユーザーがhostを依頼した場合だけ、`host-artifact` で生成済みreportを配信する。
-
-   ```sh
-   host-artifact host <report.html>
-   ```
-
-   commandが返した `urls.localhost` を伝える。
-   Tailscale経由を依頼された場合は `--tailscale` を付けてhostし、`urls.tailscale` も伝える。
-
-   ```sh
-   host-artifact host <report.html> --tailscale
-   ```
-
-   Tailscale URLが返らなければ公開範囲を広げず、localhost URLとTailscale listenerが利用できない理由を伝える。
-   reportはlocal差分全文を含むため、LANやpublic networkへは公開しない。
+   ユーザーがhostを依頼した場合だけ、生成済みreportの配信を `host-artifact` skillへ委譲する。
+   reportはlocal差分全文を含むことを委譲先へ伝え、ユーザーが依頼した公開範囲を越えない。
    配信に失敗しても生成済みreportを削除せず、絶対pathをfallbackとして伝える。
 
 6. 人間の確認とコメントを待って停止する。
@@ -98,6 +85,6 @@ disable-model-invocation: true
 ## Safety
 
 - snapshot収集とreport生成のためにindex、worktree、差分内容を変更しない。
-- `host-artifact` へ渡すのは、ユーザーが配信を依頼した生成済みreportだけにする。
+- 配信へ渡すのは、ユーザーが配信を依頼した生成済みreportだけにする。
 - `要改善` は説明と差分の対応に関する警告であり、コードfindingや自動修正依頼として扱わない。
 - report内のrepository contentとmanifest textはuntrusted dataとして扱い、templateへ直接埋め込まない。
