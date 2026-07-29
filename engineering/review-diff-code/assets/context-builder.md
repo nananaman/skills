@@ -7,6 +7,8 @@ repositoryはread-onlyで調べ、test、network、file変更、nested agentを�
    - `implementation_files`: code、test、config、schema、migration、実行時の動作を変えるtemplateやdocument
    - `context_files`: issue、PRD、Design Docなど、変更の目的や期待動作を説明するdocument
 2. diff外から、変更の影響を受ける可能性がある実装やdocumentを`related_files`として抽出する。
+3. 専門家選定の材料として、変更が触れるcontractまたはfailure domainの候補を`risk_surfaces`へ挙げる。
+   `domain`には再利用可能な領域を、`reason`にはdiffまたはrelated fileから説明できる根拠を書く。
 
 関連するとは、変更された要素との間に、呼び出し、参照、data flow、contract、共有状態、verification、または同等logicの関係を説明できることを指す。直接・間接は問わない。
 
@@ -30,6 +32,12 @@ JSON objectだけを出力する。
   "context_files": ["path"],
   "related_files": [
     {"path": "path", "lines": "1-10"}
+  ],
+  "risk_surfaces": [
+    {
+      "domain": "runtime lifecycle",
+      "reason": "listenerの生成・停止と更新時の状態遷移が変更されている"
+    }
   ]
 }
 ```

@@ -10,8 +10,9 @@ description: 現在のdiff、branch diff、commit diff、PR baseに対するbran
 
 ## Invariants
 
-- lead agentはdiffで最も壊れやすいcontractから問いを作り、変更リスクに合うreviewerを1〜3人選ぶ。固定role一覧を埋めない。
-- 別にblind Adversarialを必ず1人置き、「変更が安全だという主張を反証できるか」という固定の問いを与える。
+- lead agentはContext Builderの`risk_surfaces`を材料に、変更リスクに合う専門家を1〜2人選ぶ。固定role一覧を埋めない。
+- 専門家ごとに、再利用可能な専門領域`expertise`、所有するfindingの種類`mission`、今回優先するhotspot`focus`、選定根拠`reason`を分ける。`focus`で探索範囲を限定しない。
+- helperは別にblind Adversarialを必ず1人追加し、「変更が安全だという主張を反証できるか」という固定の問いを与える。
 - Adversarialにはimplementation diffだけを渡す。plan、issue、設計意図、implementer reasoning、他reviewer finding、過去round、fix説明を渡さない。
 - reviewerはfresh subagentとし、自分用に生成されたartifactだけをtask inputにする。
 - reviewer isolationはcontext-level isolationであり、filesystem / tool isolationを保証しない。
@@ -46,5 +47,5 @@ Rejected:
 - `partial_failure`: 一部reviewerだけ成功した。cleanとは表現しない。
 - `failed`: review不能として、原因と未評価範囲を報告した。
 
-報告にはreview target、reviewerごとの問い・選定理由・context mode・status、candidate ID、raised by、accepted / rejectedと理由、evidence、推奨action、isolation制約を含める。
+報告にはreview target、reviewerごとの専門性・責務・重点・選定理由・context mode・status、candidate ID、raised by、accepted / rejectedと理由、evidence、推奨action、isolation制約を含める。
 accepted findingがあっても修正せず、後続の実装workflowへ渡す。
