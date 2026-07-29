@@ -1,12 +1,12 @@
 ---
 name: setup-engineering-flow
-description: リポジトリごとの engineering flow を初期設定する。issue tracker、PRD / Design Doc / ADR、temporary plan の配置、local markdown issue の採番、AGENTS.md / CLAUDE.md の参照 block を整える。task-breakdown / create-plan の初回利用前に user-invoked で実行する。通常の task 分解、plan 作成、実装、レビューでは使わない。
+description: リポジトリごとの engineering flow を初期設定する。issue tracker、PRD / Design Doc / ADR、temporary plan の配置、local markdown issue の採番、AGENTS.md / CLAUDE.md の参照 block を整える。task-breakdown の利用前、または create-plan の規則を継続運用として保存するときに user-invoked で実行する。通常の task 分解、plan 作成、実装、レビューでは使わない。
 disable-model-invocation: true
 ---
 
 # Setup Engineering Flow
 
-`task-breakdown` と `create-plan` が前提にする repo-local 設定を作る。
+`task-breakdown` が前提にし、`create-plan` が任意の追加 context として使う repo-local 設定を作る。
 これは一度だけ実行する prompt-driven skill であり、deterministic script ではない。
 
 ## 目的

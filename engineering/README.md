@@ -27,7 +27,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 
 ## 典型フロー
 
-1. 初回は `setup-engineering-flow` で issue tracker、PRD、Design Doc / ADR、一時 plan の配置を記録する。
+1. 継続運用の規則が必要なら `setup-engineering-flow` で issue tracker、PRD、Design Doc / ADR、一時 plan の配置を記録する。`task-breakdown` にはこの設定が必須だが、`create-plan` は設定なしでも実行できる。
 2. 新機能・仕様変更は `draft-prd` → `polish-prd` で要求を固める。
 3. 技術改善・設計変更、または PRD 実現に設計判断が必要な変更は `draft-design-doc` → `polish-design-doc` で設計を固める。
 4. 合意済みの要求・設計は `task-breakdown` で独立実行可能な issue 群へ分ける。
