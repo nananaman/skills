@@ -8,7 +8,7 @@
 PRD? / Design Doc? / ADR?
   -> task-breakdown
   -> issue tracker
-  -> create-plan <issue>
+  -> create-plan <issue> -> review-plan
   -> implementation
   -> verification
   -> review
@@ -46,6 +46,7 @@ task には次を含める。
 
 担当者が task を取得した後、`create-plan <issue>` で実装前の共有理解を作る。
 `create-plan` は関連文書とコードを調査し、`grilling` で重要な判断を一つずつ解消してから、repo 設定済みの plan directory に一時 plan を作る。
+作成後は`review-plan`を自動実行し、検討漏れと不要な複雑性のblockerがなくなるまでplanを修正する。ユーザー判断や上流設計の変更が必要なfindingでは停止する。
 
 plan directory:
 

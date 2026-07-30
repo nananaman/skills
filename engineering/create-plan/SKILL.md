@@ -1,6 +1,6 @@
 ---
 name: create-plan
-description: issue、task、またはユーザーの実装依頼から、関連文書とコードを調査し、grilling で共有理解を作って、一時的な plan file を作成する。repo-local engineering-flow 設定の有無を問わず使える。通常実装、永続 Design Doc、task 分解、実装済み diff のレビューだけの依頼では使わない。
+description: issue、task、またはユーザーの実装依頼から、関連文書とコードを調査し、grilling で共有理解を作って、一時的な plan file を作成し、独立reviewを通して実装readyにする。repo-local engineering-flow 設定の有無を問わず使える。通常実装、永続 Design Doc、task 分解、実装済み diff のレビューだけの依頼では使わない。
 disable-model-invocation: true
 ---
 
@@ -56,6 +56,12 @@ repo-local flow を継続運用として保存したい場合だけ `setup-engin
    `git check-ignore` または `git ls-files` が path を返した場合は lifecycle contract を満たさないため停止する。
    `git status` が `?? <plan-path>` を示さない場合も停止し、既存 rule / index の状態を報告する。
 6. plan を読み直し、別セッションの coding agent が追加の設計判断なしに実装・検証できることを確認する。
+7. `review-plan`でplanを独立評価する。
+   - `revise` findingは、要求とrepository contextから一意に直せる範囲でplanへ反映し、fresh reviewerで再reviewする。
+   - `investigate` findingは、安全な調査やproofで解消できる場合は実行し、planへ反映して再reviewする。
+   - `decision` finding、上流設計の変更、scope拡大、追加authorityが必要な場合は、自動で決めずユーザーへ一度に一つ質問する。
+   - 同じfindingが再発する、finding同士が矛盾する、または修正の複雑性が低減するriskに見合わない場合はloopを止め、blockedとして報告する。
+   - `ready`以外の結果で実装可能と表現しない。
 
 ## Plan Contract
 
@@ -106,5 +112,6 @@ End-Implementation-Plan
 - plan file の location を報告した。
 - 解消した重要判断と、参照した issue / 永続設計文書があれば報告した。
 - plan に実装を block する未解決事項がない。
+- `review-plan`が`ready`を返し、accepted `blocker`が残っていない。
 - plan file が ignored / tracked ではなく、`git status` で untracked として可視である。
 - 実装へ進めるかを報告した。

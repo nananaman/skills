@@ -13,6 +13,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 - Design Doc を設計判断・task 分割へ進める文書に磨く → [`polish-design-doc`](./polish-design-doc/SKILL.md)
 - 合意済みの要求・設計を独立実行可能な task 群へ分解する → [`task-breakdown`](./task-breakdown/SKILL.md)
 - issue を取得し、grill 後に一時的な実装 plan を作る → [`create-plan`](./create-plan/SKILL.md)
+- 作成済みの実装 plan を検討漏れと不要な複雑性の観点で独立評価する → [`review-plan`](./review-plan/SKILL.md)
 - quality barに向けてBuilderとCriticの実装loopを編成する → [`implement`](./implement/SKILL.md)
 - 実行コードのロジック・状態遷移・データ変換・処理規則の変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
@@ -31,7 +32,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 2. 新機能・仕様変更は `draft-prd` → `polish-prd` で要求を固める。
 3. 技術改善・設計変更、または PRD 実現に設計判断が必要な変更は `draft-design-doc` → `polish-design-doc` で設計を固める。
 4. 合意済みの要求・設計は `task-breakdown` で独立実行可能な issue 群へ分ける。
-5. issue を取得したら `create-plan` で grill と調査を行い、untracked の一時 plan を作る。
+5. issue を取得したら `create-plan` で grill と調査を行い、untracked の一時 plan を作る。`create-plan`は完了前に`review-plan`を自動実行し、検討漏れと不要な複雑性のblockerを解消する。
 6. 実行コードのロジック・状態遷移・データ変換・処理規則を変更するときは、`tdd` で RED → GREEN → Refactor の順に進める。
 7. テストを書くときは、`test-writing-style` で既存テスト文化と読みやすさを揃える。
 8. 長い実装loopが必要なtaskでは、明示的に`implement`を使い、goalとquality barに対してBuilder / Criticを編成する。
@@ -66,6 +67,9 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 - **[`create-plan`](./create-plan/SKILL.md)** — issue を取得した後、grill と調査を経て一時的な実装 plan を作成する。
   - Use when: `create-plan <issue>`、個別 task の実装前設計、`plans/<task>-<slug>.md` の作成
   - Type: `user-invoked`
+- **[`review-plan`](./review-plan/SKILL.md)** — 作成済みの一時実装planを、実現可能性と単純性のfresh reviewerで独立評価する。
+  - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
+  - Type: `model-invoked`
 - **[`implement`](./implement/SKILL.md)** — goalとquality barに対するBuilder / Criticの実装loopを編成する。
   - Use when: `implement`の明示起動、複数unitや反復評価を伴う実装、actual artifactとreferenceの比較
   - Type: `user-invoked`
