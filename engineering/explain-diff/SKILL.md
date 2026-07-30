@@ -48,22 +48,24 @@ disable-model-invocation: true
    repository固有の名称、新しい概念、略語が解説や図に登場する場合は `glossary` で、この変更における意味を定義する。
    実装意図とhunkを明瞭に対応付けられない場合は推測で埋めず停止する。
 
-4. reportを生成して開く。
+4. reportを生成する。
 
    ```sh
    python3 <skill-directory>/scripts/explain-diff.py render \
      --snapshot <snapshot.json> \
      --manifest <manifest.json> \
-     --output <snapshot-directory>/report.html
+     --output <snapshot-directory>/report.html \
+     --no-open
    ```
 
    CLIが全hunkの一意な割当とmanifest contractを検証し、変更対象file一覧をsnapshotから決定的に表示する。
    validation errorはmanifestを直して再実行する。
    `stale snapshot` はlocal差分が変わった証拠なので、古いmanifestを流用せずStep 2からやり直す。
-   browser openerがなければstdoutの絶対pathをユーザーへ渡す。
 
 5. reportの対象、group数、fingerprint、生成pathを伝える。
-   ユーザーがhostを依頼した場合だけ、生成済みreportの配信を `host-artifact` skillへ委譲する。
+   ユーザーがreportを「見たい」「共有して」「アクセスできるようにして」と依頼した場合は、local browserで開かず、生成済みreportの配信を `host-artifact` skillへ委譲する。
+   Tailscale経由にするのはユーザーが明示した場合だけにする。
+   配信依頼がなければ絶対pathを渡す。
    reportはlocal差分全文を含むことを委譲先へ伝え、ユーザーが依頼した公開範囲を越えない。
    配信に失敗しても生成済みreportを削除せず、絶対pathをfallbackとして伝える。
 
@@ -82,8 +84,7 @@ disable-model-invocation: true
 ## Completion
 
 - 全local差分がちょうど一つの変更groupに属するreportを生成した。
-- reportをbrowserで開いた、または開ける絶対pathを渡した。
-- hostを依頼された場合は指定されたnetwork境界でのアクセス方法を渡し、稼働状態を報告した。
+- reportの絶対pathを渡した、または指定されたnetwork境界でのアクセス方法を渡して稼働状態を報告した。
 - 対象group数とfingerprintを報告し、人間レビュー待ちで停止した。
 
 ## Safety
