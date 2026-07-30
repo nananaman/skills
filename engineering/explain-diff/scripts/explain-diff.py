@@ -44,10 +44,6 @@ PRISM_BUNDLES = (
         )
     ),
 )
-RISKS = {"要注意", "注意", "低リスク"}
-RISK_ORDER = {"要注意": 0, "注意": 1, "低リスク": 2}
-
-
 def run_git(repo: Path, *args: str, check: bool = True) -> bytes:
     result = subprocess.run(
         ["git", "-C", str(repo), *args],
@@ -334,11 +330,12 @@ def require_text(group: dict[str, object], field: str) -> str:
 
 
 def validate_manifest(snapshot: dict[str, object], manifest: dict[str, object]) -> list[dict[str, object]]:
-    if manifest.get("version") != 1:
-        raise ValueError("manifest version must be 1")
-    title = manifest.get("title")
-    if not isinstance(title, str) or not title.strip():
-        raise ValueError("manifest title must be non-empty text")
+    if manifest.get("version") != 2:
+        raise ValueError("manifest version must be 2")
+    for field in ("title", "context", "outcome"):
+        value = manifest.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"manifest {field} must be non-empty text")
     groups = manifest.get("groups")
     if not isinstance(groups, list) or not groups:
         raise ValueError("manifest groups must be a non-empty list")
@@ -357,17 +354,8 @@ def validate_manifest(snapshot: dict[str, object], manifest: dict[str, object]) 
         if group_id in seen_group_ids:
             raise ValueError(f"duplicate group id: {group_id}")
         seen_group_ids.add(group_id)
-        for field in ("title", "summary", "intent", "impact", "kind", "risk_reason"):
+        for field in ("title", "before", "after", "why", "review_focus"):
             require_text(group, field)
-        if group.get("risk") not in RISKS:
-            raise ValueError(f"group {group_id}: invalid risk")
-        if not isinstance(group.get("needs_improvement"), bool):
-            raise ValueError(f"group {group_id}: needs_improvement must be boolean")
-        reason = group.get("needs_improvement_reason")
-        if not isinstance(reason, str):
-            raise ValueError(f"group {group_id}: needs_improvement_reason must be text")
-        if group["needs_improvement"] and not reason.strip():
-            raise ValueError(f"group {group_id}: needs_improvement_reason is required")
         hunk_ids = group.get("hunk_ids")
         if not isinstance(hunk_ids, list) or not hunk_ids:
             raise ValueError(f"group {group_id}: hunk_ids must be a non-empty list")
@@ -386,20 +374,7 @@ def validate_manifest(snapshot: dict[str, object], manifest: dict[str, object]) 
     unassigned = sorted(expected - set(assigned))
     if unassigned:
         raise ValueError(f"unassigned hunks: {', '.join(unassigned)}")
-    hunk_by_id = {hunk["id"]: hunk for hunk in snapshot.get("hunks", [])}
-
-    def sort_key(group: dict[str, object]) -> tuple[object, ...]:
-        hunk_ids = group["hunk_ids"]
-        paths = {hunk_by_id[hunk_id]["path"] for hunk_id in hunk_ids}
-        return (
-            not group["needs_improvement"],
-            RISK_ORDER[group["risk"]],
-            -len(paths),
-            -len(hunk_ids),
-            group["id"],
-        )
-
-    return sorted(validated, key=sort_key)
+    return validated
 
 
 def validate_glossary(manifest: dict[str, object]) -> list[dict[str, object]]:

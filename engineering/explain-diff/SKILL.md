@@ -1,13 +1,13 @@
 ---
 name: explain-diff
-description: 実装意図を保持するセッションから、staged・unstaged・untrackedを含むlocal差分を意図別・リスク順に解説し、人間が確認とコメントを行う自己完結HTMLを生成するときに明示的に使う。コード品質レビュー、finding生成、修正、branch / commit / PR差分には使わない。
+description: 実装意図を保持するセッションから、staged・unstaged・untrackedを含むlocal差分を変更前後と因果順で解説し、人間が確認とコメントを行う自己完結HTMLを生成するときに明示的に使う。コード品質レビュー、finding生成、修正、branch / commit / PR差分には使わない。
 disable-model-invocation: true
 ---
 
 # Explain Diff
 
-現在のlocal差分を、ファイル順ではなく変更意図ごとのグループとして人間へ説明する。
-意味のあるmodule依存や処理flowを説明できる場合は図で俯瞰してから、groupごとの解説とhunkへ掘り下げられる形にする。
+現在のlocal差分を「なぜ必要か」「何が可能になるか」「各変更がどの順で成立させるか」という物語として人間へ説明する。
+各説明は変更前と変更後を対比し、根拠となるhunkへ掘り下げられる形にする。
 このskillは品質判定を行わない。コードレビューが必要なら `review-diff-code` を別に使う。
 
 ## Preconditions
@@ -36,13 +36,17 @@ disable-model-invocation: true
 
    stdoutの `snapshot.json` pathを保持する。差分がなければ停止する。
 
-3. snapshotの `hunks` を読み、同じ変更意図に従属するhunkをまとめる。
+3. snapshotの `hunks` と実装意図から、変更前の問題と変更後の到達状態を定める。
+   到達状態を成立させる因果順に、同じ役割へ従属するhunkをまとめる。
    [`references/manifest-contract.md`](./references/manifest-contract.md) に従って、snapshotと同じdirectoryへ `manifest.json` を作る。
    renameと追従import修正のような機械的変更も、同じ目的なら一groupにする。
-   依存関係、状態遷移、時系列を説明することがレビューを助ける場合はMermaidの `diagrams` を作る。
+   groupごとに変更前、変更後、この形を選んだ理由、説明とdiffの対応を確かめる観点を書く。
+   riskやfile数では並べ替えず、読み手が変更を最短で理解できる順序を保つ。
+   変更後のcomponent境界、処理flow、データflow、状態遷移を文章より明瞭に説明できる場合はMermaidの `diagrams` を作る。
    flowchartのnodeは役割が分かる名称と説明を持たせ、`node_links` でgroup・hunk・用語へ結び付ける。
-   importやfile一覧を並べただけになる場合は省略する。
+   実装順やgroup順、importやfile一覧を並べただけになる場合は省略する。
    repository固有の名称、新しい概念、略語が解説や図に登場する場合は `glossary` で、この変更における意味を定義する。
+   実装意図とhunkを明瞭に対応付けられない場合は推測で埋めず停止する。
 
 4. reportを生成して開く。
 
@@ -53,7 +57,7 @@ disable-model-invocation: true
      --output <snapshot-directory>/report.html
    ```
 
-   CLIが全hunkの一意な割当とmanifest contractを検証する。
+   CLIが全hunkの一意な割当とmanifest contractを検証し、変更対象file一覧をsnapshotから決定的に表示する。
    validation errorはmanifestを直して再実行する。
    `stale snapshot` はlocal差分が変わった証拠なので、古いmanifestを流用せずStep 2からやり直す。
    browser openerがなければstdoutの絶対pathをユーザーへ渡す。
@@ -86,5 +90,4 @@ disable-model-invocation: true
 
 - snapshot収集とreport生成のためにindex、worktree、差分内容を変更しない。
 - 配信へ渡すのは、ユーザーが配信を依頼した生成済みreportだけにする。
-- `要改善` は説明と差分の対応に関する警告であり、コードfindingや自動修正依頼として扱わない。
 - report内のrepository contentとmanifest textはuntrusted dataとして扱い、templateへ直接埋め込まない。

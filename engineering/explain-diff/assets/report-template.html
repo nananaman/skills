@@ -139,9 +139,68 @@
 
     .section-kicker { margin: 0 0 14px 4px; }
 
+    .story-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 1px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 8px 28px rgba(26, 34, 50, .05);
+    }
+    .story-step { padding: 24px 28px; background: var(--panel); }
+    .story-label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .story-value { margin: 0; font-size: 17px; line-height: 1.55; }
+
+    .system-overview {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    .system-overview.without-architecture { grid-template-columns: 1fr; }
+    .architecture-panel, .changed-files-panel {
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(26, 34, 50, .05);
+    }
+    .architecture-panel[hidden] { display: none; }
+    .overview-panel-head {
+      margin: 0;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .changed-files { display: grid; }
+    .changed-file {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .changed-file:last-child { border-bottom: 0; }
+    .changed-file-path {
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .review-workspace {
       display: grid;
-      grid-template-columns: 240px minmax(0, 1fr) minmax(360px, 420px);
+      grid-template-columns: 240px minmax(0, 1fr) minmax(280px, 340px);
       gap: 20px;
       align-items: start;
     }
@@ -175,7 +234,6 @@
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(8px);
     }
-    .context-diagram { max-height: min(52vh, 560px); overflow: auto; }
     .context-glossary { max-height: min(34vh, 360px); overflow: auto; }
 
     .overview {
@@ -322,10 +380,7 @@
       font-weight: 700;
     }
 
-    .badge.risk-high { border-color: transparent; color: #a32939; background: var(--red-soft); }
-    .badge.risk-medium { border-color: transparent; color: #8a5b00; background: var(--amber-soft); }
-    .badge.risk-low { border-color: transparent; color: #536070; background: #eef1f5; }
-    .badge.improve { border-color: transparent; color: #a32939; background: var(--red-soft); }
+    .badge.pending { border-color: transparent; color: #8a5b00; background: var(--amber-soft); }
     .badge.checked { border-color: transparent; color: var(--green); background: var(--green-soft); }
 
     .detail-card, .feedback-card {
@@ -353,9 +408,6 @@
       background: #cbd1db;
       content: "";
     }
-
-    .detail-head[data-risk="要注意"]::before { background: var(--red); }
-    .detail-head[data-risk="注意"]::before { background: #efa91e; }
 
     .detail-title {
       display: flex;
@@ -644,6 +696,8 @@
       .stats { width: max-content; max-width: 100%; overflow-x: auto; }
       .progress-wrap { justify-content: flex-start; }
       .page { width: min(100% - 24px, 1480px); margin-top: 20px; }
+      .story-card { grid-template-columns: 1fr; }
+      .system-overview { grid-template-columns: 1fr; }
       .review-workspace { display: block; }
       .group-rail, .context-rail {
         position: static;
@@ -652,7 +706,7 @@
         overflow: visible;
       }
       .group-rail, .review-main, .context-panel { margin-bottom: 20px; }
-      .context-diagram, .context-glossary { max-height: none; }
+      .context-glossary { max-height: none; }
       .group-row, .detail-head { grid-template-columns: 1fr; }
       .badges { justify-content: flex-start; flex-wrap: wrap; }
       .detail-head { padding: 24px 22px 22px 28px; }
@@ -685,6 +739,33 @@
   </header>
 
   <main class="page" id="app">
+    <section id="story-section" aria-labelledby="story-heading">
+      <h2 class="section-kicker" id="story-heading">この変更の物語</h2>
+      <div class="story-card">
+        <div class="story-step">
+          <span class="story-label">これまでの状態</span>
+          <p class="story-value" id="story-context"></p>
+        </div>
+        <div class="story-step">
+          <span class="story-label">この変更で到達する状態</span>
+          <p class="story-value" id="story-outcome"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="system-overview without-architecture" id="system-overview" aria-label="変更の俯瞰">
+      <article class="architecture-panel" id="overview-section" hidden>
+        <h2 class="section-kicker overview-panel-head" id="overview-heading">変更後のアーキテクチャ</h2>
+        <div class="overview" id="overview">
+          <div class="diagram-list" id="diagram-list"></div>
+        </div>
+      </article>
+      <article class="changed-files-panel">
+        <h2 class="section-kicker overview-panel-head">変更対象ファイル</h2>
+        <div class="changed-files" id="changed-files"></div>
+      </article>
+    </section>
+
     <div class="review-workspace">
       <nav class="group-rail" aria-labelledby="groups-heading">
         <h2 class="section-kicker" id="groups-heading">変更グループ</h2>
@@ -712,13 +793,6 @@
       </div>
 
       <aside class="context-rail" aria-label="レビューの補助情報">
-        <section class="context-panel context-diagram" id="overview-section" aria-labelledby="overview-heading" hidden>
-          <h2 class="section-kicker context-panel-head" id="overview-heading">変更の全体像</h2>
-          <div class="overview" id="overview">
-            <div class="diagram-list" id="diagram-list"></div>
-          </div>
-        </section>
-
         <section class="context-panel context-glossary" id="glossary-section" aria-labelledby="glossary-heading" hidden>
           <h2 class="section-kicker context-panel-head" id="glossary-heading">用語集</h2>
           <div class="glossary-card" id="glossary-list"></div>
@@ -781,10 +855,6 @@
       updateFeedbackCounts();
     }
 
-    function riskClass(risk) {
-      return risk === "要注意" ? "risk-high" : risk === "注意" ? "risk-medium" : "risk-low";
-    }
-
     function groupColor(groupId) {
       const palette = ["#356ae6", "#b65b18", "#20845d", "#8b5cc7", "#c13f58", "#287b9e"];
       const index = Math.max(0, groups.findIndex(group => group.id === groupId));
@@ -825,8 +895,35 @@
       document.getElementById("deletions-stat").textContent = `−${snapshot.stats.deletions}`;
     }
 
+    function renderStory() {
+      document.getElementById("story-context").textContent = manifest.context;
+      document.getElementById("story-outcome").textContent = manifest.outcome;
+    }
+
+    function renderChangedFiles() {
+      const files = new Map();
+      for (const hunk of snapshot.hunks) {
+        const current = files.get(hunk.path) ?? { hunks: 0, groups: new Set() };
+        current.hunks += 1;
+        for (const group of groups) {
+          if (group.hunk_ids.includes(hunk.id)) current.groups.add(group.id);
+        }
+        files.set(hunk.path, current);
+      }
+      const list = document.getElementById("changed-files");
+      list.replaceChildren(...[...files.entries()].map(([path, info]) => {
+        const row = element("div", "changed-file");
+        row.append(
+          element("span", "changed-file-path", path),
+          badge(`${info.hunks} hunks · ${info.groups.size} groups`),
+        );
+        return row;
+      }));
+    }
+
     async function renderOverview() {
       if (!diagrams.length) return;
+      document.getElementById("system-overview").classList.remove("without-architecture");
       document.getElementById("overview-section").hidden = false;
       const diagramList = document.getElementById("diagram-list");
       diagramList.replaceChildren(...await Promise.all(diagrams.map(renderMermaidDiagram)));
@@ -951,7 +1048,6 @@
       for (const group of groups) {
         const button = element("button", `group-row${group.id === activeGroupId ? " active" : ""}`);
         button.type = "button";
-        button.dataset.risk = group.risk;
         button.style.setProperty("--group-color", groupColor(group.id));
         button.addEventListener("click", () => {
           activeGroupId = group.id;
@@ -967,13 +1063,11 @@
           element("span", "group-color-dot"),
           element("span", "group-title", group.title),
         );
-        if (group.needs_improvement) titleLine.append(badge("要改善", "improve"));
-        main.append(titleLine, element("div", "group-summary", group.summary));
+        main.append(titleLine, element("div", "group-summary", group.after));
 
         const marks = element("div", "badges");
-        marks.append(badge(group.kind));
+        marks.append(badge(`${groups.indexOf(group) + 1}/${groups.length}`));
         marks.append(badge(`${group.hunk_ids.length} hunks`));
-        marks.append(badge(group.risk, riskClass(group.risk)));
         if (state.checked[group.id]) marks.append(badge("確認済み", "checked"));
         button.append(main, marks);
         list.append(button);
@@ -990,31 +1084,25 @@
       }
 
       const head = element("div", "detail-head");
-      head.dataset.risk = group.risk;
       head.style.setProperty("--group-color", groupColor(group.id));
       const copy = element("div");
       const title = element("h3", "detail-title");
       title.append(
         element("span", "group-color-dot"),
-        badge(group.risk, riskClass(group.risk)),
         document.createTextNode(group.title),
       );
-      if (group.needs_improvement) title.append(badge("要改善", "improve"));
       const explanation = element("p", "explanation");
-      const intentLabel = element("strong", "", "意図: ");
-      explanation.append(intentLabel, document.createTextNode(group.intent));
+      const focusLabel = element("strong", "", "ここで確認すること: ");
+      explanation.append(focusLabel, document.createTextNode(group.review_focus));
       copy.append(title, explanation);
 
       const meta = element("div", "meta-grid");
-      for (const [label, value] of [["変更概要", group.summary], ["影響範囲", group.impact], ["リスク理由", group.risk_reason], ["種別", group.kind]]) {
+      for (const [label, value] of [["変更前", group.before], ["変更後", group.after], ["この形にした理由", group.why]]) {
         const item = element("div", "meta-item");
         item.append(element("span", "meta-label", label), document.createTextNode(value));
         meta.append(item);
       }
       copy.append(meta);
-      if (group.needs_improvement) {
-        copy.append(element("div", "improvement-note", `要改善: ${group.needs_improvement_reason}`));
-      }
 
       const check = element("label", "review-check");
       const checkbox = document.createElement("input");
@@ -1243,7 +1331,7 @@
       const checkedFiles = files.filter(fileKey => state.fileChecked[fileKey]).length;
       container.replaceChildren(
         badge(`確認済み ${checked}`, "checked"),
-        badge(`未確認 ${groups.length - checked}`, groups.length === checked ? "" : "risk-medium"),
+        badge(`未確認 ${groups.length - checked}`, groups.length === checked ? "" : "pending"),
         badge(`ファイル ${checkedFiles}/${files.length}`, checkedFiles === files.length ? "checked" : ""),
         badge(`コメント ${commentCount()}`),
       );
@@ -1324,6 +1412,8 @@
     document.getElementById("generate-feedback").addEventListener("click", generateFeedback);
     document.getElementById("copy-feedback").addEventListener("click", copyFeedback);
     renderHeader();
+    renderStory();
+    renderChangedFiles();
     renderGlossary();
     void renderOverview();
     renderGroupList();
