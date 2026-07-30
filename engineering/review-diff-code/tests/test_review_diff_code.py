@@ -86,22 +86,31 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def _write_roster(
         self,
         reviewers: list[dict[str, str]] | None = None,
+        excluded_context_paths: list[str] | None = None,
     ) -> Path:
         roster_file = self.root / "reviewers.json"
         roster_file.write_text(
             json.dumps(
-                reviewers
-                or [
-                    {
-                        "id": "contract-compatibility",
-                        "name": "Contract Compatibility",
-                        "expertise": "API、型、CLI、設定とconsumerの境界",
-                        "mission": "後方互換性と入出力contractの不整合を発見する",
-                        "focus": "公開CLIの引数contract",
-                        "reason": "公開APIの変更を含むため",
-                        "context_mode": "impact",
+                {
+                    "reviewers": reviewers
+                    or [
+                        {
+                            "id": "contract-compatibility",
+                            "name": "Contract Compatibility",
+                            "expertise": "API、型、CLI、設定とconsumerの境界",
+                            "mission": "後方互換性と入出力contractの不整合を発見する",
+                            "focus": "公開CLIの引数contract",
+                            "reason": "公開APIの変更を含むため",
+                        },
+                    ],
+                    "adversarial": {
+                        "excluded_context_paths": (
+                            ["plans/"]
+                            if excluded_context_paths is None
+                            else excluded_context_paths
+                        )
                     },
-                ]
+                }
             )
             + "\n"
         )
@@ -116,75 +125,81 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
             str(self._write_roster()),
         )
 
-    def _write_context_result(
-        self,
-        prepared: dict[str, str],
-        *,
-        implementation_files: list[str] | None = None,
-        context_files: list[str] | None = None,
-        related_files: list[dict[str, str]] | None = None,
-        risk_surfaces: list[dict[str, str]] | None = None,
-    ) -> None:
-        Path(prepared["context_result_file"]).write_text(
-            json.dumps(
-                {
-                    "implementation_files": (
-                        ["example.txt"] if implementation_files is None else implementation_files
-                    ),
-                    "context_files": [] if context_files is None else context_files,
-                    "related_files": (
-                        [{"path": "related.txt", "lines": "1"}]
-                        if related_files is None
-                        else related_files
-                    ),
-                    "risk_surfaces": (
-                        [
-                            {
-                                "domain": "boundary compatibility",
-                                "reason": "RISK_SURFACE_MARKER: 公開CLIが変更されている",
-                            }
-                        ]
-                        if risk_surfaces is None
-                        else risk_surfaces
-                    ),
-                }
-            )
-        )
-
-    def test_prepare_creates_context_builder_artifacts_without_starting_an_engine(self) -> None:
-        # Arrange & Act: prepare a branch review from the public CLI.
+    def test_prepare_branch_resolves_full_ids_without_context_artifacts(self) -> None:
+        # Arrange & Act: prepare a branch review from symbolic refs through the public CLI.
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
 
-        # Assert: the main agent receives a self-contained prompt/result protocol.
+        # Assert: the target is immutable and no diff-bearing context artifact is created.
         run_dir = Path(prepared["run_dir"])
         self.assertTrue(run_dir.is_dir())
         self.assertEqual(run_dir.stat().st_mode & 0o777, 0o700)
-        prompt = Path(prepared["context_prompt_file"]).read_text()
-        self.assertIn('changed_files_json: ["example.txt"]', prompt)
-        self.assertIn("+second", prompt)
-        self.assertEqual(
-            Path(prepared["context_result_file"]),
-            run_dir / "context-builder" / "result.json",
-        )
+        self.assertRegex(prepared["target"]["base"], r"^[0-9a-f]{40}$")
+        self.assertRegex(prepared["target"]["head"], r"^[0-9a-f]{40}$")
+        self.assertEqual(prepared["changed_files"], ["example.txt"])
+        self.assertFalse((run_dir / "context-builder").exists())
         self.assertNotIn("engine", prepared)
         self.assertNotIn("model", prepared)
 
-    def test_route_creates_risk_based_prompts_with_a_blind_adversarial_reviewer(self) -> None:
-        issue = self.repo / "docs" / "issue.md"
-        issue.parent.mkdir()
-        issue.write_text("ISSUE_CONTEXT_MARKER\n")
-        self._git("add", "docs/issue.md")
-        prepared = self._prepare("--mode", "local")
-        self._write_context_result(
-            prepared,
-            implementation_files=[],
-            context_files=["docs/issue.md"],
+    def test_prepare_commit_resolves_full_id_and_changed_paths(self) -> None:
+        # Arrange & Act: prepare a commit review from a symbolic commit name.
+        prepared = self._prepare("--mode", "commit", "--commit", "HEAD")
+
+        # Assert: later ref movement cannot change the commit under review.
+        self.assertRegex(prepared["target"]["commit"], r"^[0-9a-f]{40}$")
+        self.assertEqual(prepared["changed_files"], ["example.txt"])
+
+    def test_prepare_and_load_accept_sha256_full_object_ids(self) -> None:
+        sha_repo = self.root / "sha256-repo"
+        initialized = subprocess.run(
+            ["git", "init", "-q", "--object-format=sha256", str(sha_repo)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if initialized.returncode != 0:
+            self.skipTest("installed Git does not support SHA-256 repositories")
+        subprocess.run(["git", "-C", str(sha_repo), "config", "user.name", "Review Test"], check=True)
+        subprocess.run(
+            ["git", "-C", str(sha_repo), "config", "user.email", "review-test@example.com"],
+            check=True,
+        )
+        (sha_repo / "example.txt").write_text("sha256\n")
+        subprocess.run(["git", "-C", str(sha_repo), "add", "example.txt"], check=True)
+        subprocess.run(["git", "-C", str(sha_repo), "commit", "-qm", "sha256"], check=True)
+
+        # Act
+        result = subprocess.run(
+            [
+                str(HELPER),
+                "prepare",
+                "--mode",
+                "commit",
+                "--commit",
+                "HEAD",
+                "--run-root",
+                str(self.runs),
+            ],
+            cwd=sha_repo,
+            text=True,
+            capture_output=True,
+            check=False,
         )
 
-        # Act: validate the Context Builder result and render reviewer inputs.
+        # Assert: prepare and load_run both accept the repository's native full ID.
+        self.assertEqual(result.returncode, 0, result.stderr)
+        prepared = json.loads(result.stdout)
+        self.assertRegex(prepared["target"]["commit"], r"^[0-9a-f]{64}$")
+        helper = load_helper_module()
+        _, manifest = helper.load_run(Path(prepared["run_dir"]))
+        self.assertEqual(manifest["target"]["commit"], prepared["target"]["commit"])
+
+    def test_route_creates_small_direct_investigation_prompts(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+
+        # Act: render reviewer inputs from a fixed Git target.
         result = self._route(prepared)
 
-        # Assert: the selected risk reviewer receives context while Adversarial stays blind.
+        # Assert: prompts point reviewers at Git without embedding the diff body.
         self.assertEqual(result.returncode, 0, result.stderr)
         routed = json.loads(result.stdout)
         self.assertEqual(set(routed["reviewers"]), set(REVIEWER_IDS))
@@ -203,38 +218,240 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertIn("後方互換性と入出力contractの不整合を発見する", contract_prompt)
         self.assertIn("公開CLIの引数contract", contract_prompt)
         self.assertIn("今回の重点は優先事項であり、探索範囲を限定しない", contract_prompt)
-        self.assertIn("ISSUE_CONTEXT_MARKER", contract_prompt)
-        self.assertIn("RELATED_FILE_MARKER", contract_prompt)
-        self.assertNotIn("RISK_SURFACE_MARKER", contract_prompt)
-        adversarial = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
-        self.assertNotIn("ISSUE_CONTEXT_MARKER", adversarial)
-        self.assertNotIn("RELATED_FILE_MARKER", adversarial)
-        self.assertNotIn("RISK_SURFACE_MARKER", adversarial)
+        target = prepared["target"]
+        self.assertIn(f"diff --find-renames {target['base']}...{target['head']}", contract_prompt)
+        manifest = json.loads((Path(prepared["run_dir"]) / "manifest.json").read_text())
+        self.assertIn(f"git -C {manifest['repo']}", contract_prompt)
+        self.assertIn("example.txt", contract_prompt)
+        self.assertIn("read-only", contract_prompt)
+        self.assertNotIn("+second", contract_prompt)
 
-    def test_invalid_context_result_blocks_reviewer_routing(self) -> None:
+    def test_route_keeps_adversarial_blind_to_selection_and_context_paths(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        Path(prepared["context_result_file"]).write_text(
-            json.dumps(
-                {
-                    "implementation_files": [],
-                    "context_files": [],
-                    "related_files": [{"path": "related.txt", "lines": "999"}],
-                    "risk_surfaces": [],
-                }
-            )
+        roster = self._write_roster(
+            excluded_context_paths=["plans/", "docs/design/"],
         )
+
+        # Act
+        result = self._run(
+            "route",
+            "--run-dir",
+            prepared["run_dir"],
+            "--roster-file",
+            str(roster),
+        )
+
+        # Assert: Adversarial receives only fixed-target and context-exclusion guidance.
+        self.assertEqual(result.returncode, 0, result.stderr)
+        routed = json.loads(result.stdout)
+        adversarial = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
+        self.assertIn("plans/", adversarial)
+        self.assertIn("docs/design/", adversarial)
+        self.assertIn("Do not inspect", adversarial)
+        self.assertIn(":(top,literal,exclude)plans", adversarial)
+        self.assertNotIn('"plans/', adversarial.split("変更path:", 1)[1].split("```", 2)[1])
+        self.assertNotIn("公開CLIの引数contract", adversarial)
+        self.assertNotIn("公開APIの変更を含むため", adversarial)
+
+    def test_adversarial_command_literally_excludes_file_directory_and_glob_paths(self) -> None:
+        # Arrange: commit context-only names whose metacharacters must remain literal.
+        (self.repo / "plans").mkdir()
+        (self.repo / "plans" / "secret.md").write_text("DIRECTORY_SECRET\n")
+        (self.repo / "literal[1].md").write_text("GLOB_SECRET\n")
+        control_path = self.repo / "line\nbreak.md"
+        control_path.write_text("CONTROL_SECRET\n")
+        (self.repo / "visible.md").write_text("VISIBLE\n")
+        self._git("add", ".")
+        self._git("commit", "-qm", "context paths")
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        roster = self._write_roster(
+            excluded_context_paths=["plans", "literal[1].md", "line\nbreak.md"],
+        )
+        routed_result = self._run(
+            "route",
+            "--run-dir",
+            prepared["run_dir"],
+            "--roster-file",
+            str(roster),
+        )
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        routed = json.loads(routed_result.stdout)
+        prompt = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
+        command = prompt.split("```sh\n", 1)[1].split("\n```", 1)[0]
+
+        # Act
+        command_result = subprocess.run(
+            command,
+            shell=True,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        # Assert: only reviewable implementation content reaches command output.
+        self.assertIn("VISIBLE", command_result.stdout)
+        self.assertNotIn("DIRECTORY_SECRET", command_result.stdout)
+        self.assertNotIn("GLOB_SECRET", command_result.stdout)
+        self.assertNotIn("CONTROL_SECRET", command_result.stdout)
+        inventory = prompt.split("変更path:\n```json\n", 1)[1].split("\n```", 1)[0]
+        self.assertNotIn("plans", inventory)
+        self.assertNotIn("literal[1].md", inventory)
+        self.assertNotIn(r"line\nbreak.md", inventory)
+
+    def test_route_rejects_the_legacy_array_roster(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        roster = self.root / "legacy-roster.json"
+        roster.write_text("[]\n")
+
+        # Act
+        result = self._run(
+            "route",
+            "--run-dir",
+            prepared["run_dir"],
+            "--roster-file",
+            str(roster),
+        )
+
+        # Assert
+        self.assertEqual(self._error_code(result), "reviewer_roster_invalid")
+        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
+
+    def test_route_rejects_unsafe_excluded_context_paths(self) -> None:
+        for unsafe in ("/tmp/plans", "../plans", "docs/../plans"):
+            with self.subTest(unsafe=unsafe):
+                prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+                roster = self._write_roster(excluded_context_paths=[unsafe])
+
+                # Act
+                result = self._run(
+                    "route",
+                    "--run-dir",
+                    prepared["run_dir"],
+                    "--roster-file",
+                    str(roster),
+                )
+
+                # Assert
+                self.assertEqual(self._error_code(result), "reviewer_roster_invalid")
+                self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
+
+    def test_route_rejects_an_oversized_prompt_before_publication(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        helper = load_helper_module()
+
+        # Act: force the public prompt contract below the smallest valid prompt.
+        with mock.patch.object(helper, "MAX_REVIEWER_PROMPT_BYTES", 10):
+            with self.assertRaises(helper.ReviewError) as raised:
+                helper.route_review(
+                    SimpleNamespace(
+                        run_dir=Path(prepared["run_dir"]),
+                        roster_file=self._write_roster(),
+                    )
+                )
+
+        # Assert: an invalid prompt never reaches the published artifact location.
+        self.assertEqual(raised.exception.code, "run_protocol_invalid")
+        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
+
+    def test_route_rejects_a_prompt_equal_to_the_size_limit(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        helper = load_helper_module()
+
+        # Act
+        with (
+            mock.patch.object(helper, "MAX_REVIEWER_PROMPT_BYTES", 10),
+            mock.patch.object(helper, "build_reviewer_prompt", return_value="1234567890"),
+        ):
+            with self.assertRaises(helper.ReviewError):
+                helper.route_review(
+                    SimpleNamespace(
+                        run_dir=Path(prepared["run_dir"]),
+                        roster_file=self._write_roster(),
+                    )
+                )
+
+        # Assert
+        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
+
+    def test_local_prompt_uses_fixed_head_and_safe_untracked_contract(self) -> None:
+        (self.repo / "new.txt").write_text("new\n")
+        prepared = self._prepare("--mode", "local")
 
         # Act
         result = self._route(prepared)
 
-        # Assert: invalid classification never produces reviewer prompts.
+        # Assert
+        self.assertEqual(result.returncode, 0, result.stderr)
+        routed = json.loads(result.stdout)
+        prompt = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
+        self.assertIn(f"diff --find-renames {prepared['target']['head']}", prompt)
+        self.assertIn(f"diff --cached --find-renames {prepared['target']['head']}", prompt)
+        self.assertIn("untracked symbolic link", prompt)
+        self.assertIn("lstat", prompt)
+        self.assertIn("readlink", prompt)
+        self.assertIn("dereference", prompt)
+        dynamic = Path(
+            routed["reviewers"]["contract-compatibility"]["prompt_file"]
+        ).read_text()
+        self.assertIn("untracked symbolic link", dynamic)
+        self.assertIn("lstat", dynamic)
+        self.assertIn("readlink", dynamic)
+        self.assertIn("dereference", dynamic)
+
+    def test_manifest_target_rejects_shell_injection_before_prompt_render(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        manifest_file = Path(prepared["run_dir"]) / "manifest.json"
+        manifest = json.loads(manifest_file.read_text())
+        manifest["target"]["head"] = "$(touch /tmp/review-diff-code-injected)"
+        manifest_file.write_text(json.dumps(manifest) + "\n")
+
+        # Act
+        result = self._route(prepared)
+
+        # Assert
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("context builder", result.stderr.lower())
-        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
+        self.assertFalse(Path("/tmp/review-diff-code-injected").exists())
+
+    def test_prompt_inventory_escapes_control_characters_in_changed_paths(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        manifest_file = Path(prepared["run_dir"]) / "manifest.json"
+        manifest = json.loads(manifest_file.read_text())
+        manifest["changed_files"] = ["line\nbreak.txt"]
+        helper = load_helper_module()
+
+        # Act
+        prompt = helper.build_reviewer_prompt(
+            {
+                "id": "contract-compatibility",
+                "name": "Contract",
+                "expertise": "contracts",
+                "mission": "find breaks",
+                "focus": "CLI",
+                "reason": "CLI changed",
+            },
+            manifest,
+            Path(prepared["run_dir"]) / "result.md",
+            [],
+        )
+
+        # Assert
+        self.assertIn(r"line\nbreak.txt", prompt)
+        self.assertNotIn("line\nbreak.txt", prompt)
+
+    def test_repository_digest_changes_when_untracked_mode_changes(self) -> None:
+        path = self.repo / "script.sh"
+        path.write_text("#!/bin/sh\n")
+        helper = load_helper_module()
+        before = helper.repository_state_digest(self.repo)
+
+        # Act
+        path.chmod(0o755)
+
+        # Assert
+        self.assertNotEqual(helper.repository_state_digest(self.repo), before)
 
     def test_route_rejects_more_than_two_dynamic_reviewers(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         roster = self._write_roster(
             [
                 {
@@ -244,7 +461,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
                     "mission": "互換性違反を発見する",
                     "focus": "公開API",
                     "reason": "公開APIの変更を含むため",
-                    "context_mode": "impact",
                 },
                 {
                     "id": "security",
@@ -253,7 +469,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
                     "mission": "権限逸脱を発見する",
                     "focus": "認証処理",
                     "reason": "認証処理を含むため",
-                    "context_mode": "impact",
                 },
                 {
                     "id": "data-integrity",
@@ -262,7 +477,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
                     "mission": "部分更新とデータ欠落を発見する",
                     "focus": "保存処理",
                     "reason": "永続状態を変更するため",
-                    "context_mode": "impact",
                 },
             ]
         )
@@ -283,8 +497,8 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_route_rejects_the_removed_question_field(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
-        reviewers = json.loads(self._write_roster().read_text())
+        roster_object = json.loads(self._write_roster().read_text())
+        reviewers = roster_object["reviewers"]
         reviewers[0]["question"] = "公開contractを壊す変更があるか"
         roster = self._write_roster(reviewers)
 
@@ -305,105 +519,18 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def test_worktree_drift_after_prepare_blocks_reviewer_routing(self) -> None:
         (self.repo / "example.txt").write_text("dirty before prepare\n")
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         (self.repo / "example.txt").write_text("changed after prepare\n")
 
         # Act
         result = self._route(prepared)
 
-        # Assert: reviewers never receive a bundle that differs from Context Builder input.
+        # Assert: reviewers never receive a target that differs from prepare state.
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self._error_code(result), "repository_drift")
         self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
 
-    def test_validate_context_accepts_a_complete_context_builder_result(self) -> None:
-        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
-
-        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)["status"], "valid")
-
-    def test_validate_context_rejects_an_invalid_result_before_routing(self) -> None:
-        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        Path(prepared["context_result_file"]).write_text("{}\n")
-
-        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self._error_code(result), "context_result_invalid")
-        self.assertFalse((Path(prepared["run_dir"]) / "reviewers").exists())
-
-    def test_validate_context_rejects_a_risk_surface_without_a_grounded_reason(self) -> None:
-        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(
-            prepared,
-            risk_surfaces=[{"domain": "runtime lifecycle", "reason": ""}],
-        )
-
-        # Act: validate the Context Builder's specialist-selection evidence.
-        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
-
-        # Assert: an ungrounded risk candidate cannot influence roster selection.
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self._error_code(result), "context_result_invalid")
-
-    def test_validate_context_rejects_a_symlinked_result_without_reading_its_target(self) -> None:
-        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        secret = self.root / "secret-context.json"
-        secret.write_text(
-            json.dumps(
-                {
-                    "implementation_files": ["example.txt"],
-                    "context_files": [],
-                    "related_files": [{"path": "related.txt", "lines": "1"}],
-                    "risk_surfaces": [],
-                }
-            )
-            + "\n"
-        )
-        Path(prepared["context_result_file"]).symlink_to(secret)
-
-        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self._error_code(result), "context_result_invalid")
-
-    def test_validate_context_rejects_oversized_related_file_evidence(self) -> None:
-        oversized = self.repo / "oversized-related.txt"
-        oversized.write_text("x" * 2_000_001)
-        self._git("add", "oversized-related.txt")
-        self._git("commit", "-qm", "add oversized related file")
-        (self.repo / "example.txt").write_text("review target\n")
-        self._git("add", "example.txt")
-        self._git("commit", "-qm", "add review target")
-        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(
-            prepared,
-            related_files=[{"path": "oversized-related.txt", "lines": "1"}],
-        )
-
-        result = self._run("validate-context", "--run-dir", prepared["run_dir"])
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self._error_code(result), "context_result_invalid")
-
-    def test_reset_context_removes_a_previous_attempt_result(self) -> None:
-        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        result_file = Path(prepared["context_result_file"])
-        result_file.write_text('{"stale": true}\n')
-
-        # Act
-        result = self._run("reset-context", "--run-dir", prepared["run_dir"])
-
-        # Assert: a fresh Context Builder cannot accidentally reuse the previous attempt.
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(result_file.exists())
-
     def test_collect_validates_reviewer_results_and_reports_partial_failure(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
@@ -422,7 +549,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_collect_returns_nonzero_when_all_reviewer_results_are_invalid(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
@@ -436,7 +562,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_collect_rejects_repository_drift_after_reviewer_routing(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
@@ -452,7 +577,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_collect_rejects_repository_drift_during_result_collection(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
@@ -481,7 +605,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_route_refuses_a_preexisting_reviewer_artifact_root(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         (Path(prepared["run_dir"]) / "reviewers").mkdir()
 
         result = self._route(prepared)
@@ -491,7 +614,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_repeat_route_rejects_a_modified_published_prompt(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
@@ -504,7 +626,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_collect_rejects_an_unexpected_reviewer_artifact(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
@@ -519,7 +640,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_route_recovers_a_complete_publication_before_manifest_update(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         manifest_file = Path(prepared["run_dir"]) / "manifest.json"
@@ -532,18 +652,52 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(manifest_file.read_text())["state"], "routed")
 
-    def test_local_mode_includes_staged_unstaged_and_untracked_content(self) -> None:
+    def test_route_recovery_rejects_repository_drift(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        routed_result = self._route(prepared)
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        manifest_file = Path(prepared["run_dir"]) / "manifest.json"
+        manifest = json.loads(manifest_file.read_text())
+        manifest["state"] = "prepared"
+        manifest_file.write_text(json.dumps(manifest) + "\n")
+        (self.repo / "example.txt").write_text("drift\n")
+
+        # Act
+        result = self._route(prepared)
+
+        # Assert
+        self.assertEqual(self._error_code(result), "repository_drift")
+
+    def test_cleanup_rejects_an_invalid_manifest_reviewer_id(self) -> None:
+        prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        routed_result = self._route(prepared)
+        self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
+        manifest_file = Path(prepared["run_dir"]) / "manifest.json"
+        manifest = json.loads(manifest_file.read_text())
+        manifest["reviewers"][0]["id"] = "../outside"
+        manifest_file.write_text(json.dumps(manifest) + "\n")
+
+        # Act
+        result = self._run("cleanup", "--run-dir", prepared["run_dir"])
+
+        # Assert
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(Path(prepared["run_dir"]).exists())
+
+    def test_prepare_local_inventories_staged_unstaged_and_untracked_paths(self) -> None:
+        # Arrange: create one path with staged and unstaged edits plus one untracked path.
         (self.repo / "example.txt").write_text("first\nsecond\nstaged\n")
         self._git("add", "example.txt")
         (self.repo / "example.txt").write_text("first\nsecond\nstaged\nunstaged\n")
         (self.repo / "new-file.txt").write_text("untracked marker\n")
 
+        # Act
         prepared = self._prepare("--mode", "local")
 
-        prompt = Path(prepared["context_prompt_file"]).read_text()
-        self.assertIn("+staged", prompt)
-        self.assertIn("+unstaged", prompt)
-        self.assertIn("untracked marker", prompt)
+        # Assert: local inventory covers every worktree state without embedding contents.
+        self.assertRegex(prepared["target"]["head"], r"^[0-9a-f]{40}$")
+        self.assertEqual(prepared["changed_files"], ["example.txt", "new-file.txt"])
+        self.assertNotIn("context_prompt_file", prepared)
 
     def test_local_mode_does_not_follow_untracked_symbolic_links(self) -> None:
         secret = self.root / "secret.txt"
@@ -552,9 +706,9 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
         prepared = self._prepare("--mode", "local")
 
-        prompt = Path(prepared["context_prompt_file"]).read_text()
-        self.assertIn("skipped: symbolic link", prompt)
-        self.assertNotIn("OUTSIDE_SECRET_MARKER", prompt)
+        # Assert: inventory includes the path but prepare never exposes target contents.
+        self.assertIn("outside-link", prepared["changed_files"])
+        self.assertNotIn("OUTSIDE_SECRET_MARKER", json.dumps(prepared))
 
     def test_cleanup_removes_only_a_helper_owned_run_directory(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
@@ -582,15 +736,21 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_cleanup_refuses_a_symlinked_protocol_directory(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
+        routed = self._route(prepared)
+        self.assertEqual(routed.returncode, 0, routed.stderr)
         run_dir = Path(prepared["run_dir"])
-        context_dir = run_dir / "context-builder"
-        external = self.root / "external-context"
+        reviewers_dir = run_dir / "reviewers"
+        external = self.root / "external-reviewers"
         external.mkdir()
         external_prompt = external / "prompt.md"
         external_prompt.write_text("must survive\n")
-        (context_dir / "prompt.md").unlink()
-        context_dir.rmdir()
-        context_dir.symlink_to(external, target_is_directory=True)
+        for path in reviewers_dir.rglob("*"):
+            if path.is_file():
+                path.unlink()
+        for path in sorted(reviewers_dir.iterdir(), reverse=True):
+            path.rmdir()
+        reviewers_dir.rmdir()
+        reviewers_dir.symlink_to(external, target_is_directory=True)
 
         # Act
         result = self._run("cleanup", "--run-dir", prepared["run_dir"])
@@ -598,7 +758,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         # Assert: cleanup does not traverse a protocol directory symlink.
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue(external_prompt.exists())
-        self.assertTrue(context_dir.is_symlink())
+        self.assertTrue(reviewers_dir.is_symlink())
 
     def test_manifest_update_failure_preserves_the_previous_manifest(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
@@ -630,7 +790,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
 
     def test_collect_rejects_a_symlinked_result_without_printing_its_target(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")
-        self._write_context_result(prepared)
         routed_result = self._route(prepared)
         self.assertEqual(routed_result.returncode, 0, routed_result.stderr)
         routed = json.loads(routed_result.stdout)
@@ -674,6 +833,8 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         for removed_option in ("--engine", "--model", "--thinking", "--timeout-sec"):
             self.assertNotIn(removed_option, result.stdout)
+        self.assertNotIn("reset-context", result.stdout)
+        self.assertNotIn("validate-context", result.stdout)
 
     def test_reviewer_prompts_remain_standalone_templates(self) -> None:
         self.assertEqual(
@@ -682,7 +843,9 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         )
         for path in PROMPT_DIR.glob("*.md"):
             template = path.read_text()
-            self.assertIn("$change_bundle", template)
+            self.assertIn("$investigation_command", template)
+            self.assertIn("$changed_files_json", template)
+            self.assertIn("$result_file", template)
             self.assertRegex(template, r"[ぁ-んァ-ヶ一-龠]")
 
 
