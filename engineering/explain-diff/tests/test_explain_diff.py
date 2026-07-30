@@ -73,20 +73,18 @@ class ExplainDiffCliTest(unittest.TestCase):
     ) -> Path:
         selected = hunk_ids if hunk_ids is not None else [hunk["id"] for hunk in snapshot["hunks"]]
         manifest = {
-            "version": 1,
+            "version": 2,
             "title": "Example local diff",
+            "context": "The current behavior cannot express the intended result.",
+            "outcome": "The intended result is now visible to the user.",
             "groups": [
                 {
                     "id": "behavior",
                     "title": "Behavior change",
-                    "summary": "A concise summary.",
-                    "intent": "Explain why the implementation changed.",
-                    "impact": "The local example only.",
-                    "kind": "implementation",
-                    "risk": "注意",
-                    "risk_reason": "The behavior changes.",
-                    "needs_improvement": False,
-                    "needs_improvement_reason": "",
+                    "before": "The example only contains its base behavior.",
+                    "after": "The example also contains the changed behavior.",
+                    "why": "This is the smallest change that produces the intended result.",
+                    "review_focus": "Confirm that the added behavior matches the intended result.",
                     "hunk_ids": selected,
                 }
             ],
@@ -656,9 +654,9 @@ class ExplainDiffCliTest(unittest.TestCase):
         self.assertIn("stale", result.stderr)
         self.assertFalse(report.exists())
 
-    def test_render_orders_groups_by_improvement_risk_and_impact(self) -> None:
-        # Arrange: 現在の hunk を 3 つ作り、公開される並び順の契約を分離する。
-        for path in ("low.txt", "high.txt", "improve.txt"):
+    def test_render_preserves_the_manifest_story_order(self) -> None:
+        # Arrange: 現在の hunk を 3 つ作り、因果順に group を定義する。
+        for path in ("contract.txt", "implementation.txt", "test.txt"):
             (self.repo / path).write_text(f"{path}\n", encoding="utf-8")
         snapshot_path = self.root / "ordered-snapshot.json"
         snapshot_result = self._run("snapshot", "--output", str(snapshot_path))
@@ -666,34 +664,36 @@ class ExplainDiffCliTest(unittest.TestCase):
         snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
         hunk_id_by_path = {hunk["path"]: hunk["id"] for hunk in snapshot["hunks"]}
         groups = []
-        for group_id, risk, needs_improvement, path in (
-            ("low", "低リスク", False, "low.txt"),
-            ("high", "要注意", False, "high.txt"),
-            ("improve", "低リスク", True, "improve.txt"),
+        for group_id, path in (
+            ("contract", "contract.txt"),
+            ("implementation", "implementation.txt"),
+            ("test", "test.txt"),
         ):
             groups.append(
                 {
                     "id": group_id,
                     "title": group_id,
-                    "summary": "summary",
-                    "intent": "intent",
-                    "impact": "impact",
-                    "kind": "implementation",
-                    "risk": risk,
-                    "risk_reason": "reason",
-                    "needs_improvement": needs_improvement,
-                    "needs_improvement_reason": "mixed intent" if needs_improvement else "",
+                    "before": "before",
+                    "after": "after",
+                    "why": "why",
+                    "review_focus": "review focus",
                     "hunk_ids": [hunk_id_by_path[path]],
                 }
             )
         manifest_path = self.root / "ordered-manifest.json"
         manifest_path.write_text(
-            json.dumps({"version": 1, "title": "Ordering", "groups": groups}),
+            json.dumps({
+                "version": 2,
+                "title": "Ordering",
+                "context": "context",
+                "outcome": "outcome",
+                "groups": groups,
+            }),
             encoding="utf-8",
         )
         report = self.root / "ordered.html"
 
-        # Act: 意図的に低リスク順で渡した group を生成する。
+        # Act: contract → implementation → test の順で渡した group を生成する。
         result = self._run(
             "render",
             "--snapshot",
@@ -705,11 +705,11 @@ class ExplainDiffCliTest(unittest.TestCase):
             "--no-open",
         )
 
-        # Assert: 要改善を先頭にし、その後はリスク順に並べる。
+        # Assert: 説明者が選んだ因果順を並べ替えずに保つ。
         self.assertEqual(0, result.returncode, result.stderr)
         data = self._read_report_data(report)
         self.assertEqual(
-            ["improve", "high", "low"],
+            ["contract", "implementation", "test"],
             [group["id"] for group in data["manifest"]["groups"]],
         )
 
@@ -723,7 +723,7 @@ class ExplainDiffCliTest(unittest.TestCase):
         snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
         manifest_path = self._write_manifest(snapshot)
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["groups"][0]["summary"] = payload
+        manifest["groups"][0]["after"] = payload
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         report = self.root / "safe.html"
 
@@ -744,7 +744,7 @@ class ExplainDiffCliTest(unittest.TestCase):
         html = report.read_text(encoding="utf-8")
         self.assertNotIn(payload, html)
         data = self._read_report_data(report)
-        self.assertEqual(payload, data["manifest"]["groups"][0]["summary"])
+        self.assertEqual(payload, data["manifest"]["groups"][0]["after"])
         self.assertIn(payload, data["snapshot"]["entries"][0]["raw_diff"])
 
     def test_verify_accepts_current_fingerprint_and_rejects_stale_fingerprint(self) -> None:
@@ -792,15 +792,22 @@ class ExplainDiffCliTest(unittest.TestCase):
         # Arrange & Act: skill に同梱された決定的な UI 契約を読み込む。
         template = TEMPLATE.read_text(encoding="utf-8")
 
-        # Assert: レポートが全体像、グループ単位の確認、状態保存、フィードバックを提供する。
+        # Assert: レポートが変更の物語、根拠、確認状態、フィードバックを提供する。
         for contract_marker in (
+            'id="story-section"',
+            'id="story-context"',
+            'id="story-outcome"',
+            'id="system-overview"',
             'id="overview"',
             'id="diagram-list"',
+            'id="changed-files"',
+            "function renderChangedFiles()",
             'id="group-list"',
             'id="detail-card"',
             'id="generate-feedback"',
             'id="copy-feedback"',
             "function renderOverview()",
+            "function renderStory()",
             "function renderGlossary()",
             "function openInfluenceTarget(",
             "term_ids: link.term_ids ?? []",
@@ -815,6 +822,7 @@ class ExplainDiffCliTest(unittest.TestCase):
             self.assertIn(contract_marker, template)
         self.assertNotIn("__GROUP_ROWS__", template)
         self.assertNotIn("リスク分布", template)
+        self.assertNotIn("riskClass(", template)
         self.assertNotIn("function renderSwimlaneDiagram(", template)
         self.assertNotIn("function renderImpactMap(", template)
         self.assertNotIn("function applyGroupFilter(", template)
@@ -826,17 +834,20 @@ class ExplainDiffCliTest(unittest.TestCase):
         # Arrange & Act: レビュー画面のレスポンシブなレイアウト契約を読み込む。
         template = TEMPLATE.read_text(encoding="utf-8")
 
-        # Assert: デスクトップでは3領域を同時表示し、図と用語を同じcontext railで参照できる。
+        # Assert: デスクトップでは説明前に構造と変更範囲を俯瞰し、レビュー中も用語を参照できる。
         for contract_marker in (
+            "system-overview without-architecture",
+            'class="architecture-panel"',
+            'class="changed-files-panel"',
             'class="review-workspace"',
             'class="group-rail"',
             'class="review-main"',
             'class="context-rail"',
-            'class="context-panel context-diagram"',
             'class="context-panel context-glossary"',
-            "grid-template-columns: 240px minmax(0, 1fr) minmax(360px, 420px)",
+            "grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr)",
             "function syncReviewContext(",
             "function focusGlossaryTerm(",
+            'classList.remove("without-architecture")',
         ):
             self.assertIn(contract_marker, template)
 
