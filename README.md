@@ -75,6 +75,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`create-plan`](./engineering/create-plan/SKILL.md)** — issue を取得した後、grill と調査を経て一時的な実装 plan を作成する。
   - Use when: `create-plan <issue>`、個別 task の実装前設計、`plans/<task>-<slug>.md` の作成
   - Type: `user-invoked`
+- **[`review-plan`](./engineering/review-plan/SKILL.md)** — 作成済みの一時実装planを、実現可能性と単純性のfresh reviewerで独立評価する。
+  - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
+  - Type: `model-invoked`
 - **[`implement`](./engineering/implement/SKILL.md)** — goalとquality barに対するBuilder / Criticの実装loopを編成する。
   - Use when: `implement`の明示起動、複数unitや反復評価を伴う実装、actual artifactとreferenceの比較
   - Type: `user-invoked`
