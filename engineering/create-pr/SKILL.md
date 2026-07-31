@@ -33,6 +33,7 @@ disable-model-invocation: true
 
 2. base branch を決める。
    - 既存 PR がある場合は `gh pr view --json baseRefName,headRefName,url,state,isDraft,title,body` を見る。
+   - 既存 PR が `MERGED` ならその head branch を新しい変更に再利用せず、[Existing PR Handling](#existing-pr-handling) に従って最新 base から新しい branch へ分ける。
    - 既存 PR がなければ GitHub default branch を使う。
    - ユーザーが base を指定している場合はそれを優先する。
 
@@ -162,6 +163,7 @@ gh pr view --json url,state,isDraft,title,body,baseRefName,headRefName
 
 - 既存 PR が draft なら、必要に応じて `gh pr edit --title ... --body-file ...` で更新する。
 - 既存 PR が ready for review なら、draft に戻せない前提で扱い、更新してよいか確認する。
+- 既存 PR が merged なら、その head branch へ新しい commit を追加しない。base を fetch し、現在の `HEAD` が `origin/<base>` の ancestor で、uncommitted changes を失わずに switch できる場合だけ、branch naming 規約に従って最新 `origin/<base>` から新しい branch を作る。それ以外は停止し、branch 分割または commit の載せ替え案を提示する。
 - closed PR しかない場合は、新規作成してよいか確認する。
 
 ## Template Handling

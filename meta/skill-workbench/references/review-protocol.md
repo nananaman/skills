@@ -43,6 +43,7 @@ Review whole では contract map 全体を見る。
 - dirty worktree では tracked diff と untracked の skill resources を確認する。
 - contract map と変更内容から relevant axes を選ぶ。
 - routing、branch-level completion、authority / safety の preservation を確認する。
+- routing を変更した場合は、存在する agent metadata（例: `agents/openai.yaml`）と root / category README の導線が、description、positive / negative trigger、default prompt と意味的に一致するか確認する。
 - rule の列挙より既存 code、test、schema、tool interface のほうが高い忠実度で表せないか確認する。
 - scope gap や矛盾があれば、smoke check より先に修正候補とする。
 
@@ -69,6 +70,7 @@ fresh agent / subagent に自然な入力と必要最小限の状況を渡し、
 対象 skill が選択済みであることを前提に、自然な依頼と repo / task 状況で本文どおり実行できるかを見る。
 
 - expected は skill 名や内部手順ではなく、外部観測可能な outcome、gate、evidence で書く。
+- 共通 contract の適用範囲を広げた場合は、各 branch と新旧の主要利用形態の組み合わせを候補にし、branch reference に古い無条件の前提が残っていないか確認する。risk に影響しない組み合わせは省いてよい。
 - subagent を使えない場合は、理由と観測限界を報告し、実行済みとは言わない。
 
 ### Discovery Smoke
