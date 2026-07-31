@@ -1,15 +1,15 @@
 # Mobile / Native UI Prototype
 
-mobile/native の見た目、情報設計、操作感を debug build 上で比較する。
+mobile/native の見た目、情報設計、操作感を debug build 上で観察する。
 
 ## 組み込み方
 
-1. 対象画面の navigation、state management、design system、fixture の慣習を確認する。
-2. 既存画面の実際の scaffold や navigation 内へ variant を埋め込む。
-3. platform と project に合う debug 限定 selector を一つ選ぶ。
+1. project の実際の文脈が問いに必要な場合は、対象画面の navigation、state management、design system、fixture の慣習を確認する。
+2. 実際の文脈が必要な場合は、既存画面の scaffold や navigation 内へ prototype を埋め込む。不要な単一実験は、独立した view または harness にしてよい。
+3. 複数案を比較する場合は、platform と project に合う debug 限定 selector を一つ選ぶ。
    - overlay、bottom bar、debug menu、開発用 setting などを使う。
    - URL や deep link は project が既に採用している場合だけ使う。
-4. 同じ fixture と端末条件で全案へ移動できることを確認する。
+4. 比較する場合は、同じ fixture と端末条件で全案へ移動できることを確認する。実際の文脈が判断に必要なら、その navigation と scaffold 内で比較する。
 
 ## Flutter を macOS で比較する場合
 
@@ -27,4 +27,5 @@ mobile/native の見た目、情報設計、操作感を debug build 上で比�
 ## 確認
 
 - project 標準の analyze / build と、利用する target での起動確認を行う。
-- selector の場所、検証した device / window 条件、代替した native behavior を報告する。
+- 単一実験は問いへの答えの再現方法を、比較する場合は selector の場所を報告する。
+- 検証した device / window 条件と、代替した native behavior を報告する。
