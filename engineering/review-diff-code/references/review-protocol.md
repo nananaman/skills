@@ -45,6 +45,8 @@ helperはAdversarialのGit commandと変更path inventoryの両方からこれ�
 3. leadは返された固定targetに対してdiff stat、changed-file inventory、必要なdiffと周辺codeを予備調査し、rosterを作る。
 4. `route --roster-file`を実行する。
 5. 各reviewerを`spawn_agent`の`fork_turns="none"`で並列起動する。
+   実行環境がmodel overrideを提供する場合は、reviewに十分な能力を持つ安価側modelを選び、reasoning / thinkingは`high`にする。model名は固定しない。
+   適合するoverrideがない場合は既定modelを使い、review自体を失敗させない。
    自分のprompt fileだけをtask inputにし、helperが安全にquoteした`git -C <fixed-repository>` commandで固定targetとrepositoryをread-onlyで調査して、指定result fileへ結果だけを書く。
    必要な外部contractは公式一次資料を参照できる。
    file変更、Git状態変更、build、lint、test、nested agent、他reviewerとの通信は禁止する。
