@@ -12,6 +12,7 @@ description: 作成済みの一時実装planを、要求とrepository contextに
 
 - 対象は実装着手前のplanとする。要求、上流文書、関連code・test・設定を根拠に使う。
 - lead agentはfresh reviewerを2人、可能なら並列に起動する。
+- 実行環境がmodel overrideを提供する場合は、reviewに十分な能力を持つ安価側modelを選び、reasoning / thinkingは`high`にする。model名は固定しない。適合するoverrideがない場合は既定modelを使い、review自体を失敗させない。
 - reviewerにはplan作成者のreasoning、自己評価、他reviewerのfindingを渡さない。
 - Feasibility reviewerは[`assets/feasibility-reviewer.md`](./assets/feasibility-reviewer.md)を使い、目的達成、前提、変更境界、実装判断、検証の不足を評価する。
 - Simplicity reviewerは[`assets/simplicity-reviewer.md`](./assets/simplicity-reviewer.md)を使い、既存機構で代替できる抽象化、将来要件の先取り、scope拡大、リスクに釣り合わない複雑性を評価する。
