@@ -1,294 +1,223 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdtemp, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
-import { hostArtifact, removeArtifact, updateArtifact } from "../src/publisher.js";
+import { publishArtifact, removeArtifact } from "../src/publisher.js";
 
+const workspace = "nananaman-skills~0123456789ab";
 const execFileAsync = promisify(execFile);
 
-test("HTML file input receives live reload while the source remains unchanged", async () => {
-  // Arrange
+async function createCrashedShlock(lock: string): Promise<void> {
+  await mkdir(path.dirname(lock), { recursive: true });
+  const owner = spawn("/bin/sleep", ["10"]);
+  assert(owner.pid);
+  await execFileAsync("/usr/bin/shlock", ["-p", String(owner.pid), "-f", lock]);
+  owner.kill();
+  await once(owner, "exit");
+}
+
+test("同じ workspace と name への publish は immutable revision を追加して current を切り替える", async () => {
+  // Arrange: 同じ論理成果物へ二つの完成版を publish する。
   const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "report.html");
   const root = path.join(base, "public");
+  const source = path.join(base, "report.html");
   await mkdir(root);
-  await writeFile(source, "<h1>snapshot</h1>");
+  await writeFile(source, "first");
+  const revisions = ["r-" + "1".repeat(32), "r-" + "2".repeat(32)];
 
   // Act
-  const hosted = await hostArtifact(source, { root, idGenerator: () => "a".repeat(32) });
-  await writeFile(source, "changed");
+  const first = await publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => revisions.shift()! });
+  await writeFile(source, "second");
+  const second = await publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => revisions.shift()! });
 
-  // Assert
-  assert.equal(hosted.id, `local-live-${"a".repeat(32)}`);
-  assert.equal(hosted.relativePath, "report.html");
-  assert.match(await readFile(path.join(root, hosted.id, "report.html"), "utf8"), /data-host-artifact-live-reload/);
-  assert.equal(await readFile(source, "utf8"), "changed");
+  // Assert: URL identity は安定し、revision と current だけが進む。
+  assert.equal(first.route, `/a/${workspace}/report/`);
+  assert.equal(second.route, first.route);
+  assert.notEqual(first.revision, second.revision);
+  const artifactRoot = path.join(root, "v2", "workspaces", workspace, "artifacts", "report");
+  assert.deepEqual((await readdir(path.join(artifactRoot, "revisions"))).sort(), [first.revision, second.revision]);
+  assert.equal(JSON.parse(await readFile(path.join(artifactRoot, "current.json"), "utf8")).revision, second.revision);
+  assert.match(await readFile(path.join(artifactRoot, "revisions", second.revision, "report.html"), "utf8"), new RegExp(`data-host-artifact-version="${second.revision}"`));
+  assert.equal(await readFile(source, "utf8"), "second");
 });
 
-test("HTML file input preserves exact content when live reload is disabled", async () => {
+test("remove は論理成果物の全 revision を削除する", async () => {
   // Arrange
   const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "report.html");
   const root = path.join(base, "public");
+  const source = path.join(base, "image.png");
   await mkdir(root);
-  await writeFile(source, "<h1>snapshot</h1>");
+  await writeFile(source, "png");
+  await publishArtifact(source, { root, workspace, name: "image", revisionGenerator: () => "r-" + "3".repeat(32) });
 
   // Act
-  const hosted = await hostArtifact(source, {
-    root,
-    idGenerator: () => "a".repeat(32),
-    liveReload: false,
-  });
+  await removeArtifact({ root, workspace, name: "image" });
 
   // Assert
-  assert.equal(hosted.id, `local-${"a".repeat(32)}`);
-  assert.equal(await readFile(path.join(root, hosted.id, "report.html"), "utf8"), "<h1>snapshot</h1>");
+  await assert.rejects(readdir(path.join(root, "v2", "workspaces", workspace, "artifacts", "image")));
 });
 
-test("single-file update preserves the capability path and replaces its content", async () => {
+test("unsupported file input is rejected before a revision becomes visible", async () => {
   // Arrange
   const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "report.html");
   const root = path.join(base, "public");
+  const source = path.join(base, "notes.txt");
   await mkdir(root);
-  await writeFile(source, "before");
-  const hosted = await hostArtifact(source, { root, idGenerator: () => "4".repeat(32) });
-  await writeFile(source, "after");
-
-  // Act
-  const updated = await updateArtifact(hosted.id, source, { root });
-
-  // Assert
-  assert.deepEqual(updated, hosted);
-  assert.match(await readFile(path.join(root, hosted.id, hosted.relativePath), "utf8"), /after.*data-host-artifact-live-reload/s);
-});
-
-test("update rejects an invalid artifact identifier", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "report.html");
-  const root = path.join(base, "public");
-  await mkdir(root);
-  await writeFile(source, "after");
+  await writeFile(source, "text");
 
   // Act & Assert
-  await assert.rejects(updateArtifact("../outside", source, { root }), /artifact id/i);
-});
-
-test("update rejects a symlink source", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "report.html");
-  const root = path.join(base, "public");
-  await mkdir(root);
-  await symlink("/etc/passwd", source);
-
-  // Act & Assert
-  await assert.rejects(updateArtifact(`local-${"4".repeat(32)}`, source, { root }), /symlink/i);
-});
-
-test("update rejects a dotfile source", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, ".report.html");
-  const root = path.join(base, "public");
-  await mkdir(root);
-  await writeFile(source, "after");
-
-  // Act & Assert
-  await assert.rejects(updateArtifact(`local-${"4".repeat(32)}`, source, { root }), /dotfile/i);
-});
-
-test("update rejects a directory source", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "site");
-  const root = path.join(base, "public");
-  await mkdir(root);
-  await mkdir(source);
-  await writeFile(path.join(source, "index.html"), "after");
-
-  // Act & Assert
-  await assert.rejects(updateArtifact(`local-${"4".repeat(32)}`, source, { root }), /regular file/i);
-});
-
-test("update rejects a filename mismatch and preserves the established content", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const original = path.join(base, "report.html");
-  const replacement = path.join(base, "other.html");
-  const root = path.join(base, "public");
-  await mkdir(root);
-  await writeFile(original, "before");
-  await writeFile(replacement, "after");
-  const hosted = await hostArtifact(original, { root, idGenerator: () => "5".repeat(32) });
-  const established = await readFile(path.join(root, hosted.id, hosted.relativePath), "utf8");
-
-  // Act & Assert
-  await assert.rejects(updateArtifact(hosted.id, replacement, { root }), /filename/i);
-  assert.equal(await readFile(path.join(root, hosted.id, hosted.relativePath), "utf8"), established);
-});
-
-test("update rejects a directory artifact and preserves its contents", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "site");
-  const replacement = path.join(base, "index.html");
-  const root = path.join(base, "public");
-  await mkdir(root);
-  await mkdir(path.join(source, "assets"), { recursive: true });
-  await writeFile(path.join(source, "index.html"), "before");
-  await writeFile(path.join(source, "assets", "app.js"), "app");
-  await writeFile(replacement, "after");
-  const hosted = await hostArtifact(source, { root, idGenerator: () => "6".repeat(32) });
-
-  // Act & Assert
-  await assert.rejects(updateArtifact(hosted.id, replacement, { root }), /single-file/i);
-  assert.equal(await readFile(path.join(root, hosted.id, "index.html"), "utf8"), "before");
-});
-
-test("directory input is copied without changing its layout", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "site");
-  const root = path.join(base, "public");
-  await mkdir(root);
-  await mkdir(path.join(source, "assets"), { recursive: true });
-  await writeFile(path.join(source, "index.html"), "index");
-  await writeFile(path.join(source, "assets", "app.js"), "app");
-
-  // Act
-  const hosted = await hostArtifact(source, { root, idGenerator: () => "b".repeat(32) });
-
-  // Assert
-  assert.equal(hosted.relativePath, "index.html");
-  assert.equal(await readFile(path.join(root, hosted.id, "assets", "app.js"), "utf8"), "app");
-});
-
-test("directory without a regular top-level index is rejected without publishing", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "site");
-  const root = path.join(base, "public");
-  await mkdir(root);
-  await mkdir(source);
-  await writeFile(path.join(source, "page.html"), "page");
-
-  // Act & Assert
-  await assert.rejects(hostArtifact(source, { root }), /index\.html/i);
+  await assert.rejects(publishArtifact(source, { root, workspace, name: "notes" }), /supported browser artifact/i);
   assert.deepEqual(await readdir(root), []);
 });
 
-test("input containing a symlink is rejected", async () => {
-  // Arrange
+test("route verification failure restores the previously established current revision", async () => {
+  // Arrange: 既存 revision を確立してから、次 revision の route 検証を失敗させる。
   const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "site");
-  await mkdir(source);
-  await symlink("/etc/passwd", path.join(source, "escape"));
+  const root = path.join(base, "public"); const source = path.join(base, "report.html");
+  await mkdir(root); await writeFile(source, "stable");
+  const stable = await publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => "r-" + "6".repeat(32) });
+  await writeFile(source, "unreachable");
 
-  // Act & Assert
-  await assert.rejects(hostArtifact(source, { root: path.join(base, "public") }), /symlink/i);
+  // Act & Assert: failure 後も読者が参照する current は旧 revision のまま。
+  await assert.rejects(publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => "r-" + "7".repeat(32), verify: async () => { throw new Error("route mismatch"); } }), /route mismatch/);
+  const current = JSON.parse(await readFile(path.join(root, "v2", "workspaces", workspace, "artifacts", "report", "current.json"), "utf8"));
+  assert.equal(current.revision, stable.revision);
 });
 
-test("input containing a dotfile is rejected", async () => {
-  // Arrange
+test("symlinked managed ancestor rejects publish without writing outside the root", async () => {
+  // Arrange: attacker-controlled v2 directory redirects the managed namespace.
   const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "site");
-  await mkdir(source);
-  await writeFile(path.join(source, ".secret"), "secret");
+  const root = path.join(base, "public"); const outside = path.join(base, "outside"); const source = path.join(base, "report.html");
+  await mkdir(root); await mkdir(outside); await writeFile(path.join(outside, "sentinel"), "keep");
+  await symlink(outside, path.join(root, "v2")); await writeFile(source, "content");
 
-  // Act & Assert
-  await assert.rejects(hostArtifact(source, { root: path.join(base, "public") }), /dotfile/i);
+  // Act & Assert: no managed directory or revision is created through the link.
+  await assert.rejects(publishArtifact(source, { root, workspace, name: "report" }), /managed directory|symlink/i);
+  assert.deepEqual(await readdir(outside), ["sentinel"]);
+  assert.equal(await readFile(path.join(outside, "sentinel"), "utf8"), "keep");
 });
 
-test("directory containing a special file is rejected", async () => {
+test("verification failure reports primary and every recovery failure without deleting the established revision", async () => {
   // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const source = path.join(base, "site");
-  await mkdir(source);
-  await writeFile(path.join(source, "index.html"), "index");
-  await execFileAsync("/usr/bin/mkfifo", [path.join(source, "stream")]);
-
-  // Act & Assert
-  await assert.rejects(hostArtifact(source, { root: path.join(base, "public") }), /special file/i);
-});
-
-test("remove accepts only an issued artifact identifier", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const root = path.join(base, "public");
-  await mkdir(root);
-
-  // Act & Assert
-  await assert.rejects(removeArtifact("../outside", { root }), /artifact id/i);
-});
-
-test("existing artifact identifier is never overwritten", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const root = path.join(base, "public");
-  const id = `local-live-${"e".repeat(32)}`;
-  const source = path.join(base, "report.html");
-  await mkdir(path.join(root, id), { recursive: true });
-  await writeFile(path.join(root, id, "existing.html"), "existing");
-  await writeFile(source, "new");
-
-  // Act & Assert
-  await assert.rejects(hostArtifact(source, { root, idGenerator: () => "e".repeat(32) }));
-  assert.equal(await readFile(path.join(root, id, "existing.html"), "utf8"), "existing");
-});
-
-test("concurrent hosts with distinct generated identifiers do not collide", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const root = path.join(base, "public");
-  const first = path.join(base, "first.html");
-  const second = path.join(base, "second.html");
-  await mkdir(root);
-  await writeFile(first, "first");
-  await writeFile(second, "second");
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const source = path.join(base, "report.html");
+  await mkdir(root); await writeFile(source, "stable");
+  const stable = await publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => `r-${"a".repeat(32)}` });
+  await writeFile(source, "candidate");
 
   // Act
-  const [a, b] = await Promise.all([
-    hostArtifact(first, { root, idGenerator: () => "1".repeat(32) }),
-    hostArtifact(second, { root, idGenerator: () => "2".repeat(32), scope: "tailscale" }),
-  ]);
+  const failure = await publishArtifact(source, {
+    root, workspace, name: "report", revisionGenerator: () => `r-${"b".repeat(32)}`,
+    verify: async () => { throw new Error("primary verification failed"); },
+    recovery: {
+      removeStaging: async () => { throw new Error("staging cleanup failed"); },
+      removeDestination: async () => { throw new Error("destination cleanup failed"); },
+    },
+  }).then(() => undefined, (error: unknown) => error as Error);
+
+  // Assert: primary cause remains first and independent recovery failures are all visible.
+  assert(failure);
+  assert.match(failure.message, /primary verification failed.*staging cleanup failed.*destination cleanup failed/s);
+  assert.equal((failure as Error & { cause?: unknown }).cause instanceof Error && ((failure as Error & { cause?: Error }).cause?.message), "primary verification failed");
+  const artifactRoot = path.join(root, "v2", "workspaces", workspace, "artifacts", "report");
+  assert.equal(JSON.parse(await readFile(path.join(artifactRoot, "current.json"), "utf8")).revision, stable.revision);
+  assert.equal((await readdir(path.join(artifactRoot, "revisions"))).includes(stable.revision), true);
+});
+
+test("temporary current write failure removes the unreachable destination and preserves established current", async () => {
+  // Arrange: immutable destination の作成後、current metadata の書込みだけを失敗させる。
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const source = path.join(base, "report.html");
+  await mkdir(root); await writeFile(source, "stable");
+  const stable = await publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => `r-${"c".repeat(32)}` });
+  await writeFile(source, "candidate");
+
+  // Act
+  await assert.rejects(publishArtifact(source, {
+    root, workspace, name: "report", revisionGenerator: () => `r-${"d".repeat(32)}`,
+    commit: { writeTemporaryCurrent: async () => { throw new Error("current write failed"); } },
+  }), /current write failed/);
 
   // Assert
-  assert.notEqual(a.id, b.id);
-  assert.match(await readFile(path.join(root, a.id, a.relativePath), "utf8"), /^first.*data-host-artifact-live-reload/s);
-  assert.match(await readFile(path.join(root, b.id, b.relativePath), "utf8"), /^second.*data-host-artifact-live-reload/s);
+  const artifactRoot = path.join(root, "v2", "workspaces", workspace, "artifacts", "report");
+  assert.equal(JSON.parse(await readFile(path.join(artifactRoot, "current.json"), "utf8")).revision, stable.revision);
+  assert.deepEqual(await readdir(path.join(artifactRoot, "revisions")), [stable.revision]);
+  assert.equal((await readdir(artifactRoot)).some((entry) => entry.startsWith(".current-")), false);
 });
 
-test("symlinked publish root rejects host without writing outside", async () => {
-  // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const outside = path.join(base, "outside");
-  const root = path.join(base, "public");
-  const source = path.join(base, "report.html");
-  await mkdir(outside);
-  await symlink(outside, root);
-  await writeFile(source, "content");
+test("temporary current rename failure removes temporary metadata and unreachable destination", async () => {
+  // Arrange: temporary metadata は完成するが current への切替だけを失敗させる。
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const source = path.join(base, "report.html");
+  await mkdir(root); await writeFile(source, "stable");
+  const stable = await publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => `r-${"e".repeat(32)}` });
 
-  // Act & Assert
-  await assert.rejects(hostArtifact(source, { root }), /publish root/i);
-  assert.deepEqual(await readdir(outside), []);
+  // Act
+  await assert.rejects(publishArtifact(source, {
+    root, workspace, name: "report", revisionGenerator: () => `r-${"f".repeat(32)}`,
+    commit: { switchCurrent: async () => { throw new Error("current rename failed"); } },
+  }), /current rename failed/);
+
+  // Assert
+  const artifactRoot = path.join(root, "v2", "workspaces", workspace, "artifacts", "report");
+  assert.equal(JSON.parse(await readFile(path.join(artifactRoot, "current.json"), "utf8")).revision, stable.revision);
+  assert.deepEqual(await readdir(path.join(artifactRoot, "revisions")), [stable.revision]);
+  assert.equal((await readdir(artifactRoot)).some((entry) => entry.startsWith(".current-")), false);
 });
 
-test("symlinked publish root rejects remove without deleting outside", async () => {
+test("publish recovers a stale lock owned by a dead process", async () => {
   // Arrange
-  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const outside = path.join(base, "outside");
-  const root = path.join(base, "public");
-  const id = `local-${"3".repeat(32)}`;
-  await mkdir(path.join(outside, id), { recursive: true });
-  await writeFile(path.join(outside, id, "index.html"), "keep");
-  await symlink(outside, root);
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const source = path.join(base, "report.html");
+  const lock = path.join(root, "v2", "workspaces", workspace, "artifacts", "report.lock");
+  await createCrashedShlock(lock); await writeFile(source, "content");
+
+  // Act
+  const result = await publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => `r-${"1".repeat(32)}` });
+
+  // Assert
+  assert.equal(result.name, "report");
+});
+
+test("remove recovers a stale lock owned by a dead process", async () => {
+  // Arrange
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public");
+  const lock = path.join(root, "v2", "workspaces", workspace, "artifacts", "report.lock");
+  await mkdir(path.join(root, "v2", "workspaces", workspace, "artifacts", "report"), { recursive: true });
+  await createCrashedShlock(lock);
 
   // Act & Assert
-  await assert.rejects(removeArtifact(id, { root }), /publish root/i);
-  assert.equal(await readFile(path.join(outside, id, "index.html"), "utf8"), "keep");
+  await removeArtifact({ root, workspace, name: "report", lockAttempts: 50 });
+  await assert.rejects(readdir(path.join(root, "v2", "workspaces", workspace, "artifacts", "report")));
+});
+
+test("publish never steals a lock owned by a live process", async () => {
+  // Arrange
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const source = path.join(base, "report.html");
+  const lock = path.join(root, "v2", "workspaces", workspace, "artifacts", "report.lock");
+  await mkdir(path.dirname(lock), { recursive: true }); await writeFile(lock, `${process.pid}\n`); await writeFile(source, "content");
+
+  // Act & Assert
+  await assert.rejects(publishArtifact(source, { root, workspace, name: "report", lockAttempts: 1 }), /lock acquisition timed out/);
+  assert.equal((await readFile(lock, "utf8")).trim(), String(process.pid));
+});
+
+test("concurrent stale lock recoverers never delete the newly acquired live lock", async () => {
+  // Arrange: 二つの publisher が同じ stale lock を同時に観測する。
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public");
+  const first = path.join(base, "first.html"); const second = path.join(base, "second.html");
+  const lock = path.join(root, "v2", "workspaces", workspace, "artifacts", "report.lock");
+  await createCrashedShlock(lock);
+  await writeFile(first, "first"); await writeFile(second, "second");
+
+  // Act
+  const results = await Promise.all([
+    publishArtifact(first, { root, workspace, name: "report", revisionGenerator: () => `r-${"3".repeat(32)}` }),
+    publishArtifact(second, { root, workspace, name: "report", revisionGenerator: () => `r-${"4".repeat(32)}` }),
+  ]);
+
+  // Assert: 両 writer が直列化され、後から取得した lock を stale cleanup が消していない。
+  assert.deepEqual(new Set(results.map((item) => item.revision)), new Set([`r-${"3".repeat(32)}`, `r-${"4".repeat(32)}`]));
+  const artifactRoot = path.join(root, "v2", "workspaces", workspace, "artifacts", "report");
+  assert.equal((await readdir(path.join(artifactRoot, "revisions"))).length, 2);
 });
