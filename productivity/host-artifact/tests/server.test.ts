@@ -4,220 +4,130 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createArtifactApp } from "../src/app.js";
-import { buildArtifactUrl } from "../src/cli-lib.js";
+import { publishArtifact } from "../src/publisher.js";
 
-test("capability route serves static content with safe headers", async () => {
+const workspace = "nananaman-skills~0123456789ab";
+
+test("named route serves only current revision with revision and safe cache headers", async () => {
   // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const id = `local-${"c".repeat(32)}`;
-  await mkdir(path.join(root, id));
-  await writeFile(path.join(root, id, "report.html"), "<h1>ok</h1>");
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const root = path.join(base, "public");
+  const source = path.join(base, "report.html");
+  await mkdir(root);
+  await writeFile(source, "report");
+  const published = await publishArtifact(source, { root, workspace, name: "report", revisionGenerator: () => "r-" + "4".repeat(32) });
   const app = createArtifactApp({ root });
 
   // Act
-  const response = await app.request(`http://localhost/${id}/report.html`);
+  const response = await app.request(`http://localhost${published.route}`);
+  const head = await app.request(`http://localhost${published.route}`, { method: "HEAD" });
 
   // Assert
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /text\/html/);
+  assert.equal(response.headers.get("x-host-artifact-revision"), published.revision);
   assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
-  assert.equal(await response.text(), "<h1>ok</h1>");
-});
-
-test("capability route identifies the served content with an ETag", async () => {
-  // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const id = `local-${"1".repeat(32)}`;
-  await mkdir(path.join(root, id));
-  await writeFile(path.join(root, id, "report.html"), "version one");
-  const app = createArtifactApp({ root });
-
-  // Act
-  const first = await app.request(`http://localhost/${id}/report.html`);
-  await writeFile(path.join(root, id, "report.html"), "version two");
-  const second = await app.request(`http://localhost/${id}/report.html`);
-
-  // Assert
-  assert.match(first.headers.get("etag") ?? "", /^"[a-f0-9]{64}"$/);
-  assert.notEqual(second.headers.get("etag"), first.headers.get("etag"));
-});
-
-test("HEAD returns the same ETag as GET without a response body", async () => {
-  // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const id = `local-${"2".repeat(32)}`;
-  await mkdir(path.join(root, id));
-  await writeFile(path.join(root, id, "report.html"), "progress");
-  const app = createArtifactApp({ root });
-  const url = `http://localhost/${id}/report.html`;
-  const get = await app.request(url);
-
-  // Act
-  const head = await app.request(url, { method: "HEAD" });
-
-  // Assert
-  assert.equal(head.status, 200);
-  assert.equal(head.headers.get("etag"), get.headers.get("etag"));
+  assert.match(response.headers.get("etag") ?? "", /^"[a-f0-9]{64}"$/);
+  assert.equal(head.headers.get("etag"), response.headers.get("etag"));
   assert.equal(await head.text(), "");
 });
 
-test("live HTML exposes its displayed source version on HEAD", async () => {
+test("shelf lists valid current artifacts and ignores legacy and corrupt entries", async () => {
   // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const id = `local-live-${"4".repeat(32)}`;
-  const version = "a".repeat(64);
-  await mkdir(path.join(root, id));
-  await writeFile(
-    path.join(root, id, "progress.html"),
-    `<script data-host-artifact-live-reload data-host-artifact-version="${version}"></script>`,
-  );
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
+  const root = path.join(base, "public");
+  const source = path.join(base, "diagram.svg");
+  await mkdir(path.join(root, "local-" + "f".repeat(32)), { recursive: true });
+  await writeFile(path.join(root, "local-" + "f".repeat(32), "old.html"), "legacy");
+  await writeFile(source, "<svg></svg>");
+  await publishArtifact(source, { root, workspace, name: "diagram", revisionGenerator: () => "r-" + "5".repeat(32) });
+  await mkdir(path.join(root, "v2", "workspaces", workspace, "artifacts", "broken"), { recursive: true });
+  await writeFile(path.join(root, "v2", "workspaces", workspace, "artifacts", "broken", "current.json"), "{");
   const app = createArtifactApp({ root });
 
   // Act
-  const response = await app.request(`http://localhost/${id}/progress.html`, { method: "HEAD" });
-
-  // Assert
-  assert.equal(response.headers.get("x-host-artifact-version"), version);
-});
-
-test("matching If-None-Match returns 304 without content", async () => {
-  // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const id = `local-${"3".repeat(32)}`;
-  await mkdir(path.join(root, id));
-  await writeFile(path.join(root, id, "report.html"), "progress");
-  const app = createArtifactApp({ root });
-  const url = `http://localhost/${id}/report.html`;
-  const etag = (await app.request(url)).headers.get("etag");
-  assert(etag);
-
-  // Act
-  const response = await app.request(url, { headers: { "If-None-Match": etag } });
-
-  // Assert
-  assert.equal(response.status, 304);
-  assert.equal(await response.text(), "");
-});
-
-test("root and unknown capability do not disclose an artifact listing", async () => {
-  // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const app = createArtifactApp({ root });
-
-  // Act
-  const rootResponse = await app.request("http://localhost/");
-  const unknownResponse = await app.request(`http://localhost/local-${"d".repeat(32)}/index.html`);
-
-  // Assert
-  assert.equal(rootResponse.status, 404);
-  assert.equal(unknownResponse.status, 404);
-});
-
-test("health endpoint reports readiness without listing artifacts", async () => {
-  // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const app = createArtifactApp({ root });
-
-  // Act
-  const response = await app.request("http://localhost/.well-known/host-artifact/health");
+  const response = await app.request("http://localhost/");
+  const body = await response.text();
 
   // Assert
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { service: "host-artifact", version: 1, status: "ok" });
+  assert.match(body, new RegExp(`/a/${workspace}/diagram/`));
+  assert.doesNotMatch(body, /legacy|broken/);
 });
 
-test("health endpoint reports whether the Tailscale listener is bound", async () => {
+test("legacy capability route and traversal are unavailable", async () => {
   // Arrange
   const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const app = createArtifactApp({
-    root,
-    tailscaleState: () => ({ ready: true, address: "100.64.0.9" }),
-  });
-
-  // Act
-  const response = await app.request("http://localhost/.well-known/host-artifact/health");
-
-  // Assert
-  assert.deepEqual(await response.json(), {
-    service: "host-artifact",
-    version: 1,
-    status: "ok",
-    tailscaleReady: true,
-    tailscaleAddress: "100.64.0.9",
-  });
-});
-
-test("encoded traversal and dotfile paths are not served", async () => {
-  // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const id = `local-${"f".repeat(32)}`;
-  await mkdir(path.join(root, id));
-  await writeFile(path.join(root, id, ".secret"), "secret");
   const app = createArtifactApp({ root });
 
-  // Act
-  const traversal = await app.request(`http://localhost/${id}/%2e%2e/secret`);
-  const dotfile = await app.request(`http://localhost/${id}/.secret`);
-
-  // Assert
-  assert.equal(traversal.status, 404);
-  assert.equal(dotfile.status, 404);
+  // Act & Assert
+  assert.equal((await app.request(`http://localhost/local-${"a".repeat(32)}/index.html`)).status, 404);
+  assert.equal((await app.request(`http://localhost/a/${workspace}/report/%252e%252e/current.json`)).status, 404);
 });
 
-test("a symlink added to the publish tree is not served", async () => {
-  // Arrange
+test("health endpoint exposes protocol version 2", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const id = `local-${"9".repeat(32)}`;
-  await mkdir(path.join(root, id));
-  await writeFile(path.join(root, id, "content.html"), "content");
-  await symlink("content.html", path.join(root, id, "alias.html"));
-  const app = createArtifactApp({ root });
+  const response = await createArtifactApp({ root }).request("http://localhost/.well-known/host-artifact/health");
+  assert.deepEqual(await response.json(), { service: "host-artifact", version: 2, status: "ok" });
+});
+
+test("symlinked revision root never serves content outside the publish root", async () => {
+  // Arrange: valid-looking current metadata points at a revision symlink.
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const outside = path.join(base, "outside");
+  const artifactRoot = path.join(root, "v2", "workspaces", workspace, "artifacts", "report"); const revision = `r-${"9".repeat(32)}`;
+  await mkdir(path.join(artifactRoot, "revisions"), { recursive: true }); await mkdir(outside); await writeFile(path.join(outside, "report.html"), "secret outside");
+  await symlink(outside, path.join(artifactRoot, "revisions", revision));
+  await writeFile(path.join(artifactRoot, "current.json"), JSON.stringify({ schemaVersion: 1, workspace, name: "report", revision, kind: "html", entry: "report.html", updatedAt: new Date().toISOString() }));
 
   // Act
-  const response = await app.request(`http://localhost/${id}/alias.html`);
+  const response = await createArtifactApp({ root }).request(`http://localhost/a/${workspace}/report/`);
 
   // Assert
   assert.equal(response.status, 404);
 });
 
-test("Tailscale app rejects local artifacts and serves tailscale artifacts", async () => {
-  // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const localId = `local-${"7".repeat(32)}`;
-  const remoteId = `tailscale-${"8".repeat(32)}`;
-  const liveRemoteId = `tailscale-live-${"5".repeat(32)}`;
-  for (const id of [localId, remoteId, liveRemoteId]) {
-    await mkdir(path.join(root, id));
-    await writeFile(path.join(root, id, "index.html"), id);
-  }
-  const app = createArtifactApp({ root, exposure: "tailscale" });
+test("directory artifact serves nested wildcard asset bytes with its own MIME type", async () => {
+  // Arrange: entry HTML と異なる nested asset を持つ directory artifact。
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const source = path.join(base, "site");
+  await mkdir(root); await mkdir(path.join(source, "assets"), { recursive: true });
+  await writeFile(path.join(source, "index.html"), "<h1>entry</h1>"); await writeFile(path.join(source, "assets", "app.css"), "body{color:red}");
+  await publishArtifact(source, { root, workspace, name: "site", revisionGenerator: () => `r-${"8".repeat(32)}` });
 
   // Act
-  const local = await app.request(`http://localhost/${localId}/index.html`);
-  const remote = await app.request(`http://localhost/${remoteId}/index.html`);
-  const liveRemote = await app.request(`http://localhost/${liveRemoteId}/index.html`);
-
-  // Assert
-  assert.equal(local.status, 404);
-  assert.equal(remote.status, 200);
-  assert.equal(liveRemote.status, 200);
-});
-
-test("encoded spaces delimiters percent and non-ASCII roundtrip to the same file", async () => {
-  // Arrange
-  const root = await mkdtemp(path.join(tmpdir(), "host-artifact-"));
-  const id = `local-${"6".repeat(32)}`;
-  const relativePath = "資料 #?%/a b.html";
-  await mkdir(path.join(root, id, "資料 #?%"), { recursive: true });
-  await writeFile(path.join(root, id, relativePath), "encoded");
-  const app = createArtifactApp({ root });
-  const url = buildArtifactUrl("http://localhost", id, relativePath);
-
-  // Act
-  const response = await app.request(url);
+  const response = await createArtifactApp({ root }).request(`http://localhost/a/${workspace}/site/assets/app.css`);
 
   // Assert
   assert.equal(response.status, 200);
-  assert.equal(await response.text(), "encoded");
+  assert.match(response.headers.get("content-type") ?? "", /text\/css/);
+  assert.equal(await response.text(), "body{color:red}");
+});
+
+test("directory artifact preserves literal percent and percent-like filenames", async () => {
+  // Arrange
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const source = path.join(base, "site");
+  await mkdir(root); await mkdir(source); await writeFile(path.join(source, "index.html"), "entry");
+  await writeFile(path.join(source, "logo%.svg"), "literal-percent"); await writeFile(path.join(source, "logo%20final.svg"), "literal-percent-20");
+  await publishArtifact(source, { root, workspace, name: "percent-site", revisionGenerator: () => `r-${"7".repeat(32)}` });
+  const app = createArtifactApp({ root });
+
+  // Act
+  const percent = await app.request(`http://localhost/a/${workspace}/percent-site/logo%25.svg`);
+  const percentLike = await app.request(`http://localhost/a/${workspace}/percent-site/logo%2520final.svg`);
+
+  // Assert
+  assert.equal(await percent.text(), "literal-percent");
+  assert.equal(await percentLike.text(), "literal-percent-20");
+  assert.match(percentLike.headers.get("content-type") ?? "", /image\/svg\+xml/);
+});
+
+test("directory artifact rejects encoded traversal instead of decoding it twice", async () => {
+  // Arrange
+  const base = await mkdtemp(path.join(tmpdir(), "host-artifact-")); const root = path.join(base, "public"); const source = path.join(base, "site");
+  await mkdir(root); await mkdir(source); await writeFile(path.join(source, "index.html"), "entry");
+  await publishArtifact(source, { root, workspace, name: "safe-site", revisionGenerator: () => `r-${"6".repeat(32)}` });
+
+  // Act
+  const response = await createArtifactApp({ root }).request(`http://localhost/a/${workspace}/safe-site/%252e%252e/current.json`);
+
+  // Assert
+  assert.equal(response.status, 404);
 });

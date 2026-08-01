@@ -11,7 +11,7 @@ test("live reload embeds the displayed source version for the first poll", () =>
 
   // Assert
   assert.match(transformed, /data-host-artifact-version="[a-f0-9]{64}"/);
-  assert.match(transformed, /let currentVersion = "[a-f0-9]{64}"/);
+  assert.match(transformed, /const currentVersion = "[a-f0-9]{64}"/);
 });
 
 test("live reload does not mistake source marker text or body-like script text for generated markup", () => {

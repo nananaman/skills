@@ -1,171 +1,48 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  buildArtifactUrl,
-  ensureReady,
-  getReadyTailscaleAddress,
-  hasReadyTailscaleListener,
-  isExpectedHealth,
-  publishVerified,
-  waitForArtifact,
-} from "../src/cli-lib.js";
+import { isExpectedHealth, parseWorkspaceResult, selectTransport, waitForRevision } from "../src/cli-lib.js";
 
-test("healthy service does not invoke the ensure wrapper", async () => {
-  // Arrange
-  let ensureCalls = 0;
-
-  // Act
-  await ensureReady({
-    isHealthy: async () => true,
-    ensureService: async () => { ensureCalls++; },
-  });
-
-  // Assert
-  assert.equal(ensureCalls, 0);
+test("readiness accepts protocol v2 and rejects the legacy daemon", () => {
+  assert.equal(isExpectedHealth(200, { service: "host-artifact", version: 2, status: "ok" }), true);
+  assert.equal(isExpectedHealth(200, { service: "host-artifact", version: 1, status: "ok" }), false);
 });
 
-test("unhealthy service invokes the fixed ensure wrapper and verifies recovery", async () => {
-  // Arrange
-  let healthCalls = 0;
-  let ensureCalls = 0;
-
-  // Act
-  await ensureReady({
-    isHealthy: async () => ++healthCalls > 1,
-    ensureService: async () => { ensureCalls++; },
-  });
-
+test("workspace helper parser accepts only the schema contract", () => {
+  // Arrange & Act
+  const result = parseWorkspaceResult({ schemaVersion: 1, status: "ok", workspace: { segment: "owner-repo~0123456789ab", displayName: "owner/repo" } });
   // Assert
-  assert.equal(ensureCalls, 1);
-  assert.equal(healthCalls, 2);
+  assert.equal(result.segment, "owner-repo~0123456789ab");
+  assert.throws(() => parseWorkspaceResult({ segment: "/secret/path" }), /malformed/i);
 });
 
-test("failed recovery is reported instead of publishing", async () => {
+test("configured and verified Tailscale uses remote URL", () => {
+  const result = selectTransport("http://127.0.0.1/a/owner-repo~0123456789ab/report/", { schemaVersion: 1, available: true, configured: true, origin: "https://machine.ts.net" }, { schemaVersion: 1, verified: true, url: "https://machine.ts.net/a/owner-repo~0123456789ab/report/" });
+  assert.deepEqual(result, { transport: "tailscale-serve", url: "https://machine.ts.net/a/owner-repo~0123456789ab/report/" });
+});
+
+test("missing or failed Tailscale verification degrades to localhost", () => {
+  const local = "http://127.0.0.1/a/x/y/";
+  assert.equal(selectTransport(local, { schemaVersion: 1, available: false, configured: false }).transport, "localhost");
+  assert.equal(selectTransport(local, { schemaVersion: 1, available: true, configured: true, origin: "https://machine.ts.net" }, { schemaVersion: 1, verified: false, reason: "offline" }).url, local);
+});
+
+test("verified Tailscale URL must match inspected HTTPS origin and exact artifact path", () => {
   // Arrange
-  const dependencies = {
-    isHealthy: async () => false,
-    ensureService: async () => undefined,
-  };
+  const local = "http://127.0.0.1:9417/a/owner-repo~0123456789ab/report/";
+  const inspect = { schemaVersion: 1, available: true, configured: true, origin: "https://machine.tailnet.ts.net/" };
+  const invalid = [
+    "http://machine.tailnet.ts.net/a/owner-repo~0123456789ab/report/",
+    "https://other.tailnet.ts.net/a/owner-repo~0123456789ab/report/",
+    "https://machine.tailnet.ts.net/a/owner-repo~0123456789ab/other/",
+    "https://machine.tailnet.ts.net/a/owner-repo~0123456789ab/report/?token=x",
+    "https://machine.tailnet.ts.net/a/owner-repo~0123456789ab/report/#fragment",
+  ];
 
   // Act & Assert
-  await assert.rejects(ensureReady(dependencies), /unavailable/i);
+  for (const url of invalid) assert.equal(selectTransport(local, inspect, { schemaVersion: 1, verified: true, url }).transport, "localhost");
 });
 
-test("health validation rejects unrelated successful JSON responses", async () => {
-  // Arrange & Act
-  const valid = isExpectedHealth(200, { service: "host-artifact", version: 1, status: "ok" });
-  const unrelated = isExpectedHealth(200, { status: "ok" });
-
-  // Assert
-  assert.equal(valid, true);
-  assert.equal(unrelated, false);
-});
-
-test("Tailscale readiness requires the expected health identity and a bound listener", () => {
-  // Arrange & Act
-  const ready = hasReadyTailscaleListener(200, {
-    service: "host-artifact",
-    version: 1,
-    status: "ok",
-    tailscaleReady: true,
-    tailscaleAddress: "100.64.0.9",
-  });
-  const unbound = hasReadyTailscaleListener(200, {
-    service: "host-artifact",
-    version: 1,
-    status: "ok",
-    tailscaleReady: false,
-  });
-
-  // Assert
-  assert.equal(ready, true);
-  assert.equal(unbound, false);
-});
-
-test("Tailscale address is returned only for a ready listener", () => {
-  // Arrange & Act
-  const ready = getReadyTailscaleAddress(200, {
-    service: "host-artifact",
-    version: 1,
-    status: "ok",
-    tailscaleReady: true,
-    tailscaleAddress: "100.64.0.9",
-  });
-  const unready = getReadyTailscaleAddress(200, {
-    service: "host-artifact",
-    version: 1,
-    status: "ok",
-    tailscaleReady: false,
-    tailscaleAddress: "100.64.0.9",
-  });
-
-  // Assert
-  assert.equal(ready, "100.64.0.9");
-  assert.equal(unready, undefined);
-});
-
-test("artifact URL encodes each path segment without changing separators", () => {
-  // Arrange & Act
-  const url = buildArtifactUrl("http://localhost:9417", "local-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "資料 #?%/a b.html");
-
-  // Assert
-  assert.equal(url, "http://localhost:9417/local-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/%E8%B3%87%E6%96%99%20%23%3F%25/a%20b.html");
-});
-
-test("artifact verification accepts a delayed successful exact route", async () => {
-  // Arrange
-  let calls = 0;
-
-  // Act
-  const result = await waitForArtifact("http://example/artifact", {
-    fetchStatus: async () => ++calls === 2 ? 200 : 404,
-    wait: async () => undefined,
-    attempts: 3,
-  });
-
-  // Assert
-  assert.equal(result, true);
-  assert.equal(calls, 2);
-});
-
-test("artifact verification rejects a wrong-root route after bounded attempts", async () => {
-  // Arrange & Act
-  const result = await waitForArtifact("http://example/artifact", {
-    fetchStatus: async () => 404,
-    wait: async () => undefined,
-    attempts: 2,
-  });
-
-  // Assert
-  assert.equal(result, false);
-});
-
-test("failed post-copy verification removes only the newly hosted artifact", async () => {
-  // Arrange
-  const remaining = new Set(["local-existing", "local-new"]);
-
-  // Act & Assert
-  await assert.rejects(publishVerified({
-    publish: async () => ({ id: "local-new", relativePath: "report.html" }),
-    verify: async () => { throw new Error("localhost route verification failed"); },
-    remove: async (id) => { remaining.delete(id); },
-  }), /localhost route verification failed/);
-  assert.deepEqual([...remaining], ["local-existing"]);
-});
-
-test("cleanup failure reports both errors while preserving the verification failure as cause", async () => {
-  // Arrange
-  const primary = new Error("localhost route verification failed");
-
-  // Act
-  const error = await publishVerified({
-    publish: async () => ({ id: "local-new", relativePath: "report.html" }),
-    verify: async () => { throw primary; },
-    remove: async () => { throw new Error("permission denied"); },
-  }).catch((caught: unknown) => caught);
-
-  // Assert
-  assert(error instanceof Error);
-  assert.match(error.message, /localhost route verification failed.*permission denied/);
-  assert.equal(error.cause, primary);
+test("local verification requires the expected revision header", async () => {
+  const response = new Response("ok", { headers: { "X-Host-Artifact-Revision": `r-${"a".repeat(32)}` } });
+  assert.equal(await waitForRevision("http://localhost/a/x/y/", `r-${"a".repeat(32)}`, async () => response), true);
 });
