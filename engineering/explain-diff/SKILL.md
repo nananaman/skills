@@ -37,11 +37,12 @@ disable-model-invocation: true
    stdoutの `snapshot.json` pathを保持する。差分がなければ停止する。
 
 3. snapshotの `hunks` と実装意図から、変更前の問題と変更後の到達状態を定める。
-   到達状態を成立させる因果順に、同じ役割へ従属するhunkをまとめる。
+   利用者・外部system・entry pointから観測できる変更を先頭に置き、そこから呼び出し先・依存先・内部表現へ読み下せる順に、同じ役割へ従属するhunkをまとめる。
    [`references/manifest-contract.md`](./references/manifest-contract.md) に従って、snapshotと同じdirectoryへ `manifest.json` を作る。
    renameと追従import修正のような機械的変更も、同じ目的なら一groupにする。
    groupごとに変更前、変更後、この形を選んだ理由、説明とdiffの対応を確かめる観点を書く。
-   riskやfile数では並べ替えず、読み手が変更を最短で理解できる順序を保つ。
+   groupが後続groupに依存する場合は `depends_on` で理解経路を示す。
+   riskやfile数、実装を成立させた作業順では並べ替えず、読み手が入口から依存先へ変更を追える順序を保つ。
    変更後のcomponent境界、処理flow、データflow、状態遷移を文章より明瞭に説明できる場合はMermaidの `diagrams` を作る。
    flowchartのnodeは役割が分かる名称と説明を持たせ、`node_links` でgroup・hunk・用語へ結び付ける。
    実装順やgroup順、importやfile一覧を並べただけになる場合は省略する。

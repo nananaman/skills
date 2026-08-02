@@ -305,6 +305,18 @@
       box-shadow: 0 8px 28px rgba(26, 34, 50, .05);
     }
 
+    .reading-path {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: -5px 4px 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .reading-path::before { color: var(--blue); content: "↓"; font-size: 16px; }
+
     .group-row {
       position: relative;
       display: grid;
@@ -358,6 +370,13 @@
       -webkit-line-clamp: 2;
     }
 
+    .group-dependencies {
+      margin-top: 7px;
+      color: var(--blue);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
     .badges {
       display: flex;
       align-items: center;
@@ -391,6 +410,8 @@
       border-radius: 16px;
       box-shadow: 0 8px 28px rgba(26, 34, 50, .05);
     }
+    .group-sections { display: grid; gap: 28px; margin-bottom: 36px; }
+    .group-sections .detail-card { margin-bottom: 0; scroll-margin-top: 116px; }
 
     .detail-head {
       position: relative;
@@ -768,14 +789,15 @@
 
     <div class="review-workspace">
       <nav class="group-rail" aria-labelledby="groups-heading">
-        <h2 class="section-kicker" id="groups-heading">変更グループ</h2>
+        <h2 class="section-kicker" id="groups-heading">入口から読む</h2>
+        <div class="reading-path">利用者に近い変更から、それを成り立たせる依存先へ</div>
         <div class="group-list" id="group-list"></div>
       </nav>
 
       <div class="review-main">
         <section aria-labelledby="detail-heading">
           <h2 class="section-kicker" id="detail-heading">変更内容</h2>
-          <article class="detail-card" id="detail-card"></article>
+          <div class="group-sections" id="detail-card"></div>
         </section>
 
         <section aria-labelledby="feedback-heading">
@@ -947,8 +969,10 @@
         const rendered = await mermaid.render(`mermaid-${diagram.id}`, diagram.source);
         output.innerHTML = rendered.svg;
         for (const link of diagram.node_links ?? []) {
-          const selector = `[id^="flowchart-${CSS.escape(link.node_id)}-"]`;
-          const linkedNodes = output.querySelectorAll(selector);
+          const linkedNodes = [...output.querySelectorAll(".node[id]")].filter(node =>
+            node.dataset.id === link.node_id ||
+            node.id.includes(`flowchart-${link.node_id}-`)
+          );
           if (!linkedNodes.length) {
             throw new Error(`Mermaid node link target not found: ${link.node_id}`);
           }
@@ -1020,7 +1044,6 @@
       if (!group) return;
       activeGroupId = group.id;
       renderGroupList();
-      renderActiveGroup();
       syncReviewContext(group.id, influence.term_ids?.[0] ?? null);
       const hunkId = influence.hunk_ids?.[0];
       requestAnimationFrame(() => {
@@ -1035,7 +1058,7 @@
             ?.setAttribute("aria-expanded", "true");
           saveState();
         }
-        (target ?? document.getElementById("detail-heading")).scrollIntoView({
+        (target ?? document.getElementById(`group-section-${group.id}`)).scrollIntoView({
           behavior: "smooth",
           block: "start",
         });
@@ -1045,6 +1068,7 @@
     function renderGroupList() {
       const list = document.getElementById("group-list");
       list.replaceChildren();
+      const dependedGroupIds = new Set(groups.flatMap(group => group.depends_on ?? []));
       for (const group of groups) {
         const button = element("button", `group-row${group.id === activeGroupId ? " active" : ""}`);
         button.type = "button";
@@ -1052,9 +1076,9 @@
         button.addEventListener("click", () => {
           activeGroupId = group.id;
           renderGroupList();
-          renderActiveGroup();
           syncReviewContext(group.id);
-          document.getElementById("detail-heading").scrollIntoView({ behavior: "smooth", block: "start" });
+          document.getElementById(`group-section-${group.id}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
 
         const main = element("div", "group-main");
@@ -1066,7 +1090,15 @@
         main.append(titleLine, element("div", "group-summary", group.after));
 
         const marks = element("div", "badges");
+        const dependencies = group.depends_on ?? [];
+        if (dependencies.length) {
+          const dependencyTitles = dependencies.map(dependencyId =>
+            groups.find(item => item.id === dependencyId)?.title ?? dependencyId
+          );
+          main.append(element("div", "group-dependencies", `→ ${dependencyTitles.join(" / ")}`));
+        }
         marks.append(badge(`${groups.indexOf(group) + 1}/${groups.length}`));
+        if (!dependedGroupIds.has(group.id)) marks.append(badge("入口"));
         marks.append(badge(`${group.hunk_ids.length} hunks`));
         if (state.checked[group.id]) marks.append(badge("確認済み", "checked"));
         button.append(main, marks);
@@ -1074,15 +1106,9 @@
       }
     }
 
-    function renderActiveGroup() {
-      const card = document.getElementById("detail-card");
-      card.replaceChildren();
-      const group = groups.find(item => item.id === activeGroupId);
-      if (!group) {
-        card.append(element("div", "empty", "表示できる変更グループがありません。"));
-        return;
-      }
-
+    function renderGroupSection(group) {
+      const card = element("article", "detail-card");
+      card.id = `group-section-${group.id}`;
       const head = element("div", "detail-head");
       head.style.setProperty("--group-color", groupColor(group.id));
       const copy = element("div");
@@ -1120,10 +1146,11 @@
 
       const commentBox = element("div", "group-comment");
       const commentLabel = document.createElement("label");
-      commentLabel.htmlFor = "group-comment-input";
+      const commentId = `group-comment-input-${group.id}`;
+      commentLabel.htmlFor = commentId;
       commentLabel.textContent = "グループ全体へのコメント";
       const textarea = document.createElement("textarea");
-      textarea.id = "group-comment-input";
+      textarea.id = commentId;
       textarea.placeholder = "疑問、修正依頼、補足を入力";
       textarea.value = state.groupComments[group.id] ?? "";
       textarea.addEventListener("input", () => {
@@ -1132,6 +1159,52 @@
       });
       commentBox.append(commentLabel, textarea);
       card.append(commentBox);
+      return card;
+    }
+
+    function renderAllGroups() {
+      const container = document.getElementById("detail-card");
+      if (!groups.length) {
+        container.replaceChildren(element("div", "empty", "表示できる変更グループがありません。"));
+        return;
+      }
+      container.replaceChildren(...groups.map(renderGroupSection));
+    }
+
+    function syncActiveGroupFromScroll() {
+      const sections = [...document.querySelectorAll(".group-sections > .detail-card")];
+      const hasScrollableDocument = document.documentElement.scrollHeight > window.innerHeight + 1;
+      const atDocumentEnd = hasScrollableDocument && window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 1;
+      const current = atDocumentEnd ? sections.at(-1) : sections.reduce((candidate, section) =>
+        section.getBoundingClientRect().top <= 132 ? section : candidate, sections[0]
+      );
+      const groupId = current?.id.replace("group-section-", "");
+      if (!groupId || groupId === activeGroupId) return;
+      activeGroupId = groupId;
+      renderGroupList();
+      keepActiveGroupVisible();
+      syncReviewContext(groupId);
+    }
+
+    function keepActiveGroupVisible() {
+      const rail = document.querySelector(".group-rail");
+      const row = rail?.querySelector(".group-row.active");
+      if (!rail || !row) return;
+      const railRect = rail.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      if (rowRect.top < railRect.top) rail.scrollTop += rowRect.top - railRect.top;
+      else if (rowRect.bottom > railRect.bottom) rail.scrollTop += rowRect.bottom - railRect.bottom;
+    }
+
+    let activeGroupSyncPending = false;
+    function scheduleActiveGroupSync() {
+      if (activeGroupSyncPending) return;
+      activeGroupSyncPending = true;
+      requestAnimationFrame(() => {
+        activeGroupSyncPending = false;
+        syncActiveGroupFromScroll();
+      });
     }
 
     function parseDiffLines(raw) {
@@ -1411,13 +1484,14 @@
 
     document.getElementById("generate-feedback").addEventListener("click", generateFeedback);
     document.getElementById("copy-feedback").addEventListener("click", copyFeedback);
+    window.addEventListener("scroll", scheduleActiveGroupSync, { passive: true });
     renderHeader();
     renderStory();
     renderChangedFiles();
     renderGlossary();
     void renderOverview();
     renderGroupList();
-    renderActiveGroup();
+    renderAllGroups();
     updateProgress();
     updateFeedbackCounts();
   </script>
