@@ -1171,6 +1171,28 @@
       container.replaceChildren(...groups.map(renderGroupSection));
     }
 
+    function syncActiveGroupFromScroll() {
+      const sections = [...document.querySelectorAll(".group-sections > .detail-card")];
+      const current = sections.reduce((candidate, section) =>
+        section.getBoundingClientRect().top <= 132 ? section : candidate
+      , sections[0]);
+      const groupId = current?.id.replace("group-section-", "");
+      if (!groupId || groupId === activeGroupId) return;
+      activeGroupId = groupId;
+      renderGroupList();
+      syncReviewContext(groupId);
+    }
+
+    let activeGroupSyncPending = false;
+    function scheduleActiveGroupSync() {
+      if (activeGroupSyncPending) return;
+      activeGroupSyncPending = true;
+      requestAnimationFrame(() => {
+        activeGroupSyncPending = false;
+        syncActiveGroupFromScroll();
+      });
+    }
+
     function parseDiffLines(raw) {
       const lines = raw.replace(/\n$/, "").split("\n");
       let oldLine = null;
@@ -1448,6 +1470,7 @@
 
     document.getElementById("generate-feedback").addEventListener("click", generateFeedback);
     document.getElementById("copy-feedback").addEventListener("click", copyFeedback);
+    window.addEventListener("scroll", scheduleActiveGroupSync, { passive: true });
     renderHeader();
     renderStory();
     renderChangedFiles();

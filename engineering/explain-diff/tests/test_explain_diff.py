@@ -1005,6 +1005,15 @@ class ExplainDiffCliTest(unittest.TestCase):
         ):
             self.assertIn(contract_marker, template)
 
+    def test_report_template_tracks_the_active_group_while_reading_all_sections(self) -> None:
+        # Arrange & Act: 全groupを連続して読むreport templateを読み込む。
+        template = TEMPLATE.read_text(encoding="utf-8")
+
+        # Assert: 本文の読書位置がrailとMermaidのactive contextへ反映される。
+        self.assertIn("function syncActiveGroupFromScroll()", template)
+        self.assertIn('window.addEventListener("scroll", scheduleActiveGroupSync', template)
+        self.assertIn("syncReviewContext(groupId)", template)
+
     def test_report_template_groups_hunks_by_file_and_shows_them_without_collapsing(self) -> None:
         # Arrange & Act: 同じファイルに複数hunkがある場合の表示契約を読み込む。
         template = TEMPLATE.read_text(encoding="utf-8")
