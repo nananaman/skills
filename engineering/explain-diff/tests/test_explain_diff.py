@@ -1013,6 +1013,9 @@ class ExplainDiffCliTest(unittest.TestCase):
         self.assertIn("function syncActiveGroupFromScroll()", template)
         self.assertIn('window.addEventListener("scroll", scheduleActiveGroupSync', template)
         self.assertIn("syncReviewContext(groupId)", template)
+        self.assertIn("document.documentElement.scrollHeight - 1", template)
+        self.assertIn("document.documentElement.scrollHeight > window.innerHeight + 1", template)
+        self.assertIn("function keepActiveGroupVisible()", template)
 
     def test_report_template_groups_hunks_by_file_and_shows_them_without_collapsing(self) -> None:
         # Arrange & Act: 同じファイルに複数hunkがある場合の表示契約を読み込む。

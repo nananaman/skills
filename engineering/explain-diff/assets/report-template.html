@@ -1173,14 +1173,28 @@
 
     function syncActiveGroupFromScroll() {
       const sections = [...document.querySelectorAll(".group-sections > .detail-card")];
-      const current = sections.reduce((candidate, section) =>
-        section.getBoundingClientRect().top <= 132 ? section : candidate
-      , sections[0]);
+      const hasScrollableDocument = document.documentElement.scrollHeight > window.innerHeight + 1;
+      const atDocumentEnd = hasScrollableDocument && window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 1;
+      const current = atDocumentEnd ? sections.at(-1) : sections.reduce((candidate, section) =>
+        section.getBoundingClientRect().top <= 132 ? section : candidate, sections[0]
+      );
       const groupId = current?.id.replace("group-section-", "");
       if (!groupId || groupId === activeGroupId) return;
       activeGroupId = groupId;
       renderGroupList();
+      keepActiveGroupVisible();
       syncReviewContext(groupId);
+    }
+
+    function keepActiveGroupVisible() {
+      const rail = document.querySelector(".group-rail");
+      const row = rail?.querySelector(".group-row.active");
+      if (!rail || !row) return;
+      const railRect = rail.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      if (rowRect.top < railRect.top) rail.scrollTop += rowRect.top - railRect.top;
+      else if (rowRect.bottom > railRect.bottom) rail.scrollTop += rowRect.bottom - railRect.bottom;
     }
 
     let activeGroupSyncPending = false;
