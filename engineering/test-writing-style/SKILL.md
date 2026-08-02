@@ -24,7 +24,7 @@ description: テストを新規追加・修正・レビューするとき、既�
 
 ## Workflow
 
-対象言語の reference が `references/` にある場合は、その言語でテストを追加・修正するときだけ読む。
+Go のテストを追加・修正するときは、[`references/go.md`](./references/go.md) も読む。
 
 1. **既存テストを読む**
    - 同じ言語、同じ層、同じ機能周辺のテストを先に確認する。
