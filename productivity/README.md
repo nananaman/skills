@@ -9,7 +9,7 @@
 - ユーザーが明示的に計画や設計を質問攻めして詰めたい → [`grill-me`](./grill-me/SKILL.md)
 - 現在の会話を別 agent へ引き継げる形に圧縮する → [`handoff`](./handoff/SKILL.md)
 - Herdr pane 内で隣接 pane の出力確認、pane 分割、長時間 command の実行を行う → [`herdr`](./herdr/SKILL.md)
-- sandbox 内で生成した静的成果物を安定 URL から確認できるようにする → [`host-artifact`](./host-artifact/SKILL.md)
+- agent が生成した静的成果物を安定 URL から確認できるようにする → [`host-artifact`](./host-artifact/SKILL.md)
 - 現在の directory を学習 workspace として使う → [`teach`](./teach/SKILL.md)
 - system prompt、agent instructions、tool description、skill、prompt stack を診断・改善する → [`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)
 
