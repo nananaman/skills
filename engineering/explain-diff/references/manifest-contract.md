@@ -23,6 +23,7 @@ snapshot の全 hunk を、変更を理解するための因果順に並べた g
       "after": "この group により新たに成立する状態",
       "why": "目的に対して、なぜこの形を選んだか",
       "review_focus": "説明と diff の対応を確かめるために見る点",
+      "depends_on": ["downstream-group-id"],
       "hunk_ids": ["h0123456789ab"]
     }
   ],
@@ -40,7 +41,11 @@ snapshot の全 hunk を、変更を理解するための因果順に並べた g
 4. `hunk_ids`: 各説明を裏付ける diff はどれか。
 
 group の配列順はそのまま表示順になる。
-公開 contract → 実装 → 検証のような固定順ではなく、その変更を最短で理解できる因果順を選ぶ。
+利用者・外部system・entry pointから観測できる変更を先頭に置き、そこから呼び出し先・依存先・内部表現へ読み下せる順を選ぶ。
+`depends_on` は任意で、当該groupの変更を成り立たせる後続groupのIDを指す。
+理解経路を入口から下向きに保つため、先行groupや自分自身は指さない。
+実際に依存するgroupだけを指し、独立したrootや分岐を配列順に合わせるためのedgeは作らない。同じedgeも重複させない。
+公開 contract → 実装 → 検証のような固定順に当てはめず、読み手の疑問が「それは何によって成り立つか」と進む順序を選ぶ。
 リスクや file 数による自動並べ替えは行わない。
 
 ## Group explanation
@@ -59,6 +64,7 @@ group の配列順はそのまま表示順になる。
 - group は一つ以上の hunk を持つ。
 - 同じ目的へ従属する変更を、file が違うという理由で分割しない。
 - unrelated な目的を、同じ file にあるという理由でまとめない。
+- `depends_on` は存在する後続groupだけを、重複なく指す。
 - 一つの hunk に複数の無関係な目的が混在し、明瞭な説明単位を作れない場合は report を生成しない。
 
 CLI は未割当、重複割当、snapshot にない ID、空 group、重複 group ID を拒否する。
@@ -72,7 +78,8 @@ CLI は未割当、重複割当、snapshot にない ID、空 group、重複 gro
 - `diagram_kind` は `flowchart`、`stateDiagram-v2`、`sequenceDiagram` のいずれか。
 - node には実装名だけでなく役割を書く。
 - edge には `calls`、`reads`、`publishes` など関係の意味を書く。
-- `node_links` は `flowchart` だけで使い、Mermaid node ID を group、hunk、用語へ対応付ける。
+- `node_links` は `flowchart` だけで使い、Mermaid node ID を一つ以上のgroupと、必要に応じてhunk・用語へ対応付ける。
+- 各 `node_links` の `group_ids` は一つ以上必要。hunkや用語へのnavigationも、その内容を説明するgroupを基点にする。
 - `stateDiagram-v2` と `sequenceDiagram` では `node_links` を空配列にする。
 - Mermaid の `click` directive は使わない。
 

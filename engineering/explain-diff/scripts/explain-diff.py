@@ -365,6 +365,31 @@ def validate_manifest(snapshot: dict[str, object], manifest: dict[str, object]) 
             assigned.extend(hunk_ids)
         validated.append(group)
 
+    group_index = {str(group["id"]): index for index, group in enumerate(validated)}
+    for group in validated:
+        group_id = str(group["id"])
+        depends_on = group.get("depends_on", [])
+        if not isinstance(depends_on, list) or not all(
+            isinstance(item, str) for item in depends_on
+        ):
+            raise ValueError(f"group {group_id}: depends_on must be a list of group ids")
+        duplicate_dependencies = sorted({
+            item for item in depends_on if depends_on.count(item) > 1
+        })
+        if duplicate_dependencies:
+            raise ValueError(
+                f"group {group_id}: duplicate dependency group "
+                f"{', '.join(duplicate_dependencies)}"
+            )
+        for dependency_id in depends_on:
+            if dependency_id not in group_index:
+                raise ValueError(f"group {group_id}: unknown dependency group {dependency_id}")
+            if group_index[dependency_id] <= group_index[group_id]:
+                raise ValueError(
+                    f"group {group_id}: dependency {dependency_id} must point to a later group"
+                )
+        group["depends_on"] = depends_on
+
     unknown = sorted(set(assigned) - expected)
     if unknown:
         raise ValueError(f"unknown hunk ids: {', '.join(unknown)}")
@@ -459,6 +484,10 @@ def validate_diagrams(
                 term_ids = link.get("term_ids", [])
                 if not all(isinstance(value, str) for values in (group_ids, hunk_ids, term_ids) for value in values):
                     raise ValueError(f"diagram {diagram_id}: node link ids must be text")
+                if not isinstance(group_ids, list) or not group_ids:
+                    raise ValueError(
+                        f"diagram {diagram_id}: node link must include a group id"
+                    )
                 if set(group_ids) - set(group_hunks):
                     raise ValueError(f"diagram {diagram_id}: node link has unknown group id")
                 if set(hunk_ids) - set(hunk_paths):

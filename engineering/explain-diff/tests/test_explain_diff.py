@@ -443,6 +443,37 @@ class ExplainDiffCliTest(unittest.TestCase):
         self.assertIn("flowchart TB", self._read_report_data(self.root / "mermaid.html")["manifest"]["diagrams"][0]["source"])
         self.assertNotIn("__MERMAID_JS__", html)
 
+    def test_render_rejects_a_node_link_without_a_navigation_group(self) -> None:
+        # Arrange: hunkだけを参照し、移動先groupを持たないnode linkを定義する。
+        snapshot_path, snapshot = self._snapshot_with_one_change()
+        manifest_path = self._write_manifest(snapshot)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["diagrams"] = [{
+            "id": "flow",
+            "title": "処理flow",
+            "description": "移動先groupのないnode link。",
+            "format": "mermaid",
+            "diagram_kind": "flowchart",
+            "source": "flowchart TB\n  input --> output",
+            "node_links": [{
+                "node_id": "output",
+                "group_ids": [],
+                "hunk_ids": [snapshot["hunks"][0]["id"]],
+                "term_ids": [],
+            }],
+        }]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        # Act: public render commandでnavigation contractを検証する。
+        result = self._run("render", "--snapshot", str(snapshot_path), "--manifest",
+                           str(manifest_path), "--output",
+                           str(self.root / "group-less-link.html"), "--no-open")
+
+        # Assert: 操作可能に見えて無反応になるnodeをreportへ出さない。
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("node link must include a group id", result.stderr)
+        self.assertFalse((self.root / "group-less-link.html").exists())
+
     def test_render_rejects_a_diagram_hunk_linked_to_another_group(self) -> None:
         # Arrange: 2つのgroupを作り、図では片方のgroupから他方のhunkを参照する。
         (self.repo / "mixed.txt").write_text("base\nchanged\n", encoding="utf-8")
@@ -713,6 +744,121 @@ class ExplainDiffCliTest(unittest.TestCase):
             [group["id"] for group in data["manifest"]["groups"]],
         )
 
+    def test_render_rejects_a_group_dependency_that_points_backwards(self) -> None:
+        # Arrange: 入口から依存先へ並べた順序に反して、後続groupから入口を参照する。
+        (self.repo / "entry.txt").write_text("entry\n", encoding="utf-8")
+        (self.repo / "mixed.txt").write_text("base\nbehavior\n", encoding="utf-8")
+        snapshot_path = self.root / "outside-in-snapshot.json"
+        snapshot_result = self._run("snapshot", "--output", str(snapshot_path))
+        self.assertEqual(0, snapshot_result.returncode, snapshot_result.stderr)
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        hunk_id_by_path = {hunk["path"]: hunk["id"] for hunk in snapshot["hunks"]}
+        groups = [
+            {
+                "id": "entry", "title": "利用者から見える入口", "before": "before",
+                "after": "after", "why": "why", "review_focus": "review focus",
+                "hunk_ids": [hunk_id_by_path["entry.txt"]],
+            },
+            {
+                "id": "behavior", "title": "入口を成立させる判断", "before": "before",
+                "after": "after", "why": "why", "review_focus": "review focus",
+                "depends_on": ["entry"], "hunk_ids": [hunk_id_by_path["mixed.txt"]],
+            },
+        ]
+        manifest_path = self.root / "backwards-dependency.json"
+        manifest_path.write_text(json.dumps({
+            "version": 2, "title": "Outside-in ordering", "context": "context",
+            "outcome": "outcome", "groups": groups,
+        }), encoding="utf-8")
+
+        # Act: public render commandから逆向きの理解経路を検証する。
+        result = self._run("render", "--snapshot", str(snapshot_path), "--manifest",
+                           str(manifest_path), "--output",
+                           str(self.root / "backwards-dependency.html"), "--no-open")
+
+        # Assert: groupを入口から依存先へ読めないmanifestはartifactにしない。
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("must point to a later group", result.stderr)
+
+    def test_render_rejects_a_duplicate_group_dependency(self) -> None:
+        # Arrange: 同じ依存先を二重に示し、理解経路が重複するmanifestを作る。
+        (self.repo / "entry.txt").write_text("entry\n", encoding="utf-8")
+        (self.repo / "mixed.txt").write_text("base\nbehavior\n", encoding="utf-8")
+        snapshot_path = self.root / "duplicate-dependency-snapshot.json"
+        snapshot_result = self._run("snapshot", "--output", str(snapshot_path))
+        self.assertEqual(0, snapshot_result.returncode, snapshot_result.stderr)
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        hunk_id_by_path = {hunk["path"]: hunk["id"] for hunk in snapshot["hunks"]}
+        manifest_path = self.root / "duplicate-dependency-manifest.json"
+        manifest_path.write_text(json.dumps({
+            "version": 2, "title": "Duplicate dependency", "context": "context",
+            "outcome": "outcome", "groups": [
+                {
+                    "id": "entry", "title": "利用者から見える入口", "before": "before",
+                    "after": "after", "why": "why", "review_focus": "review focus",
+                    "depends_on": ["behavior", "behavior"],
+                    "hunk_ids": [hunk_id_by_path["entry.txt"]],
+                },
+                {
+                    "id": "behavior", "title": "入口を成立させる判断", "before": "before",
+                    "after": "after", "why": "why", "review_focus": "review focus",
+                    "hunk_ids": [hunk_id_by_path["mixed.txt"]],
+                },
+            ],
+        }), encoding="utf-8")
+
+        # Act: public render commandから重複した理解経路を検証する。
+        result = self._run("render", "--snapshot", str(snapshot_path), "--manifest",
+                           str(manifest_path), "--output",
+                           str(self.root / "duplicate-dependency.html"), "--no-open")
+
+        # Assert: 同じedgeを複数表示するmanifestはartifactにしない。
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("duplicate dependency group", result.stderr)
+
+    def test_render_preserves_an_outside_in_group_path(self) -> None:
+        # Arrange: 利用者側の入口から内部の依存先へ進む2つのgroupを作る。
+        (self.repo / "entry.txt").write_text("entry\n", encoding="utf-8")
+        (self.repo / "mixed.txt").write_text("base\nbehavior\n", encoding="utf-8")
+        snapshot_path = self.root / "outside-in-snapshot.json"
+        snapshot_result = self._run("snapshot", "--output", str(snapshot_path))
+        self.assertEqual(0, snapshot_result.returncode, snapshot_result.stderr)
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        hunk_id_by_path = {hunk["path"]: hunk["id"] for hunk in snapshot["hunks"]}
+        groups = [
+            {
+                "id": "entry", "title": "利用者から見える入口", "before": "before",
+                "after": "after", "why": "why", "review_focus": "review focus",
+                "depends_on": ["behavior"], "hunk_ids": [hunk_id_by_path["entry.txt"]],
+            },
+            {
+                "id": "behavior", "title": "入口を成立させる判断", "before": "before",
+                "after": "after", "why": "why", "review_focus": "review focus",
+                "hunk_ids": [hunk_id_by_path["mixed.txt"]],
+            },
+        ]
+        manifest_path = self.root / "outside-in-manifest.json"
+        manifest_path.write_text(json.dumps({
+            "version": 2, "title": "Outside-in ordering", "context": "context",
+            "outcome": "outcome", "groups": groups,
+        }), encoding="utf-8")
+        report = self.root / "outside-in.html"
+
+        # Act: 入口groupが後続の依存先を指すreportを生成する。
+        result = self._run("render", "--snapshot", str(snapshot_path), "--manifest",
+                           str(manifest_path), "--output", str(report), "--no-open")
+
+        # Assert: rendererが理解経路と全groupの初期表示を提供する。
+        self.assertEqual(0, result.returncode, result.stderr)
+        data = self._read_report_data(report)
+        self.assertEqual(["behavior"], data["manifest"]["groups"][0]["depends_on"])
+        html = report.read_text(encoding="utf-8")
+        self.assertIn('class="reading-path"', html)
+        self.assertIn('"group-dependencies"', html)
+        self.assertIn("dependedGroupIds.has(group.id)", html)
+        self.assertIn("function renderAllGroups()", html)
+        self.assertIn("group-section-${group.id}", html)
+
     def test_render_encodes_untrusted_diff_and_manifest_text_as_data(self) -> None:
         # Arrange: script を閉じる payload を差分と人間入力 metadata の両方へ入れる。
         payload = "</script><script>globalThis.compromised = true</script>"
@@ -815,7 +961,7 @@ class ExplainDiffCliTest(unittest.TestCase):
             'target?.closest(".file-diff-body")',
             "function highlightCode(",
             "Prism.highlight(",
-            "function renderActiveGroup()",
+            "function renderAllGroups()",
             "localStorage.setItem(storageKey",
             'aria-live="polite"',
         ):
@@ -829,6 +975,14 @@ class ExplainDiffCliTest(unittest.TestCase):
         self.assertNotIn('"impact-badge " + influence.level', template)
         self.assertNotIn('!text.startsWith("+++")', template)
         self.assertNotIn('!text.startsWith("---")', template)
+
+    def test_report_template_links_mermaid_nodes_with_a_diagram_specific_id_prefix(self) -> None:
+        # Arrange & Act: Mermaidが図固有prefix付きで生成するnodeとmanifestのnode_idを結ぶtemplateを読む。
+        template = TEMPLATE.read_text(encoding="utf-8")
+
+        # Assert: `mermaid-<diagram>-flowchart-api-0` のような実DOM IDでもapiを解決する。
+        self.assertIn('output.querySelectorAll(".node[id]")', template)
+        self.assertIn('node.id.includes(`flowchart-${link.node_id}-`)', template)
 
     def test_report_template_keeps_navigation_diff_and_context_visible_together(self) -> None:
         # Arrange & Act: レビュー画面のレスポンシブなレイアウト契約を読み込む。
