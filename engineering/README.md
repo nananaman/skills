@@ -15,6 +15,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 - issue を取得し、grill 後に一時的な実装 plan を作る → [`create-plan`](./create-plan/SKILL.md)
 - 作成済みの実装 plan を検討漏れと不要な複雑性の観点で独立評価する → [`review-plan`](./review-plan/SKILL.md)
 - quality barに向けてBuilderとCriticの実装loopを編成する → [`implement`](./implement/SKILL.md)
+- 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する → [`simplify-code`](./simplify-code/SKILL.md)
 - 実行コードのロジック・状態遷移・データ変換・処理規則の変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
@@ -36,10 +37,11 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 6. 実行コードのロジック・状態遷移・データ変換・処理規則を変更するときは、`tdd` で RED → GREEN → Refactor の順に進める。
 7. テストを書くときは、`test-writing-style` で既存テスト文化と読みやすさを揃える。
 8. 長い実装loopが必要なtaskでは、明示的に`implement`を使い、goalとquality barに対してBuilder / Criticを編成する。
-9. 実装後、planを保持したまま`review-diff-code`で差分を一度評価し、finding ledgerを確認する。修正が必要なら実装workflowへ戻す。
-10. 大きなlocal差分を人間へ説明するときは、必要に応じて `explain-diff` で変更の物語と根拠を確認する画面を作る。
-11. review 後、plan 原文を commit body に保存して plan file を削除する。
-12. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
+9. 実装と検証が完了した後、`simplify-code`を適用する必要があるか判断する。追加の簡素化が費用に見合わなければ何も変更せず、必要な場合だけ振る舞いを保った修正と再検証を行う。
+10. planを保持したまま、簡素化後の完成差分を`review-diff-code`で一度評価し、指摘の採否を確認する。修正が必要なら実装フローへ戻す。
+11. 大きなlocal差分を人間へ説明するときは、必要に応じて `explain-diff` で変更の物語と根拠を確認する画面を作る。
+12. review 後、plan 原文を commit body に保存して plan file を削除する。
+13. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
 
 ## Skill 一覧
 
@@ -73,6 +75,9 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 - **[`implement`](./implement/SKILL.md)** — goalとquality barに対するBuilder / Criticの実装loopを編成する。
   - Use when: `implement`の明示起動、複数unitや反復評価を伴う実装、actual artifactとreferenceの比較
   - Type: `user-invoked`
+- **[`simplify-code`](./simplify-code/SKILL.md)** — 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する。
+  - Use when: 実装後に簡素化の必要性を判断するとき、明示的な簡素化や振る舞いを変えないリファクタリング
+  - Type: `model-invoked`
 - **[`create-pr`](./create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`

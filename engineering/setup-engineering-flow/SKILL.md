@@ -16,7 +16,7 @@ disable-model-invocation: true
 - issue tracker: GitHub Issue / local markdown / other
 - PRD / Design Doc / ADR の置き場所
 - temporary plan の置き場所
-- engineering flow: PRD / Design Doc / ADR? → task breakdown → issue → create plan → implementation → review → plan closeout
+- engineering flow: PRD / Design Doc / ADR? → task breakdown → issue → create plan → implementation → verification → simplify-code? → review → plan closeout
 - local markdown issue の採番規則
 - agent が読む `AGENTS.md` / `CLAUDE.md` の参照 block
 

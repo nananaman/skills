@@ -11,6 +11,7 @@ PRD? / Design Doc? / ADR?
   -> create-plan <issue> -> review-plan
   -> implementation
   -> verification
+  -> simplify-code?
   -> review
   -> commit
   -> create-pr?
@@ -70,6 +71,9 @@ plan は今回の実装だけで使う untracked file であり、永続的な D
 ## Implementation and review gate
 
 実装中は plan を参照し、plan の完了条件に対応する自動テスト、静的検査、必要な実動作確認を行う。
+実装と検証が完了した後、最終コードレビューの前に`simplify-code`を適用する必要があるか判断する。
+追加の簡素化が費用に見合わなければ何も変更せず、必要な場合だけ今回の作業に属する差分へ、振る舞いを保った修正を適用して再検証する。
+簡素化で差分が変わった場合は、その完成差分をレビューする。
 実装後は次を確認する。
 
 - diff の品質と regression risk

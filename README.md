@@ -81,6 +81,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`implement`](./engineering/implement/SKILL.md)** — goalとquality barに対するBuilder / Criticの実装loopを編成する。
   - Use when: `implement`の明示起動、複数unitや反復評価を伴う実装、actual artifactとreferenceの比較
   - Type: `user-invoked`
+- **[`simplify-code`](./engineering/simplify-code/SKILL.md)** — 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する。
+  - Use when: 実装後に簡素化の必要性を判断するとき、明示的な簡素化や振る舞いを変えないリファクタリング
+  - Type: `model-invoked`
 - **[`create-pr`](./engineering/create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`
