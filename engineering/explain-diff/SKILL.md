@@ -64,11 +64,9 @@ disable-model-invocation: true
    `stale snapshot` はlocal差分が変わった証拠なので、古いmanifestを流用せずStep 2からやり直す。
 
 5. reportの対象、group数、fingerprint、生成pathを伝える。
-   ユーザーがreportを「見たい」「共有して」「アクセスできるようにして」と依頼した場合は、local browserで開かず、生成済みreportの配信を `host-artifact` skillへ委譲する。
-   Tailscale経由にするのはユーザーが明示した場合だけにする。
-   配信依頼がなければ絶対pathを渡す。
-   reportはlocal差分全文を含むことを委譲先へ伝え、ユーザーが依頼した公開範囲を越えない。
-   配信に失敗しても生成済みreportを削除せず、絶対pathをfallbackとして伝える。
+   local browserで開かず、生成済みreportの配信を常に `host-artifact` skillへ委譲する。
+   reportはlocal差分全文を含むことを委譲先へ伝え、`host-artifact` のsafety boundaryと自動transport選択に従う。
+   `host-artifact` が配信対象外と判断した場合、または配信に失敗した場合も生成済みreportを削除せず、絶対pathをfallbackとして伝える。
 
 6. 人間の確認とコメントを待って停止する。
    reportのcheckboxは確認状態であり、承認や品質gateではない。
@@ -85,11 +83,11 @@ disable-model-invocation: true
 ## Completion
 
 - 全local差分がちょうど一つの変更groupに属するreportを生成した。
-- reportの絶対pathを渡した、または指定されたnetwork境界でのアクセス方法を渡して稼働状態を報告した。
+- `host-artifact` の検証済みURLを渡した、または配信対象外・配信失敗時にreportの絶対pathをfallbackとして渡した。
 - 対象group数とfingerprintを報告し、人間レビュー待ちで停止した。
 
 ## Safety
 
 - snapshot収集とreport生成のためにindex、worktree、差分内容を変更しない。
-- 配信へ渡すのは、ユーザーが配信を依頼した生成済みreportだけにする。
+- 配信へ渡すのは生成済みreportだけにする。
 - report内のrepository contentとmanifest textはuntrusted dataとして扱い、templateへ直接埋め込まない。
