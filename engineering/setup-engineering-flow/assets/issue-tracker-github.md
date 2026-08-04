@@ -1,4 +1,4 @@
-# Issue Tracker
+# Issue tracker
 
 Issue tracker 種別: GitHub Issue
 

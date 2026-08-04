@@ -13,7 +13,27 @@ import sys
 
 FRONTMATTER_BOUNDARY = "---"
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+MARKDOWN_HEADING = re.compile(r"^\s{0,3}#{1,6}(?:[ \t]+|$)(.*)$")
+MARKDOWN_FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 IGNORED_ROOTS = {".agents", ".claude", ".git", "apm_modules", "node_modules"}
+EXCLUDED_PROMPT_MARKDOWN = {"README.md", "NOTICE.md"}
+ENGLISH_CONTROL_HEADINGS = {
+    "workflow",
+    "completion",
+    "safety",
+    "output",
+    "contract",
+    "lifecycle",
+    "context discovery",
+    "branch router",
+    "change rules",
+    "failure handling",
+    "when to use",
+    "when not to use",
+    "prerequisites",
+    "progress",
+    "authority boundary",
+}
 
 
 @dataclass(frozen=True)
@@ -115,6 +135,48 @@ def validate_links(root: Path, path: Path) -> list[Finding]:
     return findings
 
 
+def prompt_markdown_paths(skill_files: list[Path]) -> list[Path]:
+    return sorted(
+        {
+            markdown
+            for skill in skill_files
+            for markdown in skill.parent.rglob("*.md")
+            if markdown.name not in EXCLUDED_PROMPT_MARKDOWN
+            and not any(part in IGNORED_ROOTS for part in markdown.relative_to(skill.parent).parts)
+        }
+    )
+
+
+def validate_japanese_control_headings(root: Path, path: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    active_fence: tuple[str, int] | None = None
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        fence = MARKDOWN_FENCE.match(line)
+        if active_fence is not None:
+            if (
+                fence
+                and fence.group(1)[0] == active_fence[0]
+                and len(fence.group(1)) >= active_fence[1]
+                and not line[fence.end() :].strip()
+            ):
+                active_fence = None
+            continue
+        if fence and not (fence.group(1)[0] == "`" and "`" in line[fence.end() :]):
+            active_fence = (fence.group(1)[0], len(fence.group(1)))
+            continue
+        heading = MARKDOWN_HEADING.match(line)
+        heading_text = re.sub(r"[ \t]+#+[ \t]*$", "", heading.group(1)).strip() if heading else ""
+        if heading and heading_text.casefold() in ENGLISH_CONTROL_HEADINGS:
+            findings.append(
+                Finding(
+                    "english-control-heading",
+                    path.relative_to(root).as_posix(),
+                    f"{line_number} 行目の制御見出しを日本語で書いてください: {heading_text}",
+                )
+            )
+    return findings
+
+
 def check(root: Path) -> tuple[list[Path], list[Finding]]:
     root = root.resolve()
     skills = skill_paths(root)
@@ -150,6 +212,9 @@ def check(root: Path) -> tuple[list[Path], list[Finding]]:
     for path in sorted(set(markdown_files)):
         if path.is_file():
             findings.extend(validate_links(root, path))
+
+    for path in prompt_markdown_paths(skills):
+        findings.extend(validate_japanese_control_headings(root, path))
 
     return skills, sorted(findings, key=lambda item: (item.path, item.code, item.message))
 

@@ -1,24 +1,24 @@
 ---
 name: setup-engineering-flow
-description: リポジトリごとの engineering flow を初期設定する。issue tracker、PRD / Design Doc / ADR、temporary plan の配置、local markdown issue の採番、AGENTS.md / CLAUDE.md の参照 block を整える。task-breakdown の利用前、または create-plan の規則を継続運用として保存するときに user-invoked で実行する。通常の task 分解、plan 作成、実装、レビューでは使わない。
+description: リポジトリごとのエンジニアリングフローを初期設定する。issue tracker、PRD、Design Doc、ADR、一時的な計画の配置、ローカル Markdown issue の採番、AGENTS.md や CLAUDE.md の参照ブロックを整える。task-breakdown の利用前、または create-plan の規則を継続運用として保存するときに、ユーザーの明示指示で実行する。通常のタスク分解、計画作成、実装、レビューでは使わない。
 disable-model-invocation: true
 ---
 
-# Setup Engineering Flow
+# エンジニアリングフローの設定
 
-`task-breakdown` が前提にし、`create-plan` が任意の追加 context として使う repo-local 設定を作る。
-これは一度だけ実行する prompt-driven skill であり、deterministic script ではない。
+`task-breakdown` が前提にし、`create-plan` が任意の追加情報として使うリポジトリ固有の設定を作る。
+これは一度だけ実行する対話駆動の skill であり、決定的に動くスクリプトではない。
 
 ## 目的
 
-次を repo ごとの source of truth として記録する。
+次をリポジトリごとの source of truth として記録する。
 
-- issue tracker: GitHub Issue / local markdown / other
+- issue tracker：GitHub Issue、ローカル Markdown、その他
 - PRD / Design Doc / ADR の置き場所
-- temporary plan の置き場所
-- engineering flow: PRD / Design Doc / ADR? → task breakdown → issue → create plan → implementation → verification → simplify-code? → review → plan closeout
-- local markdown issue の採番規則
-- agent が読む `AGENTS.md` / `CLAUDE.md` の参照 block
+- 一時的な計画の置き場所
+- エンジニアリングフロー：PRD、Design Doc、ADR → タスク分解 → issue → 計画作成 → 実装 → 検証 → simplify-code → レビュー → 計画の完了処理
+- ローカル Markdown issue の採番規則
+- エージェントが読む `AGENTS.md` または `CLAUDE.md` の参照ブロック
 
 ## 原則
 
@@ -31,9 +31,9 @@ disable-model-invocation: true
 - 書き込み対象ファイルに未 commit の変更がある場合は、merge 方針を確認するまで書かない。
 - commit / push / APM pin / install は行わない。
 
-## Workflow
+## 手順
 
-### 1. Explore
+### 1. 現状を調査する
 
 現在の repo を調べる。
 
@@ -52,7 +52,7 @@ git status --short
 - GitHub remote の有無
 - 既存 issue / PRD / design doc らしいファイル
 
-### 2. Present findings
+### 2. 調査結果を示す
 
 存在するもの・存在しないものを短く報告する。
 次の判断を一つずつ確認する。
@@ -65,9 +65,9 @@ git status --short
 
 選択肢:
 
-- GitHub Issue: `gh` CLI で issue を作成・更新する
-- Local markdown: repo 内 markdown file として管理する
-- Other: Jira / Linear など。ユーザーの説明を prose で記録する
+- GitHub Issue：`gh` CLI で issue を作成または更新する
+- ローカル Markdown：リポジトリ内の Markdown ファイルとして管理する
+- その他：Jira や Linear など。ユーザーの説明を文章で記録する
 
 GitHub remote がある場合は GitHub を提案する。
 `docs/issues/` または `issues/` がある場合は local markdown も有力候補として示す。
@@ -87,19 +87,19 @@ docs/adr/
 
 ただし GitHub Issue / Discussion / Wiki / other location も許可する。
 
-#### C. Temporary plan location
+#### C. 一時的な計画の保存場所
 
-説明: plan は担当者が issue を取得した後に作る、一度も commit しない一時的な implementation design contract である。
+説明：計画は担当者が issue を取得した後に作る、一度も commit しない一時的な実装設計の契約である。
 デフォルト:
 
 ```text
 plans/
 ```
 
-plan directory は `.gitignore` に追加しない。
-既存の plan directory や project 規則がある場合は、それを使うか確認する。
+計画ディレクトリは `.gitignore` に追加しない。
+既存の計画ディレクトリやプロジェクト規則がある場合は、それを使うか確認する。
 
-#### D. Local markdown issue convention
+#### D. ローカル Markdown issue の規則
 
 local markdown を使う場合だけ確認する。
 デフォルト:
@@ -120,7 +120,7 @@ SEQUENCE=42 -> 次は 0043 -> 作成後 SEQUENCE=43
 
 #### E. AGENTS.md / CLAUDE.md update
 
-説明: repo-local rule を agent が毎回発見できるように、`AGENTS.md` または `CLAUDE.md` に参照 block を置く。
+説明：リポジトリ固有の規則をエージェントが毎回発見できるように、`AGENTS.md` または `CLAUDE.md` に参照ブロックを置く。
 
 選択規則:
 
@@ -128,7 +128,7 @@ SEQUENCE=42 -> 次は 0043 -> 作成後 SEQUENCE=43
 - なければ `AGENTS.md` を更新する
 - 両方なければ、どちらを作るか質問する
 
-### 3. Draft files
+### 3. ファイルの草案を作る
 
 書き込む前に、次の draft を提示してユーザーの確認を得る。
 
@@ -146,7 +146,7 @@ seed として assets を読む。
 
 選択していない tracker の asset は読まない。不要な SEQUENCE 規則や tracker prose を混入させない。
 
-### 4. Write
+### 4. ファイルを保存する
 
 確認後に以下を書く。
 
@@ -170,19 +170,19 @@ docs/issues/closed/
 
 ```md
 <!-- BEGIN engineering-flow -->
-## Engineering flow
+## エンジニアリングフロー
 
-This repository uses repo-local engineering flow settings.
+このリポジトリでは、リポジトリ固有のエンジニアリングフロー設定を使用する。
 
-- Flow rules: `docs/agents/engineering-flow.md`
-- Issue tracker: `docs/agents/issue-tracker.md`
-- Domain and design docs: `docs/agents/domain.md`
+- フロー規則：`docs/agents/engineering-flow.md`
+- Issue tracker：`docs/agents/issue-tracker.md`
+- ドメイン文書と設計文書：`docs/agents/domain.md`
 
-After taking a task, create a temporary implementation plan according to the flow. Never commit the plan file; preserve its contents in the designated commit message and delete the file after implementation review.
+タスクを取得したら、このフローに従って一時的な実装計画を作成する。計画ファイルは commit せず、内容を指定された commit message に保存し、実装レビュー後に削除する。
 <!-- END engineering-flow -->
 ```
 
-### 5. Done
+### 5. 完了を報告する
 
 完了報告には次を含める。
 

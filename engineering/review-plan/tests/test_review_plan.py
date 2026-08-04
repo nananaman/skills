@@ -11,10 +11,10 @@ class ReviewPlanContractTests(unittest.TestCase):
         skill = SKILL.read_text()
 
         # Assert: reviewer quality and cost are selected by capability, not a fixed model ID.
-        self.assertIn("安価側model", skill)
-        self.assertIn("reasoning / thinkingは`high`", skill)
-        self.assertIn("model名は固定しない", skill)
-        self.assertIn("既定model", skill)
+        self.assertIn("安価な側のモデル", skill)
+        self.assertIn("推論強度は`high`", skill)
+        self.assertIn("モデル名は固定しない", skill)
+        self.assertIn("既定モデル", skill)
 
 
 if __name__ == "__main__":

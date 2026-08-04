@@ -1,136 +1,136 @@
-# Skill Review Protocol
+# Skill のレビュー手順
 
-この reference は Review diff / Review whole branch で読む。
-レビューは変更または対象 skill が持つ contract を特定し、その risk に必要な check だけを選ぶ。
-静的読解だけでは実行時のズレを判断できない場合は、fresh agent / subagent の smoke check を使う。
+この補助文書は差分レビューまたは全体レビューの分岐で読む。
+レビューは変更または対象 skill が持つ契約を特定し、そのリスクに必要な検査だけを選ぶ。
+静的読解だけでは実行時のずれを判断できない場合は、変更担当の会話履歴を継承しない agent または subagent による動作確認を使う。
 
-## Contract Map
+## 契約の整理
 
-最初に対象から次の contract を地図化する。
+最初に対象から次の契約を整理する。
 
-- outcome: skill が作るユーザー可視の到達状態。
-- routing: positive / negative trigger、branch selection。
-- authority / safety: 自律実行と確認が必要な action の境界。
-- evidence: 判断と action の前提。
-- completion / output: 終了状態と報告内容。
-- context interface: `SKILL.md`、references、assets、scripts、外部 reference の読み分け。
+- 成果: skill が作るユーザー可視の到達状態。
+- 振り分け: 起動する条件、起動しない条件、分岐の選択。
+- 権限と安全: 自律実行と確認が必要な操作の境界。
+- 根拠: 判断と操作の前提。
+- 完了条件と出力: 終了状態と報告内容。
+- 前提情報のインターフェース: `SKILL.md`、補助文書、素材、スクリプト、外部の参照物の読み分け。
 
-Review diff では変更された contract と preservation set の交差だけを詳しく見る。
-Review whole では contract map 全体を見る。
+差分レビューでは変更された契約と維持対象の交差だけを詳しく見る。
+全体レビューでは契約全体を見る。
 
-## Review Rubric
+## レビュー基準
 
 対象に関係する軸だけを選び、選択理由を報告する。
 
-| Axis | 見る contract |
+| 評価軸 | 確認する契約 |
 | --- | --- |
-| metadata / routing | name、directory、description、positive / negative trigger、branch 対応 |
-| outcome / completion | outcome、branch-level completion、必須 output、残 finding の扱い |
-| authority / safety | permission gate、destructive / external / costly action、scope expansion |
-| evidence / failure | prerequisite、判断根拠、情報不足時の fallback |
-| context interface | progressive disclosure、single source of truth、rich reference、tool / script interface |
+| メタデータと振り分け | name、ディレクトリ、description、起動する条件、起動しない条件、分岐の対応 |
+| 成果と完了条件 | 成果、分岐ごとの完了条件、必須の出力、残った指摘の扱い |
+| 権限と安全 | 許可の確認、破壊的、外部への作用、高コストな操作、対象範囲の拡大 |
+| 根拠と失敗 | 前提条件、判断根拠、情報不足時の代替手段 |
+| 前提情報のインターフェース | 必要時にだけ詳細を読む構造、正本、高忠実度な参照物、ツールとスクリプトのインターフェース |
 | constraint quality | domain 固有の invariant と不要な探索手順の区別、矛盾、overconstraint |
-| deterministic resources | schema / asset / script / test に移すべき反復処理 |
-| pruning | no-op、重複、古い前提、周辺 context から明白な説明 |
+| 決定的に扱える資源 | schema、素材、スクリプト、テストに移すべき反復処理 |
+| 削減 | 挙動を変えない指示、重複、古い前提、周辺の前提情報から明白な説明 |
 
 すべての軸を機械的に埋めない。
-ただし routing、authority / safety、branch-level completion は変更されていないことを preservation set で確認する。
+ただし、振り分け、権限と安全、分岐ごとの完了条件が変わっていないことを維持対象で確認する。
 
-## Static Contract Check
+## 契約の静的検査
 
 すべての review で必須。
 
 - dirty worktree では tracked diff と untracked の skill resources を確認する。
-- contract map と変更内容から relevant axes を選ぶ。
-- routing、branch-level completion、authority / safety の preservation を確認する。
-- routing を変更した場合は、存在する agent metadata（例: `agents/openai.yaml`）と root / category README の導線が、description、positive / negative trigger、default prompt と意味的に一致するか確認する。
-- rule の列挙より既存 code、test、schema、tool interface のほうが高い忠実度で表せないか確認する。
-- scope gap や矛盾があれば、smoke check より先に修正候補とする。
+- 契約の整理と変更内容から関係する評価軸を選ぶ。
+- 振り分け、分岐ごとの完了条件、権限と安全が維持されていることを確認する。
+- 振り分けを変更した場合は、存在する agent のメタデータ（例: `agents/openai.yaml`）とルートおよび分類ごとの README の導線が、description、起動する条件、起動しない条件、既定の依頼文と意味的に一致するか確認する。
+- 規則の列挙より既存コード、テスト、schema、ツールのインターフェースのほうが高い忠実度で表せないか確認する。
+- 対象範囲の不足や矛盾があれば、動作確認より先に修正候補とする。
 
-## Smoke Check
+## 動作確認
 
-fresh agent / subagent に自然な入力と必要最小限の状況を渡し、どの `SKILL.md` を読んでどう実行したかを観測する。
+変更担当の会話履歴を継承しない agent または subagent に自然な入力と必要最小限の状況を渡し、どの `SKILL.md` を読んでどう実行したかを観測する。
 作者や同じ reviewer の mental walkthrough で代替しない。
 
-### Selection
+### 確認方法の選択
 
-| Change / risk | Smoke |
+| 変更またはリスク | 確認方法 |
 | --- | --- |
-| routing、description、branch selection | Discovery。harness-real に実行できる場合 |
-| authority / safety、主要 workflow、branch completion | Execution |
-| reference 構造、output contract、判断 rubric | Static で不十分なら Execution |
+| 振り分け、description、分岐の選択 | Discovery。実際の検証環境で実行できる場合 |
+| 権限と安全、主要手順、分岐の完了条件 | Execution |
+| 補助文書の構造、出力契約、判断基準 | Static で不十分なら Execution |
 | 外部 CLI、生成、Git、install、build、API に依存 | Runtime |
 | typo、formatting、リンク、一覧だけ | 不要。Skip |
 
 新規 skill と大幅変更では Execution smoke を行う。
-それ以外は Static Contract Check で未解決の risk がある場合に行う。
+それ以外は契約の静的検査で未解決のリスクがある場合に行う。
 
-### Execution Smoke
+### 実行時の確認
 
 対象 skill が選択済みであることを前提に、自然な依頼と repo / task 状況で本文どおり実行できるかを見る。
 
-- expected は skill 名や内部手順ではなく、外部観測可能な outcome、gate、evidence で書く。
-- 共通 contract の適用範囲を広げた場合は、各 branch と新旧の主要利用形態の組み合わせを候補にし、branch reference に古い無条件の前提が残っていないか確認する。risk に影響しない組み合わせは省いてよい。
+- 期待する結果は skill 名や内部手順ではなく、外部から観測可能な成果、確認条件、根拠で書く。
+- 共通契約の適用範囲を広げた場合は、各分岐と新旧の主要利用形態の組み合わせを候補にし、分岐の補助文書に古い無条件の前提が残っていないか確認する。リスクに影響しない組み合わせは省いてよい。
 - subagent を使えない場合は、理由と観測限界を報告し、実行済みとは言わない。
 
-### Discovery Smoke
+### 発見可能性の確認
 
-model-invoked skill の description / trigger を評価するときに実施する。
-対象 skill 名や path を渡さず、harness が実際に discovery する環境で fresh subagent を起動し、対象 `SKILL.md` が読まれるかを見る。
+自動起動する skill の description と起動条件を評価するときに実施する。
+対象 skill 名やパスを渡さず、検証環境が実際に skill を発見する環境で新しい subagent を起動し、対象 `SKILL.md` が読まれるかを見る。
 
-- positive case 1 件以上、negative near-miss 1 件以上を用意する。
+- 起動すべき例を一件以上、起動すべきでない紛らわしい例を一件以上用意する。
 - Execution smoke が pass しても Discovery smoke の代替にはしない。
 - harness-real な Discovery smoke を用意できない場合は未検証として報告する。
 
-### Runtime Smoke
+### 実環境での確認
 
-skill の期待動作が外部 CLI、ファイル生成、Git 操作、sandbox / temp repo、install、build、test、lint、API call に依存する場合に実行する。
+skill の期待動作が外部 CLI、ファイル生成、Git 操作、sandbox、一時リポジトリ、install、build、test、lint、API 呼び出しに依存する場合に実行する。
 
-- 一時 repo / sandbox を使い、global / user environment を明示許可なしに変更しない。
-- 実行した command、diff、生成ファイル、触った scope、結果を報告する。
+- 一時リポジトリまたは sandbox を使い、グローバル環境やユーザー環境を明示許可なしに変更しない。
+- 実行したコマンド、差分、生成ファイル、触った対象範囲、結果を報告する。
 - 必要だが実行できない場合は、理由と残リスクを明示する。
 
-## Check Interface
+## 確認結果の形式
 
 ```md
-## Evaluation
-- Scope: <diff / whole と対象>
-- Contract map: <変更・評価した contract>
-- Relevant axes: <選んだ軸と理由>
-- Static contract check: <結果>
-- Smoke checks: <実施 / 不要 / 実施不能と理由>
-- Accepted findings: <件数と要約>
-- Rejected findings: <件数と理由>
-- Residual risk: <未検証事項>
+## 評価
+- 対象範囲: <差分 / 全体と対象>
+- 契約: <変更または評価した契約>
+- 評価軸: <選んだ軸と理由>
+- 契約の静的検査: <結果>
+- 動作確認: <実施 / 不要 / 実施不能と理由>
+- 採用した指摘: <件数と概要>
+- 採用しなかった指摘: <件数と理由>
+- 残るリスク: <未検証事項>
 
-## Smoke checks
-| Case | Input | Expected | Actual | Result | Evidence | Finding |
+## 動作確認
+| 評価例 | 入力 | 期待する結果 | 実際の結果 | 判定 | 根拠 | 指摘 |
 | --- | --- | --- | --- | --- | --- | --- |
 
-## Findings
-### [severity] title
-- Target: <path:line>
-- Contract: <contract map の項目>
-- Problem: <想定される誤作動または保守上の破れ>
-- Evidence: <本文、diff、または smoke の根拠>
-- Suggested fix: <最小修正>
-- Verification: <修正後に確認する evidence>
+## 指摘
+### [重大度] 題名
+- 対象: <パス:行>
+- 契約: <契約の整理にある項目>
+- 問題: <想定される誤作動または保守上の破れ>
+- 根拠: <本文、差分、または動作確認の根拠>
+- 修正案: <最小修正>
+- 検証方法: <修正後に確認する根拠>
 ```
 
-Skip の場合は、対象 diff、実行契約に影響しない理由、residual risk だけを報告する。
+省略する場合は、対象差分、実行契約に影響しない理由、残るリスクだけを報告する。
 
-## Interpretation Rules
+## 結果の解釈
 
-- smoke failure は Expected と Actual の差分として扱う。
+- 動作確認の失敗は、期待する結果と実際の結果の差分として扱う。
 - subagent の「skill を使った」という自己申告だけを根拠にしない。
-- verbose log、read files、tool calls、commands、generated diff、final output を確認できる範囲で evidence にする。
-- harness や tool 制約による failure を skill 本文の finding と混同しない。
-- 2 回以上同じ pattern で失敗する場合は、文言パッチではなく構造分割や workflow 再設計を検討する。
-- checklist completion ではなく、outcome、gate、evidence が満たされたかで判定する。
+- 詳細ログ、読んだファイル、ツール呼び出し、コマンド、生成された差分、最終出力を確認できる範囲で根拠にする。
+- 検証環境やツールの制約による失敗を skill 本文の指摘と混同しない。
+- 2 回以上同じパターンで失敗する場合は、文言の修正ではなく構造分割や手順の再設計を検討する。
+- 確認項目の消化ではなく、成果、確認条件、根拠が満たされたかで判定する。
 
-## Finding Rules
+## 指摘の採用基準
 
-- high-confidence かつ action 可能な finding だけ accepted にする。
-- target、contract、problem、evidence、suggested fix、verification を持たせる。
+- 確信度が高く、対応可能な指摘だけを採用する。
+- 対象、契約、問題、根拠、修正案、検証方法を持たせる。
 - smoke case の critical expected を落とす問題は high severity として扱う。
-- speculative risk、cosmetic nit、好み、過剰な rewrite は rejected にする。
+- 推測上のリスク、表面上の軽微な問題、好み、過剰な書き直しは採用しない。

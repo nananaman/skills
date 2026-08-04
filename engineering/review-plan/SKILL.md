@@ -1,64 +1,64 @@
 ---
 name: review-plan
-description: 作成済みの一時実装planを、要求とrepository contextに照らして独立評価し、検討漏れ、誤った前提、検証不足、不要な複雑性のfinding ledgerと実装ready判定を返す。create-planの完了gate、実装着手前のplan review、別context reviewで使う。plan作成、対話によるgrilling、永続Design Docのpolish、実装済みdiff review、planの直接修正だけの依頼では使わない。
+description: 作成済みの一時実装計画を、要求とリポジトリの前提情報に照らして独立評価し、検討漏れ、誤った前提、検証不足、不要な複雑性に関する指摘の採否台帳と、実装可能かどうかの判定を返す。create-plan の完了判定、実装着手前の計画レビュー、会話履歴を継承しない独立した文脈によるレビューで使う。計画作成、対話による grilling、永続 Design Doc の仕上げ、実装済み差分のレビュー、計画の直接修正だけの依頼では使わない。
 ---
 
-# Review Plan
+# 実装計画のレビュー
 
-作成済みの一時実装planが、追加の設計判断なしに実装でき、目的に対して必要以上に複雑でないかを独立評価する。
-このskillはfindingを報告して終了し、planを変更しない。
+作成済みの一時実装計画が、追加の設計判断なしに実装でき、目的に対して必要以上に複雑でないかを独立評価する。
+この skill は指摘を報告して終了し、計画を変更しない。
 
-## Review contract
+## レビューの契約
 
-- 対象は実装着手前のplanとする。要求、上流文書、関連code・test・設定を根拠に使う。
-- lead agentはfresh reviewerを2人、可能なら並列に起動する。
-- 実行環境がmodel overrideを提供する場合は、reviewに十分な能力を持つ安価側modelを選び、reasoning / thinkingは`high`にする。model名は固定しない。適合するoverrideがない場合は既定modelを使い、review自体を失敗させない。
-- reviewerにはplan作成者のreasoning、自己評価、他reviewerのfindingを渡さない。
-- Feasibility reviewerは[`assets/feasibility-reviewer.md`](./assets/feasibility-reviewer.md)を使い、目的達成、前提、変更境界、実装判断、検証の不足を評価する。
-- Simplicity reviewerは[`assets/simplicity-reviewer.md`](./assets/simplicity-reviewer.md)を使い、既存機構で代替できる抽象化、将来要件の先取り、scope拡大、リスクに釣り合わない複雑性を評価する。
-- reviewerはrepositoryを直接調査し、planの記述だけから一般論を生成しない。
-- reviewerの出力はcandidate findingとする。lead agentがplan、要求、repositoryの事実で検証し、accepted / rejectedを決める。多数決では決めない。
-- fresh reviewerを利用できない場合、同じcontextの自己reviewで代替せず`partial_failure`または`failed`として未評価範囲を残す。
+- 対象は実装着手前の計画とする。要求、上流文書、関連コード、テスト、設定を根拠に使う。
+- 統括エージェントは、会話履歴を継承しない独立した文脈を持つレビュー担当を2人、可能なら並列に起動する。
+- 実行環境がモデルの上書きを提供する場合は、レビューに十分な能力を持つ安価な側のモデルを選び、推論強度は`high`にする。モデル名は固定しない。適合する上書きがない場合は既定モデルを使い、レビュー自体を失敗させない。
+- レビュー担当には計画作成者の推論、自己評価、他のレビュー担当の指摘を渡さない。
+- 実現性のレビュー担当は[`assets/feasibility-reviewer.md`](./assets/feasibility-reviewer.md)を使い、目的達成、前提、変更境界、実装判断、検証の不足を評価する。
+- 簡潔性のレビュー担当は[`assets/simplicity-reviewer.md`](./assets/simplicity-reviewer.md)を使い、既存機構で代替できる抽象化、将来要件の先取り、対象範囲の拡大、リスクに釣り合わない複雑性を評価する。
+- レビュー担当はリポジトリを直接調査し、計画の記述だけから一般論を生成しない。
+- レビュー担当の出力は指摘候補とする。統括エージェントが計画、要求、リポジトリの事実で検証し、採用または棄却を決める。多数決では決めない。
+- 会話履歴を継承しない独立したレビュー担当を利用できない場合、同じ会話履歴による自己レビューで代替せず、`partial_failure`または`failed`として未評価範囲を残す。
 
-## Finding judgment
+## 指摘の判定
 
-Accepted:
+採用：
 
-- planのまま実装すると、目的未達、具体的な手戻り、contract break、検証不能、または不釣り合いな複雑性を生む。
-- 要求、plan、上流文書、関連code・test・設定から根拠を確認できる。
-- triggerまたは不足条件、影響、planに必要な最小変更を説明できる。
+- 計画のまま実装すると、目的未達、具体的な手戻り、契約違反、検証不能、または不釣り合いな複雑性を生む。
+- 要求、計画、上流文書、関連コード、テスト、設定から根拠を確認できる。
+- 発生条件または不足条件、影響、計画に必要な最小変更を説明できる。
 
-Rejected:
+棄却：
 
-- repositoryを確認していない一般論、可能性の列挙、好みだけの別案。
-- 実装時に安全に判断でき、planへ固定する必要がない局所的な手順。
-- 要求にない将来拡張、broad rewrite、unrelated cleanup。
-- 複雑性低減を主張しながら、目的や既存contractを満たさなくなる提案。
+- リポジトリを確認していない一般論、可能性の列挙、好みだけの別案。
+- 実装時に安全に判断でき、計画へ固定する必要がない局所的な手順。
+- 要求にない将来拡張、広範な書き直し、無関係な整理。
+- 複雑性低減を主張しながら、目的や既存契約を満たさなくなる提案。
 
-accepted findingは次のactionに分類する。
+採用した指摘は次の対応に分類する。
 
-- `revise`: 既存の要求とrepository contextからplanを一意に直せる。
-- `decision`: ユーザー判断または上流の設計判断が必要。
-- `investigate`: 安全な追加調査やproofがなければ採否または修正内容を決められない。
+- `revise`：既存の要求とリポジトリの前提情報から計画を一意に直せる。
+- `decision`：ユーザー判断または上流の設計判断が必要。
+- `investigate`：安全な追加調査や証拠がなければ採否または修正内容を決められない。
 
-severityは、未解決のまま実装を開始できない`blocker`と、残リスクとして明示すれば開始できる`advisory`だけを使う。
+重大度は、未解決のまま実装を開始できない`blocker`と、残リスクとして明示すれば開始できる`advisory`だけを使う。
 
-## Completion
+## 完了条件
 
 次のいずれかで終了する。
 
-- `ready`: 両reviewerが成功し、accepted `blocker`が0。
-- `findings`: 両reviewerが成功し、accepted `blocker`が1件以上。
-- `partial_failure`: 一方だけ成功した。`ready`とは表現しない。
-- `failed`: plan、要求、repository、またはfresh reviewerを確保できず評価不能。
+- `ready`：両方のレビュー担当が成功し、採用した`blocker`が0件。
+- `findings`：両方のレビュー担当が成功し、採用した`blocker`が1件以上。
+- `partial_failure`：一方だけ成功した。`ready`とは表現しない。
+- `failed`：計画、要求、リポジトリ、または会話履歴を継承しない独立したレビュー担当を確保できず評価不能。
 
 報告には次を含める。
 
-- review targetと参照した要求・上流文書。
-- reviewerごとのstatusと調査範囲。
-- candidate ID、raised by、accepted / rejectedと理由。
-- accepted findingのseverity、action、evidence、影響、最小plan変更。
-- completion status、未評価範囲、実装ready判定。
+- レビュー対象と参照した要求、上流文書。
+- レビュー担当ごとの状態と調査範囲。
+- 指摘候補の ID、指摘した担当、採用または棄却とその理由。
+- 採用した指摘の重大度、対応、根拠、影響、計画への最小変更。
+- 完了状態、未評価範囲、実装可能かどうかの判定。
 
 `advisory`だけが残る場合は`ready`にできるが、残リスクを明示する。
-plan修正後の再reviewは新しいreviewとして実行し、過去findingをreviewerへ渡さない。
+計画修正後の再レビューは新しいレビューとして実行し、過去の指摘をレビュー担当へ渡さない。

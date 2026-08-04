@@ -17,7 +17,7 @@ export EVENTBUS_API="https://secure.sakura.ad.jp/cloud/zone/${ZONE}/api/cloud/1.
 | スケジュール | `eventbusschedule` |
 | トリガー | `eventbustrigger` |
 
-## 実行設定: ProcessConfiguration
+## 実行設定（ProcessConfiguration）
 
 SimpleMQ へ送る例。
 
@@ -40,7 +40,7 @@ curl -X POST \
 
 シンプル通知へ送る場合は `Destination` を `simplenotification` にし、`Parameters` に通知先グループ ID とメッセージを入れる。
 
-## スケジュール: Schedule
+## スケジュール（Schedule）
 
 ```bash
 curl -X POST \
@@ -77,7 +77,7 @@ curl -X POST \
 
 `RecurringUnit` は `minutes` / `hours` / `days` を使う。
 
-## トリガー: Trigger
+## トリガー（Trigger）
 
 サーバ作成イベントを拾う例。
 

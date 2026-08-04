@@ -1,8 +1,8 @@
-# Review Protocol
+# レビュー手順
 
 `review-diff-code`を実行するときだけ読む。
 
-## Reviewer roster
+## レビュー担当の編成
 
 helperの`prepare`で固定されたGit targetをleadが予備調査し、主要failure domainを所有する動的reviewerを1〜2人選ぶ。
 helperが固定Adversarialを追加するため、`reviewers`へAdversarialを書かない。
@@ -36,10 +36,10 @@ helperが固定Adversarialを追加するため、`reviewers`へAdversarialを�
 helperはAdversarialのGit commandと変更path inventoryの両方からこれらを除外し、reviewerもこれらを読まない。
 これはcontext-level isolationであり、filesystem access controlではない。
 
-## Run
+## 実行手順
 
 1. ユーザー指定のmode / base / commitを優先する。
-   dirty worktreeは`local`、単一commitは`commit`、それ以外はPRの実baseまたは`origin/main`に対する`branch`を使う。
+   変更のある作業ツリーは`local`、単一 commit は`commit`、それ以外は PR の実際の基点または`origin/main`に対する`branch`を使う。
 2. helperの`prepare`を実行する。
    helperはbranchのbase/head、commit、またはlocalのHEADをfull commit IDへ固定し、変更pathとrepository stateを保存する。
 3. leadは返された固定targetに対してdiff stat、changed-file inventory、必要なdiffと周辺codeを予備調査し、rosterを作る。
@@ -53,7 +53,7 @@ helperはAdversarialのGit commandと変更path inventoryの両方からこれ�
 6. `collect`を実行する。
    `partial_failure`では成功reviewerのfindingを使えるが、clean判定は禁止する。
    `failed`または`repository_drift`ではreview不能として停止する。
-7. candidate findingをevidenceで検証し、accepted / rejectedを決める。
+7. 指摘候補を根拠で検証し、採用または棄却を決める。
 8. 成否にかかわらず`cleanup`を実行し、leadが作成したroster一時fileも削除してledgerを報告する。
 
 ```bash
@@ -67,7 +67,7 @@ helper=~/.agents/skills/review-diff-code/scripts/review-diff-code.py
 helper responseのpathを推測や書き換えなしで後続taskへ渡す。
 helperのlifecycle errorはstderrのJSON `error.code`で判断する。
 
-## Reviewer evidence
+## レビューの根拠
 
 reviewerは最初に固定targetのdiff statとchanged-file inventoryを確認し、自分の専門性に必要なdiff、周辺code、test、型、schema、Git履歴を調査する。
 変更path inventoryはcontrol characterをescapeしたJSONとして扱う。

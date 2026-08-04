@@ -41,6 +41,60 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def test_validate_output_accepts_japanese_findings_heading(self) -> None:
+        # Arrange: reviewer output follows the documented Japanese heading contract.
+        output = """## 指摘
+### [high] 公開契約が壊れる
+- 対象: example.py:1
+- 問題: 呼び出し元が失敗する
+- 根拠: example.py:1
+- 修正案: 互換性を維持する
+"""
+
+        # Act
+        result = load_helper_module().validate_output(output)
+
+        # Assert
+        self.assertEqual(result, "success")
+
+    def test_validate_output_accepts_legacy_english_finding_format(self) -> None:
+        # Arrange: an existing reviewer result uses the former English contract.
+        output = """## Findings
+### [high] Public contract breaks
+- Target: example.py:1
+- Problem: callers fail
+- Evidence: example.py:1
+- Suggested fix: preserve compatibility
+"""
+
+        # Act
+        result = load_helper_module().validate_output(output)
+
+        # Assert
+        self.assertEqual(result, "success")
+
+    def test_validate_output_accepts_legacy_english_finding_without_section_heading(self) -> None:
+        # Arrange: legacy output starts directly with the first finding.
+        output = """### [high] Public contract breaks
+- Target: example.py:1
+- Problem: callers fail
+- Evidence: example.py:1
+- Suggested fix: preserve compatibility
+"""
+
+        # Act
+        result = load_helper_module().validate_output(output)
+
+        # Assert
+        self.assertEqual(result, "success")
+
+    def test_validate_output_accepts_japanese_no_findings_marker(self) -> None:
+        # Arrange & Act: a reviewer emits the current Japanese no-findings marker.
+        result = load_helper_module().validate_output("対応が必要な指摘はありません。\n")
+
+        # Assert
+        self.assertEqual(result, "success")
+
     def _git(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["git", "-C", str(self.repo), *args],
@@ -223,7 +277,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         manifest = json.loads((Path(prepared["run_dir"]) / "manifest.json").read_text())
         self.assertIn(f"git -C {manifest['repo']}", contract_prompt)
         self.assertIn("example.txt", contract_prompt)
-        self.assertIn("read-only", contract_prompt)
+        self.assertIn("読み取り専用", contract_prompt)
         self.assertNotIn("+second", contract_prompt)
 
     def test_route_keeps_adversarial_blind_to_selection_and_context_paths(self) -> None:
@@ -247,9 +301,9 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         adversarial = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
         self.assertIn("plans/", adversarial)
         self.assertIn("docs/design/", adversarial)
-        self.assertIn("Do not inspect", adversarial)
+        self.assertIn("調査してはならない", adversarial)
         self.assertIn(":(top,literal,exclude)plans", adversarial)
-        self.assertNotIn('"plans/', adversarial.split("変更path:", 1)[1].split("```", 2)[1])
+        self.assertNotIn('"plans/', adversarial.split("変更パス：", 1)[1].split("```", 2)[1])
         self.assertNotIn("公開CLIの引数contract", adversarial)
         self.assertNotIn("公開APIの変更を含むため", adversarial)
 
@@ -293,7 +347,7 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertNotIn("DIRECTORY_SECRET", command_result.stdout)
         self.assertNotIn("GLOB_SECRET", command_result.stdout)
         self.assertNotIn("CONTROL_SECRET", command_result.stdout)
-        inventory = prompt.split("変更path:\n```json\n", 1)[1].split("\n```", 1)[0]
+        inventory = prompt.split("変更パス：\n```json\n", 1)[1].split("\n```", 1)[0]
         self.assertNotIn("plans", inventory)
         self.assertNotIn("literal[1].md", inventory)
         self.assertNotIn(r"line\nbreak.md", inventory)
@@ -386,17 +440,17 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         prompt = Path(routed["reviewers"]["adversarial"]["prompt_file"]).read_text()
         self.assertIn(f"diff --find-renames {prepared['target']['head']}", prompt)
         self.assertIn(f"diff --cached --find-renames {prepared['target']['head']}", prompt)
-        self.assertIn("untracked symbolic link", prompt)
+        self.assertIn("未追跡のシンボリックリンク", prompt)
         self.assertIn("lstat", prompt)
         self.assertIn("readlink", prompt)
-        self.assertIn("dereference", prompt)
+        self.assertIn("参照先をたどったり", prompt)
         dynamic = Path(
             routed["reviewers"]["contract-compatibility"]["prompt_file"]
         ).read_text()
-        self.assertIn("untracked symbolic link", dynamic)
+        self.assertIn("未追跡のシンボリックリンク", dynamic)
         self.assertIn("lstat", dynamic)
         self.assertIn("readlink", dynamic)
-        self.assertIn("dereference", dynamic)
+        self.assertIn("参照先をたどったり", dynamic)
 
     def test_manifest_target_rejects_shell_injection_before_prompt_render(self) -> None:
         prepared = self._prepare("--mode", "branch", "--base", "HEAD~1")

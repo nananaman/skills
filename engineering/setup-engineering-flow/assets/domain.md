@@ -1,14 +1,14 @@
-# Domain and Design Docs
+# ドメイン文書と Design Doc
 
 ## デフォルト配置
 
-PRD:
+PRD：
 
 ```text
 docs/prd/
 ```
 
-Design Doc:
+Design Doc：
 
 ```text
 docs/design/

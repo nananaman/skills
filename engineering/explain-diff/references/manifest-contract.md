@@ -1,4 +1,4 @@
-# Manifest Contract
+# マニフェストの契約
 
 snapshot の全 hunk を、変更を理解するための因果順に並べた group へまとめ、次の JSON として保存する。
 
@@ -31,7 +31,7 @@ snapshot の全 hunk を、変更を理解するための因果順に並べた g
 }
 ```
 
-## Change story
+## 変更の経緯
 
 説明は file 一覧や実装要素の分類ではなく、読み手が次の問いへ順番に答えられる物語にする。
 
@@ -48,7 +48,7 @@ group の配列順はそのまま表示順になる。
 公開 contract → 実装 → 検証のような固定順に当てはめず、読み手の疑問が「それは何によって成り立つか」と進む順序を選ぶ。
 リスクや file 数による自動並べ替えは行わない。
 
-## Group explanation
+## グループの説明
 
 - `title` は file 名や作業種別ではなく、到達状態への役割を書く。
 - `before` と `after` は対比できる同じ粒度で書く。新規追加なら `before` に「存在しなかった」だけでなく、何が不可能だったかを書く。
@@ -58,7 +58,7 @@ group の配列順はそのまま表示順になる。
 
 実装意図がない、変更理由を対応付けられない、または一つの hunk に無関係な目的が混ざる場合は、推測で埋めず report 生成を停止する。
 
-## Grouping
+## グループ化
 
 - 全 hunk ID をちょうど一度だけ使う。
 - group は一つ以上の hunk を持つ。
@@ -69,7 +69,7 @@ group の配列順はそのまま表示順になる。
 
 CLI は未割当、重複割当、snapshot にない ID、空 group、重複 group ID を拒否する。
 
-## Diagrams
+## 図
 
 `diagrams` は任意。
 変更後の architecture、component 境界、処理 flow、data flow、状態遷移を文章より短く正確に示せる場合だけ Mermaid で追加する。
@@ -89,7 +89,7 @@ Mermaid 11.16.0 を report へ同梱し、`securityLevel: strict`、HTML label �
 変更対象 file 一覧は diagram とは別に、snapshot から report が常に生成する。
 manifest へ file 一覧を重複して記述しない。
 
-## Glossary
+## 用語集
 
 `glossary` は任意。
 repository 固有の名称、新しく導入した概念、略語、一般語と意味が異なる内部用語を、この変更で何を指すかが分かる形で定義する。

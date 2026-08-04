@@ -19,7 +19,7 @@ description: さくらのウェブアクセラレータ（CDN）のサイト追�
 - HTTPS 方針
   - Let's Encrypt 自動証明書
   - 持ち込み証明書
-  - HTTP のみ / HTTPS redirect
+  - HTTP のみ、または HTTPS への転送
 - キャッシュ削除が必要か
 - オリジンガードを使うか
 
@@ -31,13 +31,13 @@ description: さくらのウェブアクセラレータ（CDN）のサイト追�
 
 ## 安全ゲート
 
-- サイト作成・有効化・無効化・キャッシュ削除・証明書変更の前に、対象 site ID / domain、操作内容、影響範囲をユーザーに提示する。
+- サイト作成、有効化、無効化、キャッシュ削除、証明書変更の前に、対象のサイト ID とドメイン、操作内容、影響範囲をユーザーに提示する。
 - ユーザーの明示承認があるまで、`POST` / `PUT` / `DELETE` は実行しない。
 - 全件キャッシュ削除やサイト無効化は特に影響が大きいため、URL 範囲または対象サイトを再確認する。
 
 ## API の基本
 
-WebAccel API は `is1a` endpoint を使う。
+WebAccel API は `is1a` のエンドポイントを使う。
 
 ```bash
 export WEBACCEL_API="https://secure.sakura.ad.jp/cloud/zone/is1a/api/webaccel/1.0"
@@ -47,11 +47,11 @@ curl -u "$SAKURACLOUD_ACCESS_TOKEN:$SAKURACLOUD_ACCESS_TOKEN_SECRET" \
   "$WEBACCEL_API/site"
 ```
 
-認証情報の取得方法は各プロジェクトの secrets 運用に従う。この skill には特定プロジェクトの vault 名や item 名を置かない。
+認証情報の取得方法は各プロジェクトの機密情報の運用に従う。この skill には特定プロジェクトの保管庫名や項目名を置かない。
 
 ## よくある落とし穴
 
-- WebAccel API は zone を常に `is1a` にする。他 zone の endpoint ではない。
+- WebAccel API はゾーンを常に `is1a` にする。他のゾーンのエンドポイントではない。
 - URL 単位のキャッシュ削除は一度に 100 件まで、1 時間あたり 500 件まで。
 - 独自ドメインでは CNAME と A レコードは共存できない。
 - オリジンガードのトークン更新時は、移行中だけ現行・次期トークンを両方許可する。

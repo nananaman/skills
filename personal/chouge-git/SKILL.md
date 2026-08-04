@@ -1,6 +1,6 @@
 ---
 name: chouge-git
-description: Git 操作、commit、branch、push、PR を扱うときに、明文化された project 規則を優先しつつ chouge 個人の Git/GitHub 運用規約を適用する。
+description: Git 操作、commit、ブランチ、push、PR を扱うときに、明文化されたプロジェクト規則を優先しつつ chouge 個人の Git/GitHub 運用規約を適用する。
 ---
 
 # Chouge Git
@@ -18,9 +18,9 @@ Git / GitHub 運用に関する指示が複数ある場合は、次の順で優�
 
 明文化された project 規則とこの skill が矛盾する場合は、project 規則を優先する。
 ただし、PR の ready 作成は Pull Request 節の安全規則を優先し、project 規則だけでは ready PR にしない。
-明文化された規則がない場合は、既存 commit、branch 名、PR title から暗黙の慣習を推測して従う必要はない。
+明文化された規則がない場合は、既存 commit、ブランチ名、PR の題名から暗黙の慣習を推測して従う必要はない。
 
-## Project Rules
+## プロジェクト規則
 
 Git / GitHub 運用に関しては、対象 project に明文化された規則をこの skill より優先する。
 ただし、PR の ready 作成は Pull Request 節の安全規則を優先し、ユーザーの明示指示がない限り draft で作成する。
@@ -35,37 +35,37 @@ Git / GitHub 運用に関しては、対象 project に明文化された規則�
 - `.github/ISSUE_TEMPLATE/`
 - docs 配下の開発者向け文書
 
-既存 commit、branch 名、PR title は明文化された規則として扱わない。
+既存 commit、ブランチ名、PR の題名は明文化された規則として扱わない。
 
-## GitHub Tool Routing
+## GitHub 操作の振り分け
 
-local checkoutを特定できるGitHub操作は、local `git` と `gh` を既定経路にする。
-GitHub connectorは、ユーザーが明示した場合、local checkoutがなくconnectorが適する場合、または`gh`に必要な機能がない場合だけ使う。
+ローカルの作業コピーを特定できる GitHub 操作は、ローカルの `git` と `gh` を既定経路にする。
+GitHub connector は、ユーザーが明示した場合、ローカルの作業コピーがなく connector が適する場合、または `gh` に必要な機能がない場合だけ使う。
 `gh`が失敗した場合は、connectorへ切り替える前に実行経路と失敗原因を診断する。
 
-## Commit Message
+## コミットメッセージ
 
 project に明文化された commit 規約がある場合はそれに従う。
 ない場合は Conventional Commits に沿う。
 
 - subject は日本語の説明形にする。
-- scope は任意。
+- Conventional Commits の scope は任意。
 - breaking change は Conventional Commits の `!` または `BREAKING CHANGE:` で示す。
 
-## Commit Granularity
+## コミットの粒度
 
 1 commit は 1 つの目的にまとめる。
 unrelated changes を同じ commit に混ぜない。
 format-only change や generated file の大規模差分は、可能なら実質変更と分ける。
 
-## Commit Body
+## コミット本文
 
 subject だけで意図や影響が伝わらない場合は body を書く。
 body では「何を変えたか」よりも「なぜそうしたか」を優先する。
 
 repo-local engineering flow が temporary plan を使う場合は、その規則を通常の commit body より優先する。
 
-- 通常は実装・検証・review・修正が終わるまで commit しない。
+- 通常は実装、検証、レビュー、修正が終わるまで commit しない。
 - 対象 plan の原文を次の marker 内へ入れる。
 - plan file が commit 対象にも過去の commit にも含まれていないことを確認する。
 - marker 内と plan file が一致することを確認してから plan file を削除する。
@@ -80,12 +80,12 @@ End-Implementation-Plan
 ```
 
 途中 commit が必要な場合は最初の commit body に plan を入れる。
-この場合は実装・検証・review が終わるまで plan file を保持し、最後の commit 前に削除する。
+この場合は実装、検証、レビューが終わるまで計画ファイルを保持し、最後の commit 前に削除する。
 plan が複数ある、対象が判断できない、marker が既存 commit にないのに plan file だけ削除されている場合は commit せず確認する。
 
-## Branch Naming
+## ブランチ名
 
-project に明文化された branch 命名規則がある場合はそれに従う。
+プロジェクトに明文化されたブランチ命名規則がある場合はそれに従う。
 ない場合は次の形式を使う。
 
 ```text
@@ -102,7 +102,7 @@ project に明文化された branch 命名規則がある場合はそれに従�
 - `category` は repository ごとの自然な領域名にする。
 - `description` は英小文字 kebab-case にする。
 
-## Pull Request
+## プルリクエスト
 
 - PR は通常 draft で作成する。ready PR で作成するのは、ユーザーが明示的に ready PR 作成を指示した場合だけにする。
 - project 規則が ready PR 作成を求めていても、ユーザーの明示指示がなければ draft で作成する。ready 化は人間の確認後に行う。
@@ -110,12 +110,12 @@ project に明文化された branch 命名規則がある場合はそれに従�
 - PR body は実際の diff、commit、テスト状況と一致させる。
 - project に PR template がある場合は、その構成を優先する。
 
-## History Rewrite
+## 履歴の書き換え
 
-- `main`、release branch、他者と共有している branch では history rewrite しない。
-- 個人作業 branch で commit 整理が必要な場合のみ、rebase / amend / squash を使ってよい。
+- `main`、リリースブランチ、他者と共有しているブランチでは履歴を書き換えない。
+- 個人作業ブランチで commit の整理が必要な場合のみ、rebase / amend / squash を使ってよい。
 - force push が必要な場合は、`--force` ではなく `--force-with-lease` を使う。
 
-## Safety
+## 安全上の制約
 
 - `git reset --hard` と `git clean` は、実行前に削除対象を確認する。

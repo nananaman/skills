@@ -3,7 +3,7 @@ name: ast-grep-practice
 description: ast-grep を project-local な構造 lint / rewrite として導入・運用する。既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンドを作るとき、または kind 名・rule 例を調べるときに使う。単なる grep、既存 linter 設定で足りる規約、global rule catalog 作成、commit / push / APM pin / install だけの依頼では使わない。
 ---
 
-# ast-grep Practice
+# ast-grep の実践
 
 ast-grep を「project-local な構造 lint / rewrite」として扱う。
 自然言語プロンプトで注意喚起するより、再現可能な静的ルールに落とせるものを `sgconfig.yml` / `rules/` / `rule-tests/` に固定する。
@@ -40,7 +40,7 @@ testConfigs:
   - testDir: rule-tests
 ```
 
-## Workflow
+## 手順
 
 1. ルール化する対象を確認する。
    - 禁止したいコード、許可したいコード、対象言語、対象パスを明確にする。
@@ -145,4 +145,3 @@ ast-grep run --pattern '<code>' --lang <language> --debug-query=cst
 - 実装まで行う場合は、`ast-grep test --skip-snapshot-tests` と必要な `scan` の結果を報告している。
 - `fix` を付けた場合、安全性の理由を説明している。
 - CI 追加、lockfile 更新、commit / push はユーザーの明示依頼なしに行っていない。
-

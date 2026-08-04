@@ -1,56 +1,56 @@
-# Skill Inventory Audit Protocol
+# Skill 一覧の監査手順
 
-この reference は Audit inventory branch で読む。
-目的は、skill 群を横断して routing conflict、責務重複、single source of truth 破れ、粒度問題、sprawl / sediment、overconstraint を cluster 単位で検出すること。
+この補助文書は一覧の監査の分岐で読む。
+目的は、skill 群を横断して起動条件の競合、責務の重複、正本の不統一、粒度の問題、肥大化、堆積、過剰な制約を問題群ごとに検出することにある。
 
-## Scope
+## 対象範囲
 
-- 標準対象は現在の source-of-truth repo にある skill 群。
-- 必要時だけ global 展開先との差分や drift を補助確認する。
-- audit は report を作るだけで、編集、削除、commit、push、APM pin 更新、install は行わない。
-- 単一 skill の深い修正は Create / Improve または Review whole branch に渡す。
+- 標準対象は現在の正本リポジトリにある skill 群。
+- 必要時だけグローバル展開先との差分を補助的に確認する。
+- 監査は報告を作るだけで、編集、削除、commit、push、APM pin 更新、install は行わない。
+- 単一 skill の深い修正は新規作成／改善または全体レビューの分岐に渡す。
 
-## Audit Axes
+## 監査項目
 
-1. routing conflict
+1. 起動条件の競合
    - 同じ依頼で複数 skill が起動候補になる。
    - 本来起動すべき skill が description / name / README 導線から見つかりにくい。
    - positive trigger と negative trigger が近接 skill と衝突している。
 
-2. responsibility overlap
+2. 責務の重複
    - 複数 skill が同じ作業、成果物、判断を担当している。
    - wrapper と reusable discipline の境界が曖昧。
 
-3. single source of truth break
-   - 同じ rule、rubric、workflow、配布 gate が複数 skill に authoritative に存在する。
+3. 正本の不統一
+   - 同じ規則、評価基準、手順、配布前の確認が複数の skill に正本として存在する。
    - 片方を変えるともう片方も変える必要がある。
 
-4. granularity problem
-   - model-invoked skill と user-invoked skill の粒度が不適切。
-   - 独立 invocation に値しない skill が context load / cognitive load を増やしている。
-   - 本来分けるべき sequence や branch が 1 skill に詰め込まれている。
+4. 粒度の問題
+   - 自動起動する skill とユーザーが明示起動する skill の粒度が不適切。
+   - 独立した起動に値しない skill が読み込む前提情報と認知負荷を増やしている。
+   - 本来分けるべき手順や分岐が一つの skill に詰め込まれている。
 
-5. sprawl / sediment
-   - `SKILL.md` が長く、通常 path に不要な reference が混ざっている。
-   - 古い前提、廃止済み名称、今は使わない branch が残っている。
+5. 肥大化と堆積
+   - `SKILL.md` が長く、通常の経路に不要な補助文書が混ざっている。
+   - 古い前提、廃止済み名称、今は使わない分岐が残っている。
    - README や関連 docs と skill 本文が二重管理になっている。
 
-6. overconstraint
-   - outcome や invariant ではなく、agent が周辺 context から判断できる探索手順を固定している。
-   - 多数の例や checklist が探索範囲を狭めている。
-   - code、test、schema、tool description で表せる契約を prose で重複管理している。
+6. 過剰な制約
+   - 成果や維持する条件ではなく、agent が周辺の前提情報から判断できる探索手順を固定している。
+   - 多数の例や確認項目が探索範囲を狭めている。
+   - コード、テスト、schema、ツールの説明で表せる契約を自然文で重複管理している。
 
-## Severity
+## 重大度
 
-- high: routing conflict により誤発火・不発火の可能性が高い。
-- medium: responsibility overlap、single source of truth break、granularity problem により drift や使い分け迷いが起きる可能性が高い。
-- low: sprawl / sediment、overconstraint、軽い導線不整合があるが、誤発火・不発火や二重管理の直接原因とはまだ言えない。
+- high: 起動条件の競合により誤発火または不発火の可能性が高い。
+- medium: 責務の重複、正本の不統一、粒度の問題により差異や使い分けの迷いが起きる可能性が高い。
+- low: 肥大化、堆積、過剰な制約、軽い導線不整合があるが、誤発火、不発火、二重管理の直接原因とはまだ言えない。
 
-## Workflow
+## 手順
 
 1. 対象 repository と補助確認の有無を決める。
-   - path 指定がなく、現在の working directory が skill repo なら現在の repo を source-of-truth とする。
-   - global drift を確認しない場合は report に未確認と書く。
+   - パス指定がなく、現在の作業ディレクトリが skill リポジトリなら、現在のリポジトリを正本とする。
+   - グローバル展開との差異を確認しない場合は、報告に未確認と書く。
 
 2. Inventory pass を行う。
    - `SKILL.md` を列挙する。
@@ -59,64 +59,64 @@
    - 本文全文はこの段階では読まない。
 
 3. Cluster 候補を作る。
-   - 近い leading word、同じ成果物、同じ lifecycle、同じ gate、同じ category、README 上の近接導線を手がかりにする。
-   - routing conflict の疑いがある cluster を優先する。
+   - 近い判断語、同じ成果物、同じライフサイクル、同じ確認条件、同じ分類、README 上の近接導線を手がかりにする。
+   - 起動条件が競合している疑いのある問題群を優先する。
 
 4. Cluster deep-dive を行う。
-   - inventory pass だけで判断できない cluster だけを深掘りする。
-   - cluster が独立し、並列化の利益がある場合は worker を使ってよい。
-   - worker には対象 path、関連 axes、編集禁止、根拠必須、判断範囲を interface として渡す。
+   - 一覧の確認だけで判断できない問題群だけを詳しく調べる。
+   - 問題群が独立し、並列化の利益がある場合は作業担当を使ってよい。
+   - 作業担当には対象パス、関連する監査項目、編集禁止、根拠必須、判断範囲を依頼事項として渡す。
    - inventory 全体の severity 最終判断は委譲しない。
 
-5. Worker finding を検証する。
-   - finding をそのまま採用しない。
-   - 対象 `SKILL.md`、関連 `references/`、README を main agent が直接読み、根拠が確認できるものだけ accepted にする。
-   - speculative risk、文言類似だけ、共有 rubric の正当な参照、意図された wrapper / discipline 分離は rejected にする。
+5. 作業担当の指摘を検証する。
+   - 指摘をそのまま採用しない。
+   - 対象 `SKILL.md`、関連する `references/`、README を主担当の agent が直接読み、根拠が確認できるものだけ採用する。
+   - 推測上のリスク、文言の類似だけ、共有する評価基準の正当な参照、意図された入口と規律の分離は採用しない。
 
 6. Severity と次アクションを決める。
-   - routing conflict を最優先。
-   - 次に responsibility overlap、single source of truth break、granularity problem、sprawl / sediment、overconstraint。
-   - 次アクションは Review whole、description narrow、merge proposal、split proposal、single source extraction、no action のように整理する。
+   - 起動条件の競合を最優先する。
+   - 次に責務の重複、正本の不統一、粒度の問題、肥大化、堆積、過剰な制約を扱う。
+   - 次の対応は、全体レビュー、description の限定、統合の提案、分割の提案、正本の抽出、対応なしのように整理する。
 
-## Worker Interface
+## 作業担当への依頼形式
 
-worker を使う場合は、cluster 名、対象 path、候補理由、関連 audit axes、編集禁止、必要な evidence、判断を委譲しない範囲、期待する report fields を渡す。
-自然な task context を保ち、特定の結論や文面へ誘導する例は渡さない。
+作業担当を使う場合は、問題群の名前、対象パス、候補理由、関連する監査項目、編集禁止、必要な根拠、判断を委譲しない範囲、報告に必要な項目を渡す。
+自然な依頼の前提情報を保ち、特定の結論や文面へ誘導する例は渡さない。
 
-## Output
+## 出力
 
 ```md
-## Inventory Summary
-- Source of truth: <path>
-- Skills scanned: <n>
-- Model-invoked: <n>
-- User-invoked: <n>
-- Global drift checked: yes/no
-- Workers used: <n or reason not used>
+## 一覧の概要
+- 正本: <パス>
+- 確認した skill: <件数>
+- 自動起動: <件数>
+- ユーザーによる明示起動: <件数>
+- グローバル展開との差異確認: はい / いいえ
+- 作業担当: <人数、または使用しなかった理由>
 
-## Clusters
-### <cluster name>
-- Skills: <paths>
-- Why clustered: routing / responsibility / shared reference / category / README adjacency
+## 問題群
+### <問題群の名前>
+- 対象 skill: <パス>
+- 同じ問題群とした理由: 振り分け / 責務 / 共有する補助文書 / 分類 / README 上の近さ
 
-## Findings
-### [severity] <title>
-- Cluster: <cluster>
-- Axis: routing conflict / responsibility overlap / single source of truth / granularity / sprawl-sediment / overconstraint
-- Problem: <agent がどう誤作動するか、または何が保守しづらくなるか>
-- Evidence: <path:line + excerpt>
-- Suggested next action: Review whole / description narrow / merge proposal / split proposal / single source extraction / no action
-- Do not do now: actual edit / delete / commit / push / pin / install
+## 指摘
+### [重大度] <題名>
+- 問題群: <問題群>
+- 監査項目: 起動条件の競合 / 責務の重複 / 正本の不統一 / 粒度 / 肥大化と堆積 / 過剰な制約
+- 問題: <agent がどう誤作動するか、または何が保守しづらくなるか>
+- 根拠: <パス:行 + 抜粋>
+- 推奨する次の対応: 全体レビュー / description の限定 / 統合の提案 / 分割の提案 / 正本の抽出 / 対応なし
+- この監査では行わない操作: 編集 / 削除 / commit / push / pin / install
 
-## Rejected candidates
-- Candidate: <summary>
-- Reason rejected: speculative / shared rubric acceptable / wording similarity only / intentional wrapper-discipline split / insufficient evidence
+## 採用しなかった候補
+- 候補: <概要>
+- 採用しなかった理由: 推測 / 評価基準の共有は妥当 / 文言が似ているだけ / 意図的な入口と規律の分離 / 根拠不足
 
-## Recommended order
-1. <next action>
+## 推奨する対応順
+1. <次の対応>
 
-## Safety
-- Edited files: no
-- Deleted files: no
-- commit / push / APM pin update / install: not run
+## 安全上の制約
+- 編集したファイル: なし
+- 削除したファイル: なし
+- commit / push / APM pin 更新 / install: 未実行
 ```

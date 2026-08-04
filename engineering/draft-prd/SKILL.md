@@ -3,12 +3,12 @@ name: draft-prd
 description: 新機能・仕様変更の一言アイデア、メモ、会話ログ、既存 issue から PRD draft を作る。問題・対象ユーザー・要求を確定し、複数のプロダクト案を比較できる形にする。技術設計、Design Doc 作成、issue 作成、PRD polish、実装、レビューだけの依頼では使わない。
 ---
 
-# Draft PRD
+# PRD 草案の作成
 
 新機能・仕様変更のアイデアを、PRD template に沿った draft にする。
 成果物は、問題・対象ユーザー・要求と複数案を確定し、案の選択を polish に渡せる draft である。
 
-## Prerequisites
+## 前提条件
 
 1. repo-local 設定があれば読む。
 
@@ -28,16 +28,16 @@ template の `TODO(draft)` は draft 作成時に処理する。
 `TODO(draft)` は仮置きではなく、調査・確認して確定する draft gate である。
 技術設計・実装方針・task 分割には踏み込まない。
 
-## Safety
+## 安全上の制約
 
 - この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
 - この skill の起動を PRD draft file 作成の承認として扱い、書き込み前の確認は求めない。
 - 既存 file の上書き、保存先の競合、draft 作成を超える永続変更が必要な場合だけ停止して確認する。
 - PRD 作成後は報告で停止する。polish は `polish-prd` に委譲する。
 
-## Workflow
+## 手順
 
-### 1. Classify input
+### 1. 入力を分類する
 
 入力がどれかを判定する。
 
@@ -48,7 +48,7 @@ template の `TODO(draft)` は draft 作成時に処理する。
 
 情報が足りなければ一度に一つだけ質問する。
 
-### 2. Confirm PRD is appropriate
+### 2. PRD が適切か確認する
 
 PRD は新機能・仕様変更に使う。
 
@@ -60,18 +60,18 @@ PRD は新機能・仕様変更に使う。
 
 ユーザーが PRD を明示的に求める場合は、理由を確認して続行してよい。
 
-### 3. Read minimal context
+### 3. 必要最小限の前提情報を読む
 
-必要最小限の context を読む。
+必要最小限の前提情報を読む。
 
 - 指定された memo / issue / conversation log
 - 関連する既存 PRD
 - repo-local domain docs
 
-`TODO(draft)` の確定に必要な context は調査する。
+`TODO(draft)` の確定に必要な前提情報は調査する。
 案の採否と採用案の具体化は行わない。
 
-### 4. Draft PRD
+### 4. PRD の草案を作る
 
 `assets/prd-template.md` を seed として使う。
 
@@ -82,13 +82,13 @@ PRD は新機能・仕様変更に使う。
 - template に最初からある `TODO(polish)` は polish 段階の作業として残す。
 - 完成した draft に `TODO(draft)` を残さない。
 
-### 5. Write draft
+### 5. 草案を保存する
 
 repo-local 設定に従って filename と保存先を決め、draft を直ちに書く。
 設定がなければ `docs/prd/` を必要に応じて作り、title から作った短い kebab-case filename で保存する。
 対象 file が既に存在する場合は上書きせず、既存 file を更新するか別名で作るかを確認する。
 
-### 6. Closeout
+### 6. 完了を報告する
 
 報告には次を含める。
 

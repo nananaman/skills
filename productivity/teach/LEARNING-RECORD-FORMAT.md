@@ -1,46 +1,46 @@
-# Learning Record Format
+# 学習記録の形式
 
-Learning record は `./learning-records/` に置き、`0001-slug.md`, `0002-slug.md` のように連番にする。最初の記録を書く時点で directory を作る。
+学習記録は `./learning-records/` に置き、`0001-slug.md`、`0002-slug.md` のように連番にする。最初の記録を書く時点でディレクトリを作る。
 
-これは teaching 版 ADR である。非自明な学び、重要な insight、今後の lesson を左右する前提知識を記録し、近接発達領域を推定する材料にする。
+これは学習版の ADR である。自明でない学びや今後の授業を左右する前提知識を記録し、近接発達領域を推定する材料にする。
 
-## Template
+## テンプレート
 
 ```md
-# {Short title of what was learned or established}
+# {学んだことや確立したことを表す短い題名}
 
-{1-3 文。何が学ばれた/確立されたか。それが今後の session にとってなぜ重要か。}
+{一文から三文。何を学んだか、何が確立したか、それが今後のセッションになぜ重要か。}
 ```
 
-基本はこれだけでよい。価値は項目を埋めることではなく、「今後の teaching 判断を変える知識」を短く残すことにある。
+基本はこれだけでよい。価値は項目を埋めることではなく、「今後の指導上の判断を変える知識」を短く残すことにある。
 
-## Optional sections
+## 任意の節
 
-必要な場合だけ入れる。大半の record には不要。
+必要な場合だけ入れる。大半の記録には不要である。
 
-- **Status** frontmatter (`active | superseded by LR-NNNN`): 後で理解が更新された場合に使う。
-- **Evidence**: ユーザーが理解を示した証拠。後で見直しそうな claim で有用。
-- **Implications**: これにより次に何が可能/不要になるか。非自明な場合だけ書く。
+- **状態**：frontmatter の `Status`（`active | superseded by LR-NNNN`）。後で理解が更新された場合に使う。
+- **根拠**：ユーザーが理解を示した証拠。後で見直す可能性がある主張に役立つ。
+- **帰結**：これにより次に何が可能または不要になるか。自明でない場合だけ書く。
 
-## Numbering
+## 採番
 
 `./learning-records/` の既存ファイルから最大番号を探し、1 つ増やす。
 
-## When to write
+## 記録する条件
 
 次のいずれかを満たすときに書く。
 
-1. **ユーザーが非自明な理解を示した。** 単なる exposure ではなく、概念を使えた証拠がある。
+1. **ユーザーが自明でない理解を示した。** 単に触れただけではなく、概念を使えた証拠がある。
 2. **ユーザーが前提知識を開示した。** 「X は知っている」。深さも記録する。
-3. **誤解が修正された。** 関連 topic で再発しやすい stumbling block なので価値が高い。
-4. **mission が learning によって変化した。** `MISSION.md` を更新し、record からも参照する。
+3. **誤解が修正された。** 関連するテーマで再発しやすい難所なので価値が高い。
+4. **学習によって目的が変化した。** `MISSION.md` を更新し、学習記録からも参照する。
 
-## What does not qualify
+## 記録しないもの
 
-- ただ扱っただけの教材。coverage は learning ではない。
+- ただ扱っただけの教材。扱った範囲は学習の成立を意味しない。
 - `GLOSSARY.md` の短い定義で十分なもの。
-- session log。learning record は日記ではなく decision-grade insight。
+- セッションのログ。学習記録は日記ではなく、今後の判断に使える知見である。
 
-## Supersession
+## 更新された理解の扱い
 
-後続 record が過去 record と矛盾する場合、古い record は削除せず `Status: superseded by LR-NNNN` と書く。理解の変化も有用な signal である。
+後続の記録が過去の記録と矛盾する場合、古い記録は削除せず `Status: superseded by LR-NNNN` と書く。理解の変化も有用な情報である。

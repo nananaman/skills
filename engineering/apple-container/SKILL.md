@@ -5,7 +5,7 @@ description: Apple の container CLI 1.1.x で OCI image、container、network�
 
 Apple 公式 `container` CLI 1.1.x の操作マニュアル。依頼内容に対応する reference を読んで、具体的なコマンドと option を選ぶ。
 
-## Reference
+## 参照資料
 
 | タスク | 読む reference |
 | --- | --- |

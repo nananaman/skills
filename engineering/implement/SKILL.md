@@ -1,57 +1,57 @@
 ---
 name: implement
-description: 明示されたgoalをinspectableなquality barを満たす成果物として実装し、独立したBuilderとCriticのfeedback loopをlead agentが編成・収束させるときにユーザーが明示的に使う。通常の単発実装、自動発火、plan作成だけ、reviewだけ、prototypeだけでは使わない。
+description: 明示された目標を検査可能な品質基準を満たす成果物として実装し、独立した実装担当と評価担当による改善の循環を統括エージェントが編成して収束させるときに、ユーザーが明示的に使う。通常の単発実装、自動起動、計画作成だけ、レビューだけ、試作だけでは使わない。
 disable-model-invocation: true
 ---
 
-# Implement
+# 実装
 
-goalとquality barに対して、lead agentが設計、分解、実装、独立評価、収束を管理する。
-特定のarchitectureや逐次編集手順は固定しない。
+目標と品質基準に対して、統括エージェントが設計、分解、実装、独立評価、収束を管理する。
+特定の構成や逐次編集手順は固定しない。
 
-## Contract
+## 契約
 
 実装前に次を一意にする。
 
-- user-visible goalとscope。
-- 自律実行できるactionと、追加確認が必要なauthority boundary。
-- actual artifactに対して判定できるquality bar。
-- completionと、停止時に残件として返す条件。
+- 利用者から見える目標と対象範囲。
+- 自律実行できる操作と、追加確認が必要な権限境界。
+- 実際の成果物に対して判定できる品質基準。
+- 完了条件と、停止時に残件として返す条件。
 
-quality barには、利用可能な範囲で高忠実度なevidenceを使う。
+品質基準には、利用可能な範囲で忠実度の高い根拠を使う。
 
-1. acceptance test、benchmark、schema、type、API contract。
-2. 比較可能なreference artifact。
-3. 既存behaviorと明示された変更要求。
-4. 観測可能なacceptance criteria。
+1. 受け入れテスト、ベンチマーク、schema、型、API 契約。
+2. 比較可能な参照成果物。
+3. 既存の動作と明示された変更要求。
+4. 観測可能な受け入れ基準。
 
-`production ready`や`よくする`のように判定不能な表現だけで開始しない。
-安全な調査後もquality barを作れない場合は、最小の不足artifactまたはuser判断を求めて停止する。
+「本番対応済み」や「よくする」のように判定不能な表現だけで開始しない。
+安全な調査後も品質基準を作れない場合は、最小限の不足成果物または利用者の判断を求めて停止する。
 
-## Orchestration
+## 作業の編成
 
-lead agentはgoalとquality barを維持したまま、architecture、task decomposition、execution strategy、Builder / Critic編成を選ぶ。
-単位は、独立した成果物または検証基準を持ち、同時編集競合を起こしにくい範囲にする。
+統括エージェントは目標と品質基準を維持したまま、構成、タスク分割、実行方針、実装担当と評価担当の編成を選ぶ。
+作業単位は、独立した成果物または検証基準を持ち、同時編集の競合を起こしにくい範囲にする。
 分割自体を目的にしない。
 
-Builderはartifactを作成または変更する。
-同じ変更を行ったBuilderを、その変更の唯一の評価者にしない。
+実装担当は成果物を作成または変更する。
+同じ変更を行った実装担当を、その変更の唯一の評価者にしない。
 
-Criticはfresh contextでactual artifactと必要なquality barを評価する。
-Builderのreasoning、自己評価、作業履歴をCriticへ渡さない。
-codeはdiffと実際のcontract、UIはrunning applicationやscreenshot、文書はrendered artifact、性能はbenchmarkのように、要約ではなく成果物をinspectさせる。
-fresh contextを用意できない場合はBuilderの自己評価で代替せず、未実施のquality gateと残るriskを報告して停止する。
+評価担当は、実装担当の会話履歴を継承しない独立した文脈で、実際の成果物と必要な品質基準を評価する。
+実装担当の推論、自己評価、作業履歴を評価担当へ渡さない。
+コードは差分と実際の契約、UI は実行中のアプリケーションやスクリーンショット、文書は描画済みの成果物、性能はベンチマークのように、要約ではなく成果物を調べさせる。
+独立した文脈を用意できない場合は実装担当の自己評価で代替せず、未実施の品質判定と残るリスクを報告して停止する。
 
-Criticの出力はcandidate findingである。
-lead agentがactual artifactとquality barで検証し、重複を束ね、accepted / rejectedと理由を決める。
-Criticの多数決や自己申告をquality gateにしない。
+評価担当の出力は指摘候補である。
+統括エージェントが実際の成果物と品質基準で検証し、重複を束ね、採用または棄却とその理由を決める。
+評価担当の多数決や自己申告を品質判定にしない。
 
-通常は[`references/gauntlet-loop.md`](./references/gauntlet-loop.md)をexecution strategyとして使う。
-同じcontractをより確実に満たせる方法がある場合、lead agentは別strategyを選べる。
-その場合は選定理由をprogress reportへ残す。
+通常は[`references/gauntlet-loop.md`](./references/gauntlet-loop.md)を実行方針として使う。
+同じ契約をより確実に満たせる方法がある場合、統括エージェントは別の方針を選べる。
+その場合は選定理由を進捗報告へ残す。
 
-実行codeのbehaviorを変更するBuilderは`tdd`、テストを追加・変更する場合は`test-writing-style`を使う。
-code diffの独立評価には`review-diff-code`を使えるが、すべてのartifact評価をcode reviewへ寄せない。
+実行コードの動作を変更する実装担当は`tdd`、テストを追加または変更する場合は`test-writing-style`を使う。
+コード差分の独立評価には`review-diff-code`を使えるが、すべての成果物評価をコードレビューへ寄せない。
 
 コードが目標と品質基準を満たし、検証に成功した後、最終コードレビューの前に`simplify-code`を適用する必要があるか判断する。
 `skipped`は正常な結果であり、すべての変更に簡素化を強制しない。
@@ -59,32 +59,32 @@ code diffの独立評価には`review-diff-code`を使えるが、すべてのar
 レビュー指摘の修正によって新しい非自明な複雑性が生じた場合だけ、簡素化の必要性を再評価する。
 簡素化とレビューを無条件には繰り返さない。
 
-## Progress
+## 進捗
 
 利用者が作業を中断せず、現在地と残件を確認できる形を維持する。
 
-- 短い作業: 会話上のstatusと最終ledger。
-- 複数unitまたは複数iteration: Markdownのprogress artifact。
-- 視覚比較がquality barに含まれる: screenshot、preview、必要ならHTML。
+- 短い作業：会話上の状態と最終台帳。
+- 複数の作業単位または反復：Markdown の進捗記録。
+- 品質基準に視覚比較を含む場合：スクリーンショット、プレビュー、必要なら HTML。
 
-progressにはgoal、quality bar、unit、Builder / Critic、current status、accepted / rejected / fixed、残るlargest gapを含める。
-progress artifact自体を成果物にせず、作業規模に比例させる。
+進捗には目標、品質基準、作業単位、実装担当と評価担当、現在の状態、採用、棄却、修正済みの指摘、残る最大の不足を含める。
+進捗記録自体を成果物にせず、作業規模に比例させる。
 
-progress を自己完結した単一 HTML として作った場合は、`host-artifact publish <html-file> --name <artifact-name>` で配信する。
-material iteration ごとに同じ workspace と artifact name で再 publish し、安定した URL を維持する。
-HTML の live reload は `host-artifact` が配信用 copy へ付与するため、progress生成側で polling script を持たない。
+進捗を自己完結した単一 HTML として作った場合は、`host-artifact publish <html-file> --name <artifact-name>` で配信する。
+大きな変更を伴う反復ごとに、同じ作業領域と成果物名で再配信し、安定した URL を維持する。
+HTML の自動再読み込みは `host-artifact` が配信用の複製へ付与するため、進捗生成側で定期確認のスクリプトを持たない。
 
-## Completion
+## 完了条件
 
 次のいずれかで終了する。
 
-- quality barの必須assertionを満たし、actionable gapが残っていない。
-- 次の改善がscope、risk、costを不釣り合いに増やす。
-- 同じfindingが再発し、現在の方針では収束しない。
-- quality bar同士が矛盾する。
-- user判断、追加authority、不足artifactが必要。
-- userが停止した。
+- 品質基準の必須条件を満たし、対応可能な不足が残っていない。
+- 次の改善が対象範囲、リスク、費用を不釣り合いに増やす。
+- 同じ指摘が再発し、現在の方針では収束しない。
+- 品質基準同士が矛盾する。
+- 利用者の判断、追加の権限、不足している成果物が必要。
+- 利用者が停止した。
 
-固定iteration数では終了させない。
-完了時はactual artifactに対する検証結果を報告する。
-停止時は理由、満たしたquality bar、未解決gap、次に必要な最小actionを報告する。
+固定した反復回数では終了させない。
+完了時は実際の成果物に対する検証結果を報告する。
+停止時は理由、満たした品質基準、未解決の不足、次に必要な最小限の対応を報告する。

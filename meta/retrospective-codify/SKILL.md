@@ -4,7 +4,7 @@ description: ユーザーが「今日の知見を固定して」「codify して
 disable-model-invocation: true
 ---
 
-# Retrospective Codify
+# 振り返りの知見を規則へ固定する
 
 ユーザーが明示的に retrospective / codify を依頼したとき、「最初にこれを知っていれば遠回りしなかった」知見を抽出し、静的ルール・skill・常時有効ルールのいずれかに固定する。
 プロンプトに頼らず再現可能な形に落とすことを優先する。
@@ -39,17 +39,17 @@ commit / push / APM pin 更新 / install は担当しない。
 
    照合先と最低限の検索:
    ```
-   # project-local agent instructions
+   # プロジェクト単位の agent 向け指示
    Grep "<キー>" <project-root>/AGENTS.md
    Grep "<キー>" <project-root>/CLAUDE.md   # 存在し、実際に source-of-truth なら
    Grep "<キー>" <project-root>/.config/codex/instructions.md   # 存在する場合
 
-   # project-local skills
+   # プロジェクト単位の skill
    ls <project-root>/.claude/skills/ <project-root>/.agents/skills/ 2>/dev/null
    Grep "<キー>" <project-root>/.claude/skills/*/SKILL.md
    Grep "<キー>" <project-root>/.agents/skills/*/SKILL.md
 
-   # global source-of-truth / installed skills
+   # グローバルの正本 / インストール済みの skill
    Grep "<キー>" <dotfiles>/agents/AGENTS.md
    Grep "<キー>" <nananaman/skills>/meta <nananaman/skills>/engineering <nananaman/skills>/personal <nananaman/skills>/productivity
    Grep "<キー>" ~/.agents/skills/*/SKILL.md ~/.claude/skills/*/SKILL.md
@@ -66,7 +66,7 @@ commit / push / APM pin 更新 / install は担当しない。
    - **既存と重複（提案不要）**: 既存が同じ知見を完全にカバー済み → 提案ゼロ、ただし提示フォーマットには「重複検出」行を残す（監査可能性のため）。重複検出行には根拠として既存 skill / rule 名 + 該当節名（または行番号）を添える。
    - **判断保留**: agent が重複かどうか判定できない → ユーザーに照合結果を見せて判断を仰ぐ
 7. **提示する**: 後述の「ユーザーへの提示フォーマット」に沿って Retrospective と Proposals を出す。承認前に永続ファイルを編集しない。
-8. **承認後に書き出す**: ユーザーが採用を指示した項目だけを書き出す。skill を編集した場合は `skill-workbench` の Review diff branch を実行し、actionable finding があれば修正して再レビューする。
+8. **承認後に書き出す**: ユーザーが採用を指示した項目だけを書き出す。skill を編集した場合は `skill-workbench` の差分レビューを実行し、対応可能な指摘があれば修正して再レビューする。
 
 ## 分類判定
 
@@ -92,14 +92,14 @@ digraph classify {
 | 判定軸 | 出力先 | 例 |
 |---|---|---|
 | コード/設定の構文レベルで検出可能 | `ast-grep` ルール または既存 linter 設定 | `Array.from(set).length` を使うな、`set.size` を使え |
-| 短く、常時適用、判断を伴わない | `AGENTS.md` 系 source-of-truth（global / project） | pnpm は v10 以上を使う |
+| 短く、常時適用、判断を伴わない | `AGENTS.md` 系の正本（グローバル / プロジェクト） | pnpm は v10 以上を使う |
 | 手順・文脈判断・テンプレが必要 | 新規 skill または既存 skill への追記 | MoonBit の C binding を書く手順 |
 | プロジェクト固有で一回限り | 採用しない（コミットメッセージ / PR 説明に留める） | — |
 
 **ast-grep を優先する原則**: 静的に検出可能なものはプロンプトやドキュメントに書かず、可能なら `ast-grep` ルールや既存 linter 設定にする。
 
 **AGENTS.md 系 rule の書き出し先**:
-- global の常時 rule → dotfiles 側の `agents/AGENTS.md` など、配布元の source-of-truth
+- グローバルの常時規則 → dotfiles 側の `agents/AGENTS.md` など、配布元の正本
 - 特定リポジトリ限定 → そのリポジトリの `AGENTS.md`
 - `AGENTS.md` がなく、`CLAUDE.md`、Codex instructions、その他 agent instructions が実際の source-of-truth なら、その実態を確認して候補にする
 - `~/.claude/CLAUDE.md`、`~/.pi/agent/AGENTS.md`、`~/.config/codex/instructions.md` などのリンク先・展開先は直接編集しない
@@ -107,7 +107,7 @@ digraph classify {
 **skill の書き出し先**:
 - 既存 skill に追記・修正できるなら、新規 skill を作らない
 - 汎用 skill の source-of-truth は `nananaman/skills` とする
-- project 固有 skill は対象 repo の project-local skills を候補にする
+- プロジェクト固有の skill は対象リポジトリのプロジェクト単位の skill を候補にする
 - `~/.agents/skills` / `~/.claude/skills` の展開物は直接編集しない
 
 ## 出力テンプレート
@@ -123,11 +123,11 @@ digraph classify {
 理由を括弧書きで必ず添える（将来の自分が edge case を判断できるように）。
 
 ### 新規 skill
-`skill-workbench` の Create / Improve branch の discoverability contract に従う:
+`skill-workbench` の新規作成／改善にある発見可能性の契約に従う:
 ```markdown
 ---
 name: <kebab-case>
-description: <positive trigger と negative trigger を含む routing 情報>
+description: <起動する条件と起動しない条件を含む振り分け情報>
 ---
 
 # <Title>
@@ -175,7 +175,7 @@ message: Set/Map のサイズは .size プロパティを使う。
 
 → 新規 skill `moonbit-c-binding` として手順とテンプレを切り出し（既に存在する場合は、重複チェックで既存への追記を選ぶ）。
 
-## Red flags（合理化に注意）
+## 誤った判断を招く兆候
 
 下記の思考が出たら一度止まる。
 
@@ -193,7 +193,7 @@ message: Set/Map のサイズは .size プロパティを使う。
 タスク終了時に次の形で棚卸しを提示する。**学びは複数あって良い。重複や不採用も明示的に列挙して、判断の足跡を残す。**
 
 ```md
-## Retrospective
+## 振り返り
 
 ### 学び 1: <短いラベル>
 - 最初の失敗: <1 行>
@@ -205,13 +205,13 @@ message: Set/Map のサイズは .size プロパティを使う。
 - 最終解: <1 行>
 - 気付き: <1 行>
 
-## Proposals
+## 提案
 
 採用候補:
-1. [lint] <ルール名>: <1 行>（artifact: <path>, 学び N 由来）
+1. [lint] <ルール名>: <1 行>（成果物: <パス>, 学び N 由来）
 2. [skill 追記] <既存 skill 名>: <1 行>（学び N 由来）
 3. [skill 新規] <skill 名>: <1 行>（学び N 由来）
-4. [rule] AGENTS.md（global/project）: <1 行>（学び N 由来）
+4. [rule] AGENTS.md（グローバル / プロジェクト）: <1 行>（学び N 由来）
 
 重複検出（提案不要）:
 - <学び N>: 既存 <skill/rule 名> の <該当節名 or 行番号> が完全カバー → 追加なし
@@ -233,17 +233,17 @@ message: Set/Map のサイズは .size プロパティを使う。
 ### 提示例: 全学びが既存カバー（重複検出のみ）
 
 ```md
-## Retrospective
+## 振り返り
 
 ### 学び 1: <ラベル>
 - 最初の失敗: ...
 - 最終解: ...
 - 気付き: ...
 
-## Proposals
+## 提案
 
 重複検出（提案不要）:
-- 学び 1: 既存 skill `<skill name>` の `<section name>` が完全カバー → 追加なし
+- 学び 1: 既存 skill `<skill 名>` の `<節名>` が完全に含む → 追加なし
 
 採用候補なし。記録目的でレビューしてください。
 ```
@@ -251,16 +251,16 @@ message: Set/Map のサイズは .size プロパティを使う。
 ### 提示例: 部分重複（既存追記 + 重複検出）
 
 ```md
-## Proposals
+## 提案
 
 採用候補:
-1. [skill 追記] <existing skill name>: 新規部分を <section name> に追記する（学び 1 由来）
+1. [skill 追記] <既存 skill 名>: 新規部分を <節名> に追記する（学び 1 由来）
 
 重複検出（提案不要）:
 - 学び 1（version value 部分）: `agents/AGENTS.md` の tools 節で既にカバー → 追加なし
 ```
 
-## Common failures
+## よくある失敗
 
 - **粒度が細かすぎる**: 特定関数名や特定バージョンだけを codify する → 「次に何を先に確認するか」の粒度まで抽象化する
 - **プロンプトに書きがち**: 静的検出できるものを自然言語で AGENTS.md に書く → ast-grep / linter に寄せる
@@ -268,7 +268,7 @@ message: Set/Map のサイズは .size プロパティを使う。
 - **勝手に書き出す**: AGENTS.md や skill を承認前に更新する → 提案 → 承認 → 書き出しを守る
 - **失敗の言語化を省く**: 最終解だけを書く → 同じ落とし穴に再度落ちる
 
-## Done Criteria
+## 完了条件
 
 - 失敗⇄成功⇄気付きの 3 点が確認済みである
 - 再利用可能で次回の初動を変える知見か判定済みである
@@ -277,7 +277,7 @@ message: Set/Map のサイズは .size プロパティを使う。
 - 採用候補・重複検出・不採用を、空節を省いた `Retrospective` / `Proposals` 形式で提示している
 - 承認前に永続ファイルを編集していない
 - 編集した場合、対象と理由を報告している
-- skill 変更を行った場合、`skill-workbench` の Review diff branch を実行済みである
+- skill 変更を行った場合、`skill-workbench` の差分レビューを実行済みである
 - commit / push / APM pin 更新 / install を実行していない
 
 ## 関連 skills

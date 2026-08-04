@@ -10,14 +10,14 @@ description: さくらのクラウド EventBus の実行設定、スケジュー
 ## まず確認すること
 
 - 実行したい契機はどちらか。
-  - 定期実行: `Schedule`
-  - イベント検知: `Trigger`
+  - 定期実行：`Schedule`
+  - イベント検知：`Trigger`
 - 呼び出し先はどれか。
-  - シンプル通知: `simplenotification`
-  - シンプルMQ: `simplemq`
-  - オートスケール: `autoscale`
-- API 操作に使う zone はどこか。
-  - 例: `is1a`, `is1b`, `is1c`, `tk1a`, `tk1b`
+  - シンプル通知：`simplenotification`
+  - シンプルMQ：`simplemq`
+  - オートスケール：`autoscale`
+- API 操作に使うゾーンはどこか。
+  - 例：`is1a`、`is1b`、`is1c`、`tk1a`、`tk1b`
 
 ## 作業順
 
@@ -27,12 +27,12 @@ description: さくらのクラウド EventBus の実行設定、スケジュー
    - 何を呼び出すかを定義する。
 3. `Schedule` または `Trigger` を作る。
    - いつ呼び出すかを定義する。
-   - 時刻指定では timezone の解釈を確認し、未確認なら作成前に止まる。
+   - 時刻指定ではタイムゾーンの解釈を確認し、未確認なら作成前に止まる。
 4. 作成後に一覧取得で ID と設定内容を確認する。
 
 ## 安全ゲート
 
-- 作成・更新・削除の API を実行する前に、対象 zone、対象 ID、作成/変更内容、影響範囲をユーザーに提示する。
+- 作成、更新、削除の API を実行する前に、対象ゾーン、対象 ID、作成または変更する内容、影響範囲をユーザーに提示する。
 - ユーザーの明示承認があるまで、`POST` / `PUT` / `DELETE` は実行しない。
 
 ## 認証
@@ -45,7 +45,7 @@ curl -u "$SAKURACLOUD_ACCESS_TOKEN:$SAKURACLOUD_ACCESS_TOKEN_SECRET" \
   "https://secure.sakura.ad.jp/cloud/zone/${ZONE}/api/cloud/1.1/commonserviceitem/"
 ```
 
-認証情報の取得方法は各プロジェクトの secrets 運用に従う。この skill には特定プロジェクトの vault 名や item 名を置かない。
+認証情報の取得方法は各プロジェクトの機密情報の運用に従う。この skill には特定プロジェクトの保管庫名や項目名を置かない。
 
 ## よくある落とし穴
 

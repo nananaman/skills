@@ -4,12 +4,12 @@ description: Design Doc、ADR、PRD、会話上の合意、ユーザー説明か
 disable-model-invocation: true
 ---
 
-# Task Breakdown
+# タスク分割
 
 合意済みの要求や設計を、担当者が取得できる task 群へ分解する。
-issue は共有する作業単位であり、個別実装の design contract にはしない。
+issue は共有する作業単位であり、個別実装の設計契約にはしない。
 
-## Prerequisites
+## 前提条件
 
 次の repo-local 設定を読む。
 
@@ -23,7 +23,7 @@ docs/agents/domain.md
 入力は Design Doc に限定しない。ADR、PRD、既存 issue、会話上の合意、ユーザー説明を使ってよい。
 ただし task 分解に必要な要求や設計判断が未確定なら、分解で補わず上流の文書または `grilling` へ戻す。
 
-## Task Contract
+## タスクの契約
 
 各 task には、担当範囲を共有するために必要な情報だけを含める。
 
@@ -37,9 +37,9 @@ docs/agents/domain.md
 
 ファイルごとの編集手順、関数内部の実装方法、テストの具体的な書き方など、担当者が実装前に決める内容は入れない。
 
-## Workflow
+## 手順
 
-1. 入力と関連する永続文書を読み、task 全体が達成する goal と制約を確認する。
+1. 入力と関連する永続文書を読み、タスク全体が達成する目標と制約を確認する。
 2. 独立して担当・検証できる境界へ分解する。
    - task ごとに外部から判定できる完了条件を持たせる。
    - 同じ責務を複数 task に重複させない。
@@ -52,18 +52,18 @@ docs/agents/domain.md
    - 並行実行可能性
    - 作成先 tracker
 4. ユーザー確認後だけ `docs/agents/issue-tracker.md` に従って作成する。
-   - GitHub Issue: `gh issue create`
-   - Local markdown: 設定済みの directory、filename、`SEQUENCE` 規則
-   - Other: Asana、Jira、Linear など設定 prose の操作と権限規則
+   - GitHub Issue：`gh issue create`
+   - ローカル Markdown：設定済みのディレクトリ、ファイル名、`SEQUENCE` 規則
+   - その他：Asana、Jira、Linear などの設定文書にある操作と権限規則
 5. 作成した issue の URL / path と依存関係を報告する。
 
-## Safety
+## 安全上の制約
 
 - tracker へ作成する前に分解案の確認を得る。
 - 既存 issue の変更、close、担当者設定、label 変更は、分解案の作成とは別の変更として扱う。
 - commit、push、APM pin 更新、install、実装は行わない。
 
-## Completion
+## 完了条件
 
 - 合意済みの情報が、重複せず独立実行可能な task 群へ分かれている。
 - 各 task の範囲、完了条件、依存関係、参照元が確認できる。

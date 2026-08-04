@@ -4,7 +4,7 @@ description: 現在の branch から GitHub PR を作成する。通常は draft
 disable-model-invocation: true
 ---
 
-# Create PR
+# PR の作成
 
 現在の branch から、reviewer がすぐ読める GitHub PR を作成する。通常は draft PR にし、ready PR はユーザーが明示的に指示した場合だけ許可する。既存 PR がある場合は重複作成せず、更新または中止を提案する。
 
@@ -20,7 +20,7 @@ disable-model-invocation: true
 - push または PR 作成の前に、変更種別に応じた review gate が通っていることを確認する。
 - history rewrite、force push、commit 整理はこの skill の責務外。必要なら別作業として提案する。
 
-## Workflow
+## 手順
 
 1. 現在の repository 状態を確認する。
 
@@ -33,7 +33,7 @@ disable-model-invocation: true
 
 2. base branch を決める。
    - 既存 PR がある場合は `gh pr view --json baseRefName,headRefName,url,state,isDraft,title,body` を見る。
-   - 既存 PR が `MERGED` ならその head branch を新しい変更に再利用せず、[Existing PR Handling](#existing-pr-handling) に従って最新 base から新しい branch へ分ける。
+   - 既存 PR が `MERGED` ならその head branch を新しい変更に再利用せず、[既存 PR の扱い](#既存-pr-の扱い)に従って最新 base から新しい branch へ分ける。
    - 既存 PR がなければ GitHub default branch を使う。
    - ユーザーが base を指定している場合はそれを優先する。
 
@@ -84,16 +84,16 @@ disable-model-invocation: true
    - template がない場合は次の構成を使う。
 
    ```md
-   ## Summary
+   ## 概要
    - 
 
-   ## Changes
+   ## 変更内容
    - 
 
-   ## Tests
+   ## テスト
    - 
 
-   ## Review notes
+   ## レビュー記録
    - 
    ```
 
@@ -118,12 +118,12 @@ disable-model-invocation: true
 
 7. review gate を確認する。
    - docs-only の変更なら review gate は不要。
-   - skill 変更を含むなら `skill-workbench` の Review diff branch を使い、対象 diff と結果を記録する。
-   - code / config / test / CI / runtime behavior に影響する変更を含むなら `review-diff-code` skillを使い、実baseまたはdirty worktreeを一度評価してfinding ledgerを確認する。
+   - skill 変更を含むなら `skill-workbench` の差分レビューを使い、対象差分と結果を記録する。
+   - コード、設定、テスト、CI、実行時の動作に影響する変更を含むなら `review-diff-code` skill を使い、実際の基点または変更のある作業ツリーを一度評価して指摘の採否台帳を確認する。
    - 既に同じ base / head diff に対して review 済みなら再実行しなくてよい。
    - 会話、直近の作業ログ、PR body の `Review notes` などで review 済みと確認できなければ、未実施として扱う。
    - 未実施なら push 前に実行する。push が不要な場合でも、PR 作成前に実行する。
-   - actionable finding が残る場合は、push / PR 作成へ進まない。
+   - 対応可能な指摘が残る場合は、push や PR 作成へ進まない。
    - review gate の実行または確認後、PR body の `Review notes` を結果に合わせて更新する。
 
 8. PR を作成する。
@@ -153,7 +153,7 @@ disable-model-invocation: true
 
 10. URL と reviewer 向け要点を報告する。
 
-## Existing PR Handling
+## 既存 PR の扱い
 
 同じ branch に既存 PR がある場合は、重複作成しない。
 
@@ -166,7 +166,7 @@ gh pr view --json url,state,isDraft,title,body,baseRefName,headRefName
 - 既存 PR が merged なら、その head branch へ新しい commit を追加しない。base を fetch し、現在の `HEAD` が `origin/<base>` の ancestor で、uncommitted changes を失わずに switch できる場合だけ、branch naming 規約に従って最新 `origin/<base>` から新しい branch を作る。それ以外は停止し、branch 分割または commit の載せ替え案を提示する。
 - closed PR しかない場合は、新規作成してよいか確認する。
 
-## Template Handling
+## テンプレートの扱い
 
 template を使うときは、次を守る。
 
@@ -175,7 +175,7 @@ template を使うときは、次を守る。
 - template の文言と矛盾する内容を書かない。
 - template の要求情報が diff から分からない場合は、PR 作成前にユーザーへ質問する。
 
-## Safety Checks
+## 安全確認
 
 次の場合は自動作成せず、状況と次の選択肢を提示する。
 
@@ -184,11 +184,11 @@ template を使うときは、次を守る。
 - PR template の必須項目が埋められない。
 - PR body で参照する repository 内 artifact が base branch にも branch diff にも存在しない。
 - implementation plan marker が不完全、空、または対象を一意に決められない。
-- 必要な review gate が未実施、または actionable finding が残っている。
+- 必要なレビュー判定が未実施、または対応可能な指摘が残っている。
 - diff に secret、credential、private URL らしきものがある。
 - 変更が複数の無関係な目的を含み、1つの PR として説明しづらい。
 
-## Closeout Report
+## 完了報告
 
 完了報告には次を含める。
 

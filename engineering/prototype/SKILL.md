@@ -1,28 +1,28 @@
 ---
 name: prototype
-description: 設計上の重要な不確実性を、必要十分な忠実度の throwaway artifact または実験で検証する。Web・mobile/native UI、logic、HTML report、文書、diagram、可視化の複数案比較や、技術的成立性を確かめる単一 spike に使う。採用済み案の production 実装、既存資料だけで答えられる通常調査、正式成果物の作成だけの依頼では使わない。
+description: 設計上の重要な不確実性を、必要十分な忠実度の使い捨て成果物または実験で検証する。Web、モバイル UI、ネイティブ UI、ロジック、HTML レポート、文書、図、可視化の複数案比較や、技術的成立性を確かめる単一の検証に使う。採用済み案の本番実装、既存資料だけで答えられる通常調査、正式成果物の作成だけの依頼では使わない。
 ---
 
-# Prototype
+# プロトタイプ
 
-設計上の問いを、観察可能な throwaway artifact または実験に変える。
-prototype は判断材料であり、production code の先行実装ではない。
+設計上の問いを、観察可能な使い捨て成果物または実験に変える。
+prototype は判断材料であり、本番コードの先行実装ではない。
 
-## Branch Router
+## 検証方法の選択
 
-最初に検証対象を一つ選び、対応する reference を読む。
+最初に検証対象を一つ選び、対応する参照資料を読む。
 
 | Branch | 選択条件 | Reference |
 | --- | --- | --- |
 | Web UI | Web の見た目、情報設計、操作感を確かめる、または比較する | [references/ui-web.md](references/ui-web.md) |
 | Native UI | mobile/native の見た目、情報設計、操作感を確かめる、または比較する | [references/ui-native.md](references/ui-native.md) |
 | Logic | 状態遷移、データ構造、API の使い心地を操作して確かめる | [references/logic.md](references/logic.md) |
-| Artifact | HTML report、文書、diagram、可視化の構成や表現を確かめる | [references/artifact.md](references/artifact.md) |
+| 成果物 | HTML レポート、文書、図、可視化の構成や表現を確かめる | [references/artifact.md](references/artifact.md) |
 
 複数 branch にまたがる場合は、ユーザーの判断を最も左右する問いから一つずつ検証する。
-採用案の production 実装へ目的が変わった場合は、この skill を終了し、通常の実装 workflow へ渡す。
+採用案の本番実装へ目的が変わった場合は、この skill を終了し、通常の実装手順へ渡す。
 
-## Workflow
+## 手順
 
 1. **問いを固定する。**
    - 判断を変えうる未解決の問いを一文にする。
@@ -34,41 +34,41 @@ prototype は判断材料であり、production code の先行実装ではない
    - prototype の観察結果が判断を変えうる場合だけ実行する。
    - 単なる理解不足や、判断に影響しない局所的な実装詳細の確認には使わない。
 
-3. **既存 project の足場を確認する。**
-   - repository instructions、runtime、task runner、routing、component system、近い画面や domain model を調べる。
-   - project の文脈が問いに必要なら既存の起動経路と表現を再利用し、不要なら最小の独立した実験にする。
-   - production 環境への mutation、外部への副作用、不要な永続化が起きない境界を定める。
+3. **既存プロジェクトの足場を確認する。**
+   - リポジトリの指示、実行環境、タスク実行手段、経路制御、コンポーネント体系、近い画面やドメインモデルを調べる。
+   - プロジェクトの文脈が問いに必要なら既存の起動経路と表現を再利用し、不要なら最小の独立した実験にする。
+   - 本番環境への変更、外部への副作用、不要な永続化が起きない境界を定める。
 
 4. **問いに必要な最小の実験を作る。**
    - 技術的成立性を確かめるなら、答えを得られる最小の単一 spike にする。
    - 比較可能な代替案があるなら、問いに答えるのに必要な数だけ構造の異なる案を作る。
    - 比較案は同じ前提から観察できるようにし、色や文言だけの差を構造的な案として数えない。
-   - production 品質ではなく、判断に必要な状態、操作、データ、表現だけを実装する。
+   - 本番品質ではなく、判断に必要な状態、操作、データ、表現だけを実装する。
 
 5. **観察に必要な範囲だけ検証する。**
-   - project に合う typecheck、build、analyze、起動確認を行う。
+   - プロジェクトに合う型検査、ビルド、静的解析、起動確認を行う。
    - 単一実験では問いへの答えを再現でき、比較では各案を同じ前提で観察できることを確認する。
-   - prototype の判断に寄与しない production 品質の抽象化、網羅的 test、error handling は追加しない。
+   - prototype の判断に寄与しない本番品質の抽象化、網羅的なテスト、エラー処理は追加しない。
 
 6. **観察結果と判断を引き渡す。**
    - 問い、実行方法、観察結果、既知の省略、採用判断と理由、未解決事項を伝える。
-   - production へ移す知見を、issue、plan、設計文書など呼び出し元の記録先へ残す。
-   - prototype code と正式成果物の境界を示し、呼び出し元の lifecycle に従って廃棄するか、明示的に引き渡す。
+   - 本番へ移す知見を、issue、計画、設計文書など呼び出し元の記録先へ残す。
+   - prototype のコードと正式成果物の境界を示し、呼び出し元のライフサイクルに従って廃棄するか、明示的に引き渡す。
    - 問いへ答えられなかった場合は成功扱いにせず、調査または問いの整理へ戻る。
 
-## Authority Boundary
+## 権限境界
 
 - commit、push、参照用 branch の公開、issue 更新は、ユーザーの明示依頼または既に与えられた権限がある場合だけ行う。
 - live data、production API、端末外の利用者へ影響する操作が必要なら、実行前に安全な代替を探し、なければユーザーへ確認する。
 - prototype switcher、debug menu、fixture は production build や通常導線へ露出させない。
-- prototype code を production artifact として扱ったり、そのまま正式実装へ昇格させたりしない。
+- prototype のコードを本番成果物として扱ったり、そのまま正式実装へ昇格させたりしない。
 
-## Completion
+## 完了条件
 
 次をすべて満たしたら完了する。
 
 - 固定した問い、観察対象、判断基準が明示されている。
 - 単一実験は問いへの答えを再現でき、比較は必要な案を同じ前提で観察できる。
-- 問いに必要な忠実度と project 相応の検証結果を報告できる。
+- 問いに必要な忠実度とプロジェクト相応の検証結果を報告できる。
 - 観察結果、採用判断と理由、既知の省略、未解決事項を記録先へ残せる。
-- production へ残す知見と捨てる prototype code が区別され、廃棄または引き渡しの lifecycle が明らかである。
+- 本番へ残す知見と捨てる prototype のコードが区別され、廃棄または引き渡しのライフサイクルが明らかである。

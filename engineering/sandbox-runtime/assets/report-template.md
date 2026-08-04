@@ -2,7 +2,7 @@
 - SRT artifact 疑い: あり / なし / 未確定
 - write denial: あり / なし / 未確認
 - GitHub token `workflow` scope: あり / なし / 未確認
-- SSH fallback: 有効 / 非推奨 / 未確認
+- SSH への切り替え：有効 / 非推奨 / 未確認
 
 ## 実行した確認
 - `<command>`: `<observed fact>`

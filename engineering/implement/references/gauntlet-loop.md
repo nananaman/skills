@@ -1,47 +1,47 @@
-# Gauntlet Loop
+# Gauntlet Loop の実行手順
 
-`implement`の通常execution strategy。
-goalとquality barを固定し、artifactを変更するBuilderとfresh Criticを分離して、最大のaccepted gapから収束させる。
+`implement` の通常の実行方針。
+目標と品質基準を固定し、成果物を変更する実装担当と、会話履歴を継承しない評価担当を分離して、採用した最大の不足から収束させる。
 
-## Loop
+## 反復手順
 
-1. lead agentがgoal、quality bar、authority boundaryを確認する。
-2. artifactと検証基準のownershipに沿って、独立して改善可能なunitへ分ける。
-3. unitごとにBuilderを割り当て、artifactを変更させる。
-4. fresh Criticへactual artifactと、そのunitに必要なquality barだけを渡す。
-   Builder reasoning、自己評価、過去iterationの説明は渡さない。
-5. 比較対象がある場合、current outputとreference artifactをblindに比較させる。
-   どちらがquality barを満たすか、最大のgap、actionableな改善だけを返させる。
-6. lead agentがcandidate findingをevidenceでaccepted / rejectedに分ける。
-7. accepted findingのうち、quality barへの影響が最大のgapをBuilderへ戻す。
-8. actual artifactを再生成・再実行し、fresh Criticで評価する。
-9. `implement`のterminal outcomeに達するまで繰り返す。
+1. 統括エージェントが目標、品質基準、権限境界を確認する。
+2. 成果物と検証基準の担当範囲に沿って、独立して改善可能な作業単位へ分ける。
+3. 作業単位ごとに実装担当を割り当て、成果物を変更させる。
+4. 会話履歴を継承しない評価担当へ、実際の成果物と、その作業単位に必要な品質基準だけを渡す。
+   実装担当の推論、自己評価、過去の反復に関する説明は渡さない。
+5. 比較対象がある場合、現在の出力と参照成果物を、どちらが変更後か知らせずに比較させる。
+   どちらが品質基準を満たすか、最大の不足、対応可能な改善だけを返させる。
+6. 統括エージェントが指摘候補を根拠に基づいて採用または棄却する。
+7. 採用した指摘のうち、品質基準への影響が最大の不足を実装担当へ戻す。
+8. 実際の成果物を再生成または再実行し、会話履歴を継承しない評価担当が評価する。
+9. `implement` の終了条件に達するまで繰り返す。
 
-複数unitを別々に改善したことで一貫性が崩れるriskがある場合、major iteration後にsmoothing Builderとfresh Criticを追加できる。
-smoothingはintegration、cohesion、重複、表現の一貫性を整え、architectureを無条件に再設計しない。
+複数の作業単位を別々に改善したことで一貫性が崩れる危険がある場合、大きな変更を伴う反復後に、表現を整える実装担当と会話履歴を継承しない評価担当を追加できる。
+この作業では統合性、結束性、重複、表現の一貫性を整え、構成を無条件に再設計しない。
 
-## Quality comparison
+## 品質の比較
 
-reference artifactはquality barの一部であり、完全な仕様とは扱わない。
-「referenceを超えた」という主観だけで完了せず、必須assertionと残るactionable gapを確認する。
+参照成果物は品質基準の一部であり、完全な仕様とは扱わない。
+「参照成果物を超えた」という主観だけで完了せず、必須条件と残る対応可能な不足を確認する。
 
-Criticにはsummaryではなくinspect可能なoutputを渡す。
+評価担当には要約ではなく、検査可能な出力を渡す。
 
 - running application、interaction、screenshot。
-- test result、benchmark、generated output。
-- rendered document、export artifact。
-- code diff、type / schema / API contract。
+- テスト結果、ベンチマーク、生成結果。
+- 描画済み文書、書き出した成果物。
+- コード差分、型、schema、API 契約。
 
-比較不能または不足するevidenceを推測で補わない。
-lead agentへ不足artifactと、その不足が阻む判断を返す。
+比較不能または不足する根拠を推測で補わない。
+統括エージェントへ不足している成果物と、その不足が阻む判断を返す。
 
-## Progress
+## 進捗
 
-各iterationで次を更新する。
+各反復で次を更新する。
 
-- active unitとBuilder / Critic。
-- inspected artifact。
-- accepted / rejected / fixed。
-- largest remaining gap。
-- quality barの充足状態。
-- terminal outcomeへ進めないblocker。
+- 実行中の作業単位と実装担当、評価担当。
+- 調査した成果物。
+- 採用、棄却、修正済みの指摘。
+- 残る最大の不足。
+- 品質基準の充足状態。
+- 終了条件へ進めない阻害要因。

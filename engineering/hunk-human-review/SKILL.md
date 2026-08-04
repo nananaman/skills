@@ -3,12 +3,12 @@ name: hunk-human-review
 description: commit 前に Hunk TUI で未ステージ差分を人間レビュー依頼し、進行中の Hunk 人間レビューで「レビュー完了」と言われたらコメントを回収する。Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、「レビューさせて」のようにユーザー本人がレビューしたい依頼で使う。詳細コードレビュー、修正、commit、PR 作成、単なる「レビューして」では使わない。
 ---
 
-# Hunk Human Review
+# Hunk による人間のレビュー
 
 未ステージ差分を Hunk TUI で人間に見せ、レビュー完了後にコメントを回収する。
 詳細レビューや修正判断はしない。Hunk を用意し、レビュー対象と手順を明示して止まる。
 
-## When to use
+## 使用条件
 
 - ユーザーが Hunk で差分を見たい、commit 前に見せてほしい、と依頼したとき。
 - 「レビューさせて」のように、ユーザー本人がレビューしたい意図が自然なとき。
@@ -20,7 +20,7 @@ description: commit 前に Hunk TUI で未ステージ差分を人間レビュ�
 - 修正、commit、PR 作成だけの依頼。
 - staged diff だけをレビューしたい依頼（この skill は未ステージ差分だけを扱う）。
 
-## Contract
+## 契約
 
 - 対象は **未ステージ差分** だけ。
 - untracked の作業対象ファイルは `git add -N` で intent-to-add にし、内容は stage しない。
@@ -29,7 +29,7 @@ description: commit 前に Hunk TUI で未ステージ差分を人間レビュ�
 - レビュー依頼を出したら、人間レビュー完了まで停止する。
 - コメント 0 件を自動承認扱いしない。
 
-## Workflow
+## 手順
 
 1. preflight する。
 2. 既存 Hunk session / Hunk tab を確認する。
@@ -39,7 +39,7 @@ description: commit 前に Hunk TUI で未ステージ差分を人間レビュ�
 6. Herdr で今回使った Hunk 専用 tab があれば閉じる。
 7. コメントを原文つきで整理し、修正・commit へ進む前にユーザー確認を取る。
 
-## Preflight
+## 事前確認
 
 確認するもの:
 
@@ -58,7 +58,7 @@ git status --short
   - `git add -N` が非通常ファイル、権限、unrelated dotfiles などで失敗した場合は、作業対象として把握している新規ファイルだけに絞って再実行する。作業対象を特定できない場合は、対象 path をユーザーに確認して止まる。
   - intent-to-add した path set を保持する。途中で止まる場合は、intent-to-add が残ることを報告し、戻す操作はユーザー確認後だけ行う。
 
-## Opening Hunk
+## Hunk を開く
 
 ### 共通
 
@@ -86,7 +86,7 @@ git status --short
 hunk diff
 ```
 
-## Review request format
+## レビュー依頼の形式
 
 ```md
 ## Hunk レビュー依頼
@@ -117,7 +117,7 @@ Herdr 環境では Hunk 用 tab、Herdr 外では別 terminal の Hunk を見て
 変更サマリには `git status --short`、`git diff --stat`、`hunk session review --repo . --json` を使う。
 詳細レビュー、問題指摘、agent comment の事前投入はしない。
 
-## After review
+## レビュー後の処理
 
 ユーザーがレビュー完了を伝えたら、コメントを回収する。
 
@@ -145,7 +145,7 @@ close に失敗してもコメント整理は続け、閉じられなかった t
 Hunk コメントはありませんでした。指摘なしとして進めてよいですか？
 ```
 
-## Stop conditions
+## 停止条件
 
 - `hunk` がない。
 - Git repo 外。
@@ -156,7 +156,7 @@ Hunk コメントはありませんでした。指摘なしとして進めてよ
 - 人間レビュー完了待ち。
 - コメント回収後、修正・commit 方針が未確認。
 
-## Safety
+## 安全上の制約
 
 - Hunk に見えていない staged をレビュー済みとして扱わない。
 - 既存 Hunk session / Hunk tab を無断で reload、再利用、close しない。

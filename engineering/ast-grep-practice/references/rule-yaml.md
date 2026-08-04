@@ -1,4 +1,4 @@
-# ast-grep rule YAML notes
+# ast-grep の rule YAML に関する補足
 
 rule YAML を書くときの最小リファレンス。
 詳細は公式 docs と `ast-grep run --debug-query=ast` で確認する。
@@ -33,7 +33,7 @@ ignores:
 | `fix` | 安全な自動修正。迷ったら付けない。 |
 | `files` / `ignores` | 対象 path の限定。test との相性を確認してから付ける。 |
 
-## rule operator
+## rule 演算子
 
 | operator | 意味 |
 | --- | --- |
@@ -57,7 +57,7 @@ rule:
     stopBy: end
 ```
 
-## metavariable
+## メタ変数
 
 - `$X`: 単一 node。
 - `$$$ARGS`: 0 個以上の node。空 match する。
@@ -66,7 +66,7 @@ rule:
 metavariable は node 全体を占める必要がある。
 `obj.on$EVENT` や文字列中の `$NAME` のような部分一致には使えない。
 
-## constraints
+## 制約
 
 metavariable の中身を絞る。
 外側の構造条件は `has` / `inside` / `not` を使う。
@@ -81,7 +81,7 @@ constraints:
     kind: identifier
 ```
 
-## fix
+## 修正
 
 ```yaml
 rule:
@@ -105,7 +105,7 @@ fix: ''
 行末の `;` や `,` まで消す必要がある場合は `expandEnd` を検討する。
 ただし formatter が後段で走るなら、空行だけ残して formatter に任せる方が安全なこともある。
 
-## test file
+## テストファイル
 
 ```yaml
 id: no-direct-env-access

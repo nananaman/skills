@@ -34,7 +34,7 @@ curl -X POST \
   "$WEBACCEL_API/site"
 ```
 
-作成後はサイト詳細を取得し、CNAME / TXT 認証値 / status を確認する。
+作成後はサイト詳細を取得し、CNAME、TXT 認証値、状態を確認する。
 
 ```bash
 curl -u "$SAKURACLOUD_ACCESS_TOKEN:$SAKURACLOUD_ACCESS_TOKEN_SECRET" \
@@ -88,7 +88,7 @@ curl -X DELETE \
   "$WEBACCEL_API/deletecache"
 ```
 
-制限:
+制限：
 
 - 一度に 100 URL まで。
 - 1 時間あたり 500 URL まで。
@@ -104,7 +104,7 @@ curl -X POST \
   "$WEBACCEL_API/site/<site-id>/certificate/letsencrypt"
 ```
 
-持ち込み証明書の場合は秘密鍵を扱うため、コマンド履歴やログに出さない。必要なら request body を一時ファイルに置き、作業後に削除する。
+持ち込み証明書の場合は秘密鍵を扱うため、コマンド履歴やログに出さない。必要ならリクエスト本文を一時ファイルに置き、作業後に削除する。
 
 ## オリジンガード
 
@@ -156,7 +156,7 @@ location ~* \.html$ {
 
 ## Terraform 最小例
 
-詳細な引数一覧は公式 provider docs を参照する。ここでは構成の形だけ示す。
+詳細な引数一覧は provider の公式文書を参照する。ここでは構成の形だけ示す。
 
 ```hcl
 terraform {
@@ -193,9 +193,9 @@ resource "sakuracloud_webaccel_activation" "cdn" {
 
 ### キャッシュされない
 
-- `Cache-Control` に `private`, `no-store`, `no-cache` がないか。
+- `Cache-Control` に `private`、`no-store`、`no-cache` がないか。
 - `Set-Cookie` が付いていないか。
-- URL / query string / `Vary` の扱いが期待どおりか。
+- URL、クエリ文字列、`Vary` の扱いが期待どおりか。
 
 ### オリジンガードで 403
 
@@ -207,7 +207,7 @@ resource "sakuracloud_webaccel_activation" "cdn" {
 
 - TTL を確認する。
 - A レコードが残っていないか確認する。
-- negative cache を避けるため、削除と追加の順序に注意する。
+- 存在しないという結果のキャッシュを避けるため、削除と追加の順序に注意する。
 
 ## 公式ドキュメント
 

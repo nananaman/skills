@@ -1,4 +1,4 @@
-# Engineering Flow
+# エンジニアリングフロー
 
 このリポジトリでは、共有する設計判断と、個別実装でだけ使う plan を分離する。
 
@@ -43,7 +43,7 @@ task には次を含める。
 個別実装の詳細、変更ファイルごとの手順、局所的な実装方法は task に固定しない。
 合意済みの情報を複数 task へ分ける場合は `task-breakdown` を使い、分解案の確認後に設定済み tracker へ作成する。
 
-## Plan gate
+## 計画の判定
 
 担当者が task を取得した後、`create-plan <issue>` で実装前の共有理解を作る。
 `create-plan` は関連文書とコードを調査し、`grilling` で重要な判断を一つずつ解消してから、repo 設定済みの plan directory に一時 plan を作る。
@@ -68,7 +68,7 @@ plan の標準見出しは次とする。
 別セッションの coding agent が追加の設計判断なしに実装・検証できる状態を plan gate とする。
 plan は今回の実装だけで使う untracked file であり、永続的な Design Doc / ADR の代わりにしない。
 
-## Implementation and review gate
+## 実装とレビューの判定
 
 実装中は plan を参照し、plan の完了条件に対応する自動テスト、静的検査、必要な実動作確認を行う。
 実装と検証が完了した後、最終コードレビューの前に`simplify-code`を適用する必要があるか判断する。
@@ -84,7 +84,7 @@ plan は今回の実装だけで使う untracked file であり、永続的な D
 
 review と修正が終わるまで plan file を保持する。
 
-## Plan closeout
+## 計画の完了処理
 
 plan file 自体は一度も commit しない。
 通常は実装・検証・review・修正後に一つの完成 commit を作る。
