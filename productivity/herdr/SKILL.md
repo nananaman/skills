@@ -1,15 +1,15 @@
 ---
 name: herdr
-description: Herdr-managed pane 内で HERDR_ENV=1 を確認したうえで、herdr CLI による pane / tab / workspace / agent の確認、隣接 pane での command 実行、出力待ち、agent 協調、managed Hunk review のコメント回収を行う runbook。Herdr 外、短い単発 command、承認のない focus / close / takeover / layout 変更 / 人間 pane への入力、managed Hunk review pane の起動 / reload / close では使わない。
+description: Herdr が管理する pane 内で HERDR_ENV=1 を確認したうえで、herdr CLI による pane / tab / workspace / agent の確認、隣接 pane でのコマンド実行、出力待ち、agent 協調、管理対象の Hunk review のコメント回収を行う運用手順。Herdr 外、短い単発コマンド、承認のない focus / close / takeover / layout 変更 / 人間 pane への入力、管理対象の Hunk review pane の起動 / reload / close では使わない。
 ---
 
 # Herdr
 
-Herdr-managed pane 内で、`herdr` CLI を安全に使うための workflow skill。
-CLI の command catalog、用途別 runbook、task pattern は `references/herdr-cli-runbook.md` に分離している。
-具体的な command syntax、option、例が必要になった時点で読む。
+Herdr が管理する pane 内で、`herdr` CLI を安全に使うための skill。
+CLI のコマンド一覧、用途別の運用手順、作業例は `references/herdr-cli-runbook.md` に分離している。
+具体的なコマンド構文、選択肢、例が必要になった時点で読む。
 
-## Contract
+## 契約
 
 - 最初に `HERDR_ENV=1` を確認する。
 - `HERDR_ENV` が `1` でなければ、Herdr-managed pane 外であることを報告して止める。
@@ -22,7 +22,7 @@ CLI の command catalog、用途別 runbook、task pattern は `references/herdr
 - managed Hunk review の起動、reload、close は agent が行わない。
 - Hunk の user comment は、人間がレビュー完了を伝えた後だけ session API から回収する。
 
-## When to use
+## 使用する場面
 
 - 長時間 command、dev server、test、log tail を sibling pane に逃がしたい。
 - 隣接 pane や helper agent の出力を読み、現在の作業を続けたい。
@@ -31,7 +31,7 @@ CLI の command catalog、用途別 runbook、task pattern は `references/herdr
 - Herdr の workspace / tab / pane / agent 状態を確認しながら作業を進める。
 - managed Hunk review の完了後に、人間が残したコメントを回収する。
 
-## When not to use
+## 使用しない場面
 
 - `HERDR_ENV=1` ではない。
 - `exec_command` など通常の shell tool で短く完結する。
@@ -39,9 +39,9 @@ CLI の command catalog、用途別 runbook、task pattern は `references/herdr
 - focus / close / takeover / layout 変更を、ユーザー承認なしに行う必要がある。
 - Herdr CLI 自体の実装、設定ファイル、配布、更新を調査する作業。必要なら通常の repo 調査として扱う。
 
-## Workflow
+## 手順
 
-1. Preflight を行う。
+1. 事前確認を行う。
 
    ```sh
    printf '%s\n' "${HERDR_ENV-}"
@@ -71,7 +71,7 @@ CLI の command catalog、用途別 runbook、task pattern は `references/herdr
    - timeout / failure があれば原因候補と次の選択肢。
    - focus / close / takeover / 既存 pane 入力が必要なら、実行せず承認待ちにする。
 
-## Common safe paths
+## 安全な基本手順
 
 ### 隣接 pane を読む
 
@@ -81,7 +81,7 @@ herdr pane list
 herdr pane read <pane-id> --source recent --lines 80
 ```
 
-### 長時間 command を sibling pane で実行する
+### 長時間コマンドを隣接 pane で実行する
 
 ```sh
 CURRENT_PANE=$(herdr pane current \
@@ -93,7 +93,7 @@ herdr pane wait-output "$NEW_PANE" --match "<marker>" --timeout 60000
 herdr pane read "$NEW_PANE" --source recent --lines 100
 ```
 
-### helper agent を起動して読む
+### 補助 agent を起動して読む
 
 ```sh
 herdr agent list
@@ -104,7 +104,7 @@ herdr agent prompt helper "<task>" --wait --timeout 120000
 herdr agent read helper --source recent --lines 120
 ```
 
-## Managed Hunk review
+## 管理対象の Hunk review
 
 Hunk review pane は Herdr plugin と人間が管理する。
 agent は Hunk pane を起動、reload、close しない。
@@ -123,13 +123,13 @@ hunk session comment list --repo . --type user
 - コメント取得後、修正または commit へ進む前に人間へ対応方針を確認する。
 - レビュー完了後も Hunk pane をcloseせず、watchを継続させる。
 
-## Risky operations gate
+## 危険な操作の承認条件
 
-次の操作は通常 workflow から外す。
+次の操作は通常の手順から外す。
 ユーザーが明示依頼した場合だけ、実行前に対象 ID、現在の process / agent 状態、操作内容、予想される影響を提示する。
 ただし、直前にこの作業のために作成した補助 pane / helper agent への `pane run` / `agent prompt` は通常 path として扱う。
 
-| Operation | Examples |
+| 操作 | 例 |
 |---|---|
 | focus 移動 | `pane focus`、`tab focus`、`workspace focus`、`agent focus` |
 | close | `pane close`、`tab close`、`workspace close` |
@@ -138,7 +138,7 @@ hunk session comment list --repo . --type user
 | layout 変更 | `pane move`、`swap`、`resize`、`zoom` |
 | metadata 注入 | `pane report-*` |
 
-## Failure handling
+## 失敗時の処理
 
 - `HERDR_ENV` がない: Herdr 操作を止め、通常 shell tool で代替できるか提案する。
 - `herdr` command が失敗する: command、exit code、stderr を報告し、追加操作へ進まない。

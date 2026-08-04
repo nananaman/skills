@@ -39,7 +39,7 @@ brew services start container
 brew services stop container
 ```
 
-## Upgrade と uninstall
+## 更新とアンインストール
 
 実行中の container と system service を止めてから formula を更新する。
 

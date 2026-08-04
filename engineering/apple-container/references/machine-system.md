@@ -4,7 +4,7 @@
 
 Apple `container` 1.1.x で、停止後も filesystem を残す Linux 環境を管理し、system service、kernel、disk 使用量を確認する。通常の application container の操作は `containers-images.md` を参照する。
 
-## Container machine を作成・実行する
+## Container machine を作成して実行する
 
 machine は OCI image から作る長期利用向け VM である。通常の container が image の command を PID 1 として実行するのに対し、machine は image の `/sbin/init` を起動する。root filesystem は stop 後も保持され、`run` は停止中なら起動してから command を実行する。
 
@@ -47,7 +47,7 @@ container machine delete dev
 
 `inspect` は JSON を返す。`set` の `cpus`、`memory`、`home-mount`、`virtualization`、`kernel` は停止して次に起動したとき反映される。CPU の既定は host core 数の半分（最低 4）、memory の既定は host memory の半分（最低 1 GiB）。`delete`（alias `rm`）は実行中なら停止してから永続 filesystem ごと削除するため、必要な data を先に退避する。
 
-## Custom machine image と user 作成
+## 独自の machine image とユーザーの作成
 
 custom image には executable な `/sbin/init` が必要で、systemd などの init system と長期 service を起動できる。
 
@@ -81,7 +81,7 @@ container machine set -n dev kernel=
 
 最後の `kernel=` は machine 固有の override を解除する。
 
-## System service
+## システムサービス
 
 ```sh
 container system start

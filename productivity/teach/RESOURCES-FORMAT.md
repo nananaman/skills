@@ -1,32 +1,32 @@
-# RESOURCES.md Format
+# RESOURCES.md の形式
 
-`RESOURCES.md` は、この topic で信頼するリソースの curated set である。説明や lesson の根拠はここから引く。実践知は community から得る。
+`RESOURCES.md` は、このテーマで信頼する資料を選んだ一覧である。説明や授業の根拠はここから引く。実践知はコミュニティから得る。
 
-## Structure
+## 構成
 
 ```md
-# {Topic} Resources
+# {テーマ} の資料
 
-## Knowledge
+## 知識
 
-- [Book: _The Science and Practice of Strength Training_ — Zatsiorsky & Kraemer](https://example.com)
-  Programming と adaptation の基礎。Use for: periodisation、recovery、intensity zones。
-- [Article: "How Much Should I Train?" — Greg Nuckols](https://example.com)
-  Evidence-based な volume landmark の解説。Use for: 週あたり set 数の判断。
+- [書籍：_The Science and Practice of Strength Training_（Zatsiorsky、Kraemer）](https://example.com)
+  プログラム設計と適応の基礎。使いどころ：期分け、回復、強度帯。
+- [記事："How Much Should I Train?"（Greg Nuckols）](https://example.com)
+  根拠に基づくトレーニング量の目安。使いどころ：週あたりのセット数の判断。
 
-## Wisdom (Communities)
+## 実践知を得るコミュニティ
 
 - [r/weightroom](https://reddit.com/r/weightroom)
-  bro-science を抑える moderation がある high-signal subreddit。Use for: programme critique、plateau troubleshooting。
-- Local: Tuesday strength class at {gym name}
-  Use for: lift form の real-time coaching。
+  根拠の薄い俗説を抑える管理が行き届いた subreddit。使いどころ：プログラムの批評、停滞の原因調査。
+- 地域の活動：{ジム名}で毎週火曜日に開かれる筋力トレーニング教室
+  使いどころ：挙上フォームをその場で指導してもらう。
 ```
 
-## Rules
+## 規則
 
-- **High-trust only。** 一次情報、定評ある専門家、査読済み研究、moderation が強い community を優先する。marketing 色が強い教材は入れない。
-- **必ず annotation を付ける。** bare link は 3 か月後に役に立たない。何を扱い、いつ使うかを書く。
-- **Knowledge / Wisdom で分ける。** 片方だけでもよい。
-- **gap を明示する。** mission に必要だが良い resource が未発見なら `## Gaps` を作る。
-- **容赦なく prune する。** shallow、off-mission、誤りが判明した resource は残さない。
-- **community preference を記録する。** ユーザーが community 参加を望まないなら、ここか `NOTES.md` に残す。
+- **信頼性の高い資料だけを使う。** 一次情報、定評ある専門家、査読済み研究、管理が行き届いたコミュニティを優先する。宣伝色が強い教材は入れない。
+- **必ず説明を付ける。** URL だけの記録は三か月後に役に立たない。何を扱い、いつ使うかを書く。
+- **知識と実践知に分ける。** 片方だけでもよい。
+- **不足を明示する。** 学習目的に必要だが良い資料が未発見なら `## 不足している資料` を作る。
+- **不要な資料を削る。** 内容が浅い、目的から外れる、誤りが判明した資料は残さない。
+- **コミュニティ参加の好みを記録する。** ユーザーがコミュニティへの参加を望まないなら、ここか `NOTES.md` に残す。

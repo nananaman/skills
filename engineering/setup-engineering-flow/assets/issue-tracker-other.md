@@ -1,4 +1,4 @@
-# Issue Tracker
+# Issue tracker
 
 Issue tracker 種別: other
 
@@ -12,10 +12,10 @@ Issue tracker 種別: other
 - 既存 issue をどう更新するか
 - PRD / Design Doc / ADR への参照をどう書くか
 - task 作成前の確認方法
-- agent が守るべき label、state、owner、権限ルール
+- エージェントが守るべきラベル、状態、担当者、権限ルール
 
-## Agent ルール
+## エージェントのルール
 
-この tracker が設定されている場合、`task-breakdown` と `create-plan` は GitHub Issue や local markdown の挙動を仮定しない。
-`task-breakdown` は分解案を提示し、ユーザー確認後だけ上記 workflow に従って task を作成する。
-既存 artifact の変更や task 作成を超える不可逆な tracker 操作の前にはユーザー確認を取る。
+この tracker が設定されている場合、`task-breakdown` と `create-plan` は GitHub Issue やローカル Markdown の挙動を仮定しない。
+`task-breakdown` は分解案を提示し、ユーザー確認後だけ上記の手順に従ってタスクを作成する。
+既存成果物の変更やタスク作成を超える不可逆な tracker 操作の前にはユーザー確認を取る。

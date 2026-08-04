@@ -3,12 +3,12 @@ name: polish-prd
 description: PRD draft を、作る価値・範囲・成功条件を人間が判断できる PRD に磨く。PM 的な問いを一つずつ grill し、TODO(polish) を解消する。技術設計、Design Doc 作成、issue 作成、実装、レビューだけの依頼では使わない。
 ---
 
-# Polish PRD
+# PRD の仕上げ
 
 PRD draft を「この機能を作る価値・範囲・成功条件を判断できる文書」に磨く。
 PM 的な問いを一つずつ grill し、要求の曖昧さを潰す。
 
-## Contract
+## 契約
 
 polished PRD は、次を満たす。
 
@@ -31,15 +31,15 @@ polished PRD は、次を満たす。
 `grilling` は曖昧さを一問ずつ潰す手順を定める。
 `japanese-tech-writing` は文章品質を定める。
 
-## Safety
+## 安全上の制約
 
 - この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
 - この skill では Design Doc / issue / 実装 diff を作らない。
 - PRD 更新前に polished body をユーザーへ提示し、確認後だけ更新する。
 
-## Workflow
+## 手順
 
-### 1. Load context
+### 1. 前提情報を読む
 
 対象 PRD draft を読む。
 repo-local 設定があれば読む。
@@ -52,12 +52,12 @@ docs/agents/domain.md
 PRD が存在しない場合は `draft-prd` を提案して止める。
 `TODO(draft)` が残っている、または draft が blocked の場合は polish へ進まず、`draft-prd` で draft gate を解消するよう報告して止める。
 
-### 2. Confirm scope
+### 2. 対象範囲を確認する
 
 PRD は新機能・仕様変更の要求判断に使う。
 技術改善だけの文書なら `draft-design-doc` / `polish-design-doc` を提案する。
 
-### 3. Grill one question at a time
+### 3. 一問ずつ確認する
 
 一度に一つずつ問いを立てる。
 コードベースや既存 docs から答えられることは、ユーザーに聞く前に調べる。
@@ -77,7 +77,7 @@ draft で根拠とともに確定している内容は一律に問い直さな�
 - 受け入れ条件はテスト・レビューで確認できるか。
 - 要求と設計が混ざっていないか。
 
-### 4. Decide adopted product approach
+### 4. 採用するプロダクト案を決める
 
 `検討した案` にある候補を、draft で確定した問題・制約・成功条件に照らして比較し、採用案を決める。
 
@@ -86,7 +86,7 @@ draft で根拠とともに確定している内容は一律に問い直さな�
 - `検討した案` には不採用案だけを残し、各案の `Conclusion` に不採用理由を書く。
 - 採用案を決められない場合は polished にせず blocked として報告する。
 
-### 5. Rewrite PRD
+### 5. PRD を書き直す
 
 `../draft-prd/assets/prd-template.md` の構造に合わせて PRD を更新する。
 
@@ -97,7 +97,7 @@ draft で根拠とともに確定している内容は一律に問い直さな�
 - 設計判断は Design Doc へ送る内容として分離し、PRD には書きすぎない。
 - task 分割や実装方針は書かない。
 
-### 6. Validate polished gate
+### 6. 完成条件を検証する
 
 更新前に以下を自己確認する。
 
@@ -114,11 +114,11 @@ draft で根拠とともに確定している内容は一律に問い直さな�
 - `TODO(draft)` が残っていないか。
 - 実装設計に踏み込んでいないか。
 
-### 7. Confirm before update
+### 7. 更新前に確認する
 
 polished body をユーザーへ提示し、確認後だけ PRD を更新する。
 
-### 8. Closeout
+### 8. 完了を報告する
 
 報告には次を含める。
 

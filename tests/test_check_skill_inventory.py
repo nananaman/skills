@@ -102,6 +102,84 @@ class SkillInventoryCheckTest(unittest.TestCase):
 
         self.assertIn("link-missing", self.finding_codes())
 
+    def test_reports_an_english_control_heading_in_a_skill(self) -> None:
+        skill = self.add_skill()
+        skill.write_text(skill.read_text(encoding="utf-8") + "\n## Workflow\n", encoding="utf-8")
+
+        self.assertIn("english-control-heading", self.finding_codes())
+
+    def test_reports_an_english_control_heading_in_supporting_markdown(self) -> None:
+        skill = self.add_skill()
+        reference = skill.parent / "references" / "contract.md"
+        reference.parent.mkdir()
+        reference.write_text("# 契約\n\n## Completion\n", encoding="utf-8")
+
+        self.assertIn("english-control-heading", self.finding_codes())
+
+    def test_accepts_product_and_technical_headings(self) -> None:
+        skill = self.add_skill()
+        skill.write_text(
+            skill.read_text(encoding="utf-8")
+            + "\n## GitHub Tool Routing\n\n## TypeScript / JavaScript\n",
+            encoding="utf-8",
+        )
+
+        self.assertNotIn("english-control-heading", self.finding_codes())
+
+    def test_ignores_control_headings_inside_code_blocks(self) -> None:
+        skill = self.add_skill()
+        skill.write_text(
+            skill.read_text(encoding="utf-8") + "\n```md\n## Output\n```\n",
+            encoding="utf-8",
+        )
+
+        self.assertNotIn("english-control-heading", self.finding_codes())
+
+    def test_a_short_fence_does_not_close_a_long_code_block(self) -> None:
+        skill = self.add_skill()
+        skill.write_text(
+            skill.read_text(encoding="utf-8") + "\n````md\n```\n## Output\n````\n",
+            encoding="utf-8",
+        )
+
+        self.assertNotIn("english-control-heading", self.finding_codes())
+
+    def test_requires_whitespace_before_a_closing_heading_sequence(self) -> None:
+        skill = self.add_skill()
+        skill.write_text(skill.read_text(encoding="utf-8") + "\n## Output###\n", encoding="utf-8")
+
+        self.assertNotIn("english-control-heading", self.finding_codes())
+
+    def test_accepts_a_closing_heading_sequence_after_whitespace(self) -> None:
+        skill = self.add_skill()
+        skill.write_text(skill.read_text(encoding="utf-8") + "\n## Output ###\n", encoding="utf-8")
+
+        self.assertIn("english-control-heading", self.finding_codes())
+
+    def test_a_backtick_in_the_info_string_does_not_open_a_code_block(self) -> None:
+        skill = self.add_skill()
+        skill.write_text(
+            skill.read_text(encoding="utf-8") + "\n```foo`bar\n## Output\n",
+            encoding="utf-8",
+        )
+
+        self.assertIn("english-control-heading", self.finding_codes())
+
+    def test_excludes_readme_and_notice_from_language_check(self) -> None:
+        skill = self.add_skill()
+        (skill.parent / "README.md").write_text("# Workflow\n", encoding="utf-8")
+        (skill.parent / "NOTICE.md").write_text("# Completion\n", encoding="utf-8")
+
+        self.assertNotIn("english-control-heading", self.finding_codes())
+
+    def test_excludes_dependency_directories_from_language_check(self) -> None:
+        skill = self.add_skill()
+        dependency_doc = skill.parent / "node_modules" / "dependency" / "guide.md"
+        dependency_doc.parent.mkdir(parents=True)
+        dependency_doc.write_text("# Prerequisites\n", encoding="utf-8")
+
+        self.assertNotIn("english-control-heading", self.finding_codes())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -53,7 +53,7 @@ calc:
 
 `switch` 内で assign した変数は外側で期待どおり使えないことがある。後続ステップで使う値は、可能なら `&&` / `||` パターンで同一スコープに作る。
 
-## HTTP call
+## HTTP 呼び出し
 
 ```yaml
 call_api:
@@ -164,7 +164,7 @@ export WORKFLOWS_API="https://secure.sakura.ad.jp/cloud/zone/${ZONE}/api/workflo
 -H 'X-Requested-With: XMLHttpRequest'
 ```
 
-### workflow 一覧
+### workflow の一覧
 
 ```bash
 curl -s -u "$SAKURACLOUD_ACCESS_TOKEN:$SAKURACLOUD_ACCESS_TOKEN_SECRET" \

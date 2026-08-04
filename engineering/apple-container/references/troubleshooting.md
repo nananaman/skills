@@ -62,7 +62,7 @@ container system status
 
 kernel 未設定が明示された場合だけ `container system kernel set --recommended` を実行する。設定 error なら `container system property list` と `~/.config/container/config.toml` の直前の変更を照合する。
 
-## Application が即時終了する
+## アプリケーションが即時終了する
 
 観察:
 
@@ -109,7 +109,7 @@ fi
 
 `delete` は machine の永続 filesystem も削除する。この script は、自身の `create` が成功した一意名だけを同じ block 内で削除し、同名の既存 machine や調査対象 `MACHINE` を cleanup 対象にしない。
 
-## Architecture / `Exec format error`
+## アーキテクチャと `Exec format error`
 
 観察:
 
@@ -123,7 +123,7 @@ container logs --boot CONTAINER
 
 Apple `container` の guest application 対応は `linux/arm64` native と `linux/amd64` Rosetta の 2 種類である。image manifest に要求 architecture があるかを `image inspect` で確認し、`--platform linux/arm64` または `--platform linux/amd64` を明示する。その他の architecture を指定して pull や VM 作成まで進んでも、guest process は `Exec format error` になりうる。
 
-## Build / builder が失敗する
+## ビルドまたは builder が失敗する
 
 観察:
 
@@ -148,7 +148,7 @@ container builder delete
 container builder start --cpus 8 --memory 16g
 ```
 
-## Registry authentication / pull / push が失敗する
+## Registry の認証、pull、push が失敗する
 
 観察:
 
@@ -167,7 +167,7 @@ container registry list
 
 調査結果へ token、password、credential store の内容を貼らない。
 
-## Port に接続できない / DNS・network が解決しない
+## ポートに接続できない、または DNS と network を解決できない
 
 観察:
 
@@ -231,7 +231,7 @@ fi
 
 一意名の volume を作成できた場合だけ writer を作成し、writer を作成できた場合だけ marker の書き込みと読み戻しへ進む。最後に、この block 自身が作成した writer と volume だけを削除する。`--rm` は anonymous volume を削除しない。消失ではなく別の anonymous volume を再作成している可能性があるため、`volume list` と各 container の `inspect` で ID を照合する。
 
-## Disk 使用量が増え続ける
+## ディスク使用量が増え続ける
 
 観察:
 
@@ -252,4 +252,4 @@ container volume prune
 container network prune
 ```
 
-`image prune --all` は未使用の tagged image も対象にするため、通常の `image prune` より広い。診断 evidence を失う system data reset や手動 directory 削除は行わない。
+`image prune --all` は未使用の tagged image も対象にするため、通常の `image prune` より広い。診断の根拠を失う system data reset や手動のディレクトリ削除は行わない。

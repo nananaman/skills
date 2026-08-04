@@ -1,4 +1,4 @@
-# Mobile / Native UI Prototype
+# モバイル UI とネイティブ UI のプロトタイプ
 
 mobile/native の見た目、情報設計、操作感を debug build 上で観察する。
 

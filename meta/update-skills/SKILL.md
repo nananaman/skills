@@ -1,36 +1,36 @@
 ---
 name: update-skills
-description: global / project-local APM skill dependencies を最新の full SHA へ更新し、必要に応じて apm install を実行する。apm.yml の pin drift、複数 skill の一括更新、source-of-truth repo と展開先の同期確認で使う。単一 skill の作成・本文編集・品質レビュー・通常の npm / Nix 依存更新では使わない。
+description: グローバルまたはプロジェクト単位の APM skill 依存関係を最新の full SHA へ更新し、必要に応じて apm install を実行する。apm.yml の pin のずれ、複数 skill の一括更新、正本のリポジトリと展開先の同期確認で使う。単一 skill の作成、本文編集、品質レビュー、通常の npm / Nix 依存更新では使わない。
 disable-model-invocation: true
 ---
 
-APM で管理している agent skill dependency を、source-of-truth と実利用 manifest を取り違えずに最新へ更新する。
-この skill は pin 更新と install の運用 skill であり、skill 本文の編集や品質レビューは担当しない。
+APM で管理している agent skill の依存関係を、正本と実際に使う manifest を取り違えずに最新へ更新する。
+この skill は pin の更新とインストールを運用する skill であり、skill 本文の編集や品質レビューは担当しない。
 
-## Scope
+## 対象範囲
 
-- 対象は APM の `dependencies.apm` にある skill dependency。
-- global skill 更新では、dotfiles の `apm/apm.yml` と user-scope の `~/.apm/apm.yml` の実体を確認する。
-- project-local skill 更新では、対象 repo root の `apm.yml` を確認する。
-- GitHub dependency は `owner/repo/path#full-sha` の pin を最新 commit SHA へ更新する。
-- local path dependency は更新対象外として記録する。
+- 対象は APM の `dependencies.apm` にある skill の依存関係。
+- グローバル skill の更新では、dotfiles の `apm/apm.yml` とユーザー単位の `~/.apm/apm.yml` の実体を確認する。
+- プロジェクト単位の skill 更新では、対象リポジトリ直下の `apm.yml` を確認する。
+- GitHub の依存関係は `owner/repo/path#full-sha` の pin を最新 commit SHA へ更新する。
+- ローカルパスの依存関係は更新対象外として記録する。
 - skill 本文の作成・編集、差分レビュー、棚卸しは `skill-workbench` に委譲する。
 
-## Safety Rules
+## 安全上の制約
 
-- 変更前に `git status --short` を確認し、既存の未コミット変更を user-owned として扱う。
+- 変更前に `git status --short` を確認し、既存の未コミット変更をユーザー所有として扱う。
 - 既存変更があるファイルを変更する場合は、必ず差分の所有者と意図を確認する。
 - `apm.lock.yaml` と `apm_modules/` は commit 対象にしない。
-- update-skills は通常、pin 更新から install までを 1 セットとして扱う。ユーザーが「更新して」「global」「project-local」など更新依頼をした場合は install まで求めているものとして扱い、install 実行前に追加確認しない。
-- install を実行しないのは、ユーザーが「install はしない」「manifest だけ」「dry-run」などを明示した場合、またはレビュー finding / 取得失敗などで安全に進めない場合だけにする。
+- update-skills は通常、pin の更新からインストールまでを一組として扱う。ユーザーが「更新して」「グローバル」「プロジェクト単位」など更新を依頼した場合はインストールまで求めているものとして扱い、実行前に追加確認しない。
+- インストールしないのは、ユーザーが「install はしない」「manifest だけ」「dry-run」などを明示した場合、またはレビューの指摘や取得失敗によって安全に進めない場合だけにする。
 - `--update` 付き install は lock 内容の受け入れを伴うため、content hash mismatch が出た場合だけ、manifest が意図した full SHA を指していることを確認し、ユーザーが lock 更新を受け入れる判断をしてから提案または実行する。
 - commit / push は、この skill の通常完了条件に含めない。ユーザーが明示した場合は `chouge-git` の規約に従う。
 
-## Workflow
+## 手順
 
 1. 更新対象を決める。
-   - ユーザーが path を指定した場合はその `apm.yml` を対象にする。
-   - global 更新の依頼なら、次を確認する。
+   - ユーザーがパスを指定した場合はその `apm.yml` を対象にする。
+   - グローバル更新の依頼なら、次を確認する。
 
 ```sh
 readlink ~/.apm
@@ -38,30 +38,30 @@ realpath ~/.apm/apm.yml
 git -C <dotfiles-repo> status --short
 ```
 
-   - 現在の repo に `apm.yml` があり、global か project-local か曖昧な場合は確認する。
+   - 現在のリポジトリに `apm.yml` があり、グローバル更新かプロジェクト単位の更新か曖昧な場合は確認する。
 
-2. manifest を読む。
-   - `dependencies.apm` の各 entry を列挙する。
-   - 文字列 dependency と mapping dependency を区別する。
-   - GitHub dependency、local path dependency、pin なし dependency を分類する。
-   - pin なし dependency がある場合は、最新 full SHA で pin する変更案に含める。
+2. Manifest を読む。
+   - `dependencies.apm` の各項目を列挙する。
+   - 文字列形式と mapping 形式の依存関係を区別する。
+   - GitHub、ローカルパス、pin なしの依存関係を分類する。
+   - pin なしの依存関係がある場合は、最新 full SHA で pin する変更案に含める。
 
 3. 最新 SHA を取得する。
-   - GitHub dependency `owner/repo/path#old-sha` は、同じ `owner/repo` の default branch HEAD を取得する。
+   - GitHub の依存関係 `owner/repo/path#old-sha` は、同じ `owner/repo` のデフォルトブランチの HEAD を取得する。
 
 ```sh
 git ls-remote https://github.com/<owner>/<repo>.git HEAD
 ```
 
-   - default branch 以外を使う指示がある dependency は、その branch / ref の SHA を取得する。
-   - 取得できない dependency は更新せず、原因を report に残す。
+   - デフォルトブランチ以外を使う指示がある依存関係は、そのブランチまたは ref の SHA を取得する。
+   - 取得できない依存関係は更新せず、原因を報告に残す。
 
 4. 更新計画を作る。
-   - dependency ごとに `old -> new`、変更有無、更新対象外理由を表にする。
-   - 同一 repo の複数 path は同じ new SHA に揃える。
-   - old と new が同じ dependency は変更しない。
-   - manifest 実体が symlink 経由の場合は、編集する実体 path を明記する。
-   - install を実行する working directory は、manifest がある repo root として明記する。
+   - 依存関係ごとに変更前と変更後、変更有無、更新対象外理由を表にする。
+   - 同一リポジトリの複数パスは同じ新しい SHA に揃える。
+   - 変更前と変更後が同じ依存関係は変更しない。
+   - manifest の実体が symlink 経由の場合は、編集する実体パスを明記する。
+   - インストールを実行する作業ディレクトリは、manifest があるリポジトリ直下として明記する。
 
 5. manifest を更新する。
    - full SHA だけを置換し、path / owner / repo / target は変えない。
@@ -70,19 +70,19 @@ git ls-remote https://github.com/<owner>/<repo>.git HEAD
    - 変更後に `git diff -- <manifest>` を確認する。
 
 6. 配布前レビューを行う。
-   - skill dependency / APM manifest の変更は `skill-workbench` の Review diff branch の対象として扱う。
-   - actionable finding が残る場合は install へ進まない。
-   - この skill 自身では review finding を無視して進めない。
+   - skill の依存関係または APM manifest の変更は `skill-workbench` の差分レビューの対象として扱う。
+   - 対応可能な指摘が残る場合はインストールへ進まない。
+   - この skill 自身ではレビューの指摘を無視して進めない。
 
-7. install する。
-   - ユーザーが install 不要を明示していない限り、pin 更新後に install まで実行する。
-   - global 更新なら次を使う。
+7. インストールする。
+   - ユーザーが install 不要を明示していない限り、pin 更新後にインストールまで実行する。
+   - グローバル更新なら次を使う。
 
 ```sh
 apm install -g
 ```
 
-   - project-local 更新なら、対象 repo root で manifest の `target:` に従って install する。ユーザーが target override を明示した場合だけ `--target` を付ける。
+   - プロジェクト単位の更新なら、対象リポジトリ直下で manifest の `target:` に従ってインストールする。ユーザーが対象の上書きを明示した場合だけ `--target` を付ける。
 
 ```sh
 cd <repo-root> && apm install
@@ -98,43 +98,43 @@ cd <repo-root> && apm install --target <explicit-target> --update
 ```
 
 8. 結果を報告する。
-   - 更新した manifest path。
-   - 更新した dependency と `old -> new`。
-   - 更新しなかった dependency と理由。
-   - install 実行有無と結果。
-   - 残っている手動作業（review、install、commit、push など）。
+   - 更新した manifest のパス。
+   - 更新した依存関係と変更前後の SHA。
+   - 更新しなかった依存関係と理由。
+   - インストールの実行有無と結果。
+   - 残っている手動作業（レビュー、install、commit、push など）。
 
-## Output
+## 出力
 
 ```md
-## Skill Update Summary
-- Target manifest: <path>
-- Scope: global / project-local
-- Manifest realpath: <path or n/a>
-- Existing dirty files: <none or summary>
+## Skill 更新の概要
+- 対象 manifest: <パス>
+- 対象範囲: グローバル / プロジェクト単位
+- Manifest の実体パス: <パス、または該当なし>
+- 既存の未コミットファイル: <なし、または概要>
 
-## Dependency Updates
-| Dependency | Old SHA | New SHA | Action |
+## 依存関係の更新
+| 依存関係 | 変更前の SHA | 変更後の SHA | 対応 |
 |---|---|---|---|
-| `<owner/repo/path>` | `<old>` | `<new>` | updated / unchanged / skipped |
+| `<owner/repo/path>` | `<変更前>` | `<変更後>` | 更新 / 変更なし / 対象外 |
 
-## Skipped
-- `<dependency>`: <reason>
+## 更新しなかった項目
+- `<依存関係>`: <理由>
 
-## Review / Install
-- skill-workbench Review diff: passed / findings / not run (<reason>)
-- install: run / not run (<reason>)
-- command: `<command or n/a>`
+## レビューとインストール
+- skill-workbench の差分レビュー: 合格 / 指摘あり / 未実行（<理由>）
+- install: 実行 / 未実行（<理由>）
+- コマンド: `<コマンド、または該当なし>`
 
-## Next Steps
+## 残る作業
 1. <必要なら commit / push / install など>
 ```
 
-## Done Criteria
+## 完了条件
 
-- 対象 manifest と実体 path を確認した。
-- APM dependency を分類し、更新対象と対象外を分けた。
-- GitHub dependency の最新 full SHA を取得した。
+- 対象 manifest と実体パスを確認した。
+- APM の依存関係を分類し、更新対象と対象外を分けた。
+- GitHub の依存関係の最新 full SHA を取得した。
 - 変更する場合は SHA pin だけを更新し、diff を確認した。
-- `skill-workbench` の Review diff gate を通すか、未実行理由を明示した。
-- install 実行有無と次アクションを報告した。
+- `skill-workbench` の差分レビューを通すか、未実行理由を明示した。
+- インストールの実行有無と次の対応を報告した。

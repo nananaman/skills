@@ -1,111 +1,111 @@
-# Skill Design Principles
+# Skill の設計原則
 
-この reference は Create / Improve branch で draft または大きな構造変更を行う前に読む。
-目的は、skill を必要な context へ導く小さな interface として設計すること。
+この補助文書は新規作成／改善の分岐で草案または大きな構造変更を行う前に読む。
+目的は、skill を必要な前提情報へ導く小さなインターフェースとして設計することにある。
 
-## Root Principle: Reliable Outcome, Minimal Constraint
+## 最小限の制約で成果を安定させる
 
-skill が安定させるのは agent の探索順序ではなく、outcome、判断境界、必要な evidence、検証方法である。
-詳細な rule は、domain 固有の gotcha、authority / safety boundary、誤終了を防ぐ gate のように、周辺 context と agent の判断だけでは回復できない場合に限る。
+skill が安定させるのは agent の探索順序ではなく、成果、判断境界、必要な根拠、検証方法である。
+詳細な規則は、領域固有の落とし穴、権限と安全の境界、誤終了を防ぐ確認条件のように、周辺の前提情報と agent の判断だけでは回復できない場合に限る。
 
 設計判断は次の順で行う。
 
-1. 周辺 context と agent の判断で解けるなら書かない。
-2. 必要な知識へ到達できればよいなら、短い routing と reference を置く。
-3. 出力の形を安定させるなら、例を増やす前に schema、型、状態、rubric を設計する。
-4. 決定的に検査・変換できるなら asset / script / test にする。
-5. 重要な safety / authority rule だけは明示的な constraint として残す。
+1. 周辺の前提情報と agent の判断で解けるなら書かない。
+2. 必要な知識へ到達できればよいなら、短い振り分けと補助文書を置く。
+3. 出力の形を安定させるなら、例を増やす前に schema、型、状態、評価基準を設計する。
+4. 決定的に検査または変換できるなら、素材、スクリプト、テストにする。
+5. 重要な安全と権限の規則だけは明示的な制約として残す。
 
-## Invocation
+## 起動方法
 
-- model-invoked: agent が自律発火すべき、または他 skill から到達させる必要がある場合だけ使う。description の context load を支払う。
-- user-invoked: 人間が明示起動するだけでよい場合に使う。`disable-model-invocation: true` を付ける。ほかの skill から reach させる用途には使わない。
+- 自動起動: agent が自律発火すべき、または他の skill から到達させる必要がある場合だけ使う。description を読み込む負荷が常に生じる。
+- ユーザーによる明示起動: 人間が明示起動するだけでよい場合に使う。`disable-model-invocation: true` を付ける。ほかの skill から到達させる用途には使わない。
 
-model-invoked description は、紹介文ではなく routing 情報である。
-本文の workflow 要約を書くと、agent が本文を読まずに description だけで実行する shortcut を作る。
+自動起動する skill の description は、紹介文ではなく振り分け情報である。
+本文の手順を description に要約すると、agent が本文を読まずに実行する近道を作る。
 
-## Interface Contract
+## インターフェース契約
 
-skill は agent-facing prompt として、必要な範囲で次の contract を明示する。
+skill はエージェント向けプロンプトとして、必要な範囲で次の契約を明示する。
 
-- outcome: ユーザーに見える到達状態。
-- completion: branch が終了したと判断できる状態。
-- constraints: safety、permission、business rule、scope の境界。
-- evidence / prerequisites: 判断や action の前に必要な根拠と確認。
-- authority boundary: 自律実行できる action と確認が必要な action。
-- output: 必須の内容、形式、検証結果。
-- stop / fallback rules: retry、代替、質問、abstain、終了の条件。
+- 成果: ユーザーに見える到達状態。
+- 完了条件: 分岐が終了したと判断できる状態。
+- 制約: 安全、許可、業務規則、対象範囲の境界。
+- 根拠と前提条件: 判断や操作の前に必要な根拠と確認。
+- 権限境界: 自律実行できる操作と確認が必要な操作。
+- 出力: 必須の内容、形式、検証結果。
+- 停止と代替の規則: 再試行、代替、質問、判断の保留、終了の条件。
 
-すべてを prose の見出しとして追加しない。
-型、schema、test、既存コード、template、rubric のほうが高い忠実度で表せる場合はそれを interface にする。
-agent の判断を変えず、周辺 context から分かる項目は重ねて説明しない。
+すべてを自然文の見出しとして追加しない。
+型、schema、テスト、既存コード、テンプレート、評価基準のほうが高い忠実度で表せる場合は、それをインターフェースにする。
+agent の判断を変えず、周辺の前提情報から分かる項目は重ねて説明しない。
 
-## Branches
+## 作業の分岐
 
-branch は、異なる outcome または completion を持つ作業単位である。
-branch ごとに最低限次を固定する。
+分岐は、異なる成果または完了条件を持つ作業単位である。
+分岐ごとに最低限次を固定する。
 
-- trigger: その branch を選ぶ条件。
-- completion criterion: どの状態なら branch が終わったと言えるか。
-- output: ユーザーに返す形。
+- 起動条件: その分岐を選ぶ条件。
+- 完了条件: どの状態なら分岐が終わったと言えるか。
+- 出力: ユーザーに返す形。
 
-steps は順序が correctness や safety に影響する場合だけ固定する。
-完了条件が混ざる branch は reference へ逃がすのではなく、branch または skill を分ける。
+手順は、順序が正しさや安全性に影響する場合だけ固定する。
+完了条件が混ざる場合は補助文書へ逃がさず、分岐または skill を分ける。
 
-## Information Hierarchy
+## 情報の配置
 
-1. In-skill interface: branch routing と全 branch に必要な invariant。`SKILL.md` に置く。
-2. In-skill guide: 通常 path で必ず必要な判断や gate。短ければ `SKILL.md` に置く。
-3. Bundled reference: 一部 branch だけが読む詳細。`references/` に置き、読む条件を書く。
-4. Rich reference: test、code、mockup、rubric など、高忠実度な既存成果物を必要時に参照する。
-5. Assets / scripts: schema、template、deterministic CLI。必要時だけ使わせる。
+1. Skill 内のインターフェース: 分岐の振り分けと全分岐に必要な維持条件。`SKILL.md` に置く。
+2. Skill 内の案内: 通常の経路で必ず必要な判断や確認条件。短ければ `SKILL.md` に置く。
+3. 付属する補助文書: 一部の分岐だけが読む詳細。`references/` に置き、読む条件を書く。
+4. 高忠実度な参照物: テスト、コード、モックアップ、評価基準など、既存成果物を必要時に参照する。
+5. 素材とスクリプト: schema、テンプレート、決定的に動く CLI。必要時だけ使わせる。
 
 判断基準:
-- 全 branch が必要なら上に置く。
-- 一部 branch だけが必要なら reference に逃がす。
+- 全分岐が必要なら上に置く。
+- 一部の分岐だけが必要なら補助文書へ移す。
 - 周辺 repo から分かることを skill に複製しない。
-- 毎回 LLM に再生成させると壊れる処理は script にする。
+- 毎回 LLM に再生成させると壊れる処理はスクリプトにする。
 
-## Completion Criteria
+## 完了条件
 
-branch-level completion と、重要な safety / authority gate は観測可能にする。
-中間の探索 step は、誤終了や不可逆な action を防ぐ場合だけ completion を固定する。
+分岐ごとの完了条件と、重要な安全および権限の確認は観測可能にする。
+中間の探索手順は、誤終了や不可逆な操作を防ぐ場合だけ固定する。
 
-曖昧な「十分に確認する」ではなく、必要な evidence、検証結果、残った finding の扱いで終了状態を表す。
-チェック項目を満たすこと自体を outcome にしない。
+曖昧な「十分に確認する」ではなく、必要な根拠、検証結果、残った指摘の扱いで終了状態を表す。
+確認項目を満たすこと自体を成果にしない。
 
-## Leading Words
+## 判断を導く語
 
 leading word は、agent が作業中に掴める短い概念語である。
-例: predictability、branch、completion criterion、single source of truth、sprawl、sediment。
+例: 予測可能性、分岐、完了条件、正本、肥大化、堆積。
 
 使い方:
 - 同じ意味を長文で何度も説明している箇所を、強い leading word に畳む。
-- description、本文、README の用語を揃え、routing と実行時の思考を接続する。
+- description、本文、README の用語を揃え、振り分けと実行時の思考を接続する。
 - 弱い一般語（よく、丁寧に、適切に）ではなく、行動を変える語を使う。
 
-## Failure Modes
+## 失敗の類型
 
-| Failure | 症状 | 防御 |
+| 失敗 | 症状 | 防御 |
 | --- | --- | --- |
-| Premature completion | 完了条件が曖昧で早く終わる | branch-level completion と重要 gate を観測可能にする |
-| Duplication | 同じ rule / rubric / workflow が複数箇所にある | single source of truth に寄せる |
-| Sediment | 古い前提、廃止名、使わない branch が残る | no-op / relevance check で削る |
-| Sprawl | 有用な情報が多すぎて通常 path が重い | branch 化し、reference へ progressive disclosure する |
-| No-op | 書いても agent の挙動が変わらない文 | 削除するか、強い completion criterion に変える |
-| Negation | 禁止対象を強調して逆に想起させる | 原則は positive target を書き、必要な guardrail だけ禁止する |
-| Contradiction | 同じ状況に複数の相反する rule が適用される | preservation set と interface contract を基準に優先順位または decision rule を固定する |
-| Overconstraint | agent が checklist 消化に寄り、周辺 context を使えない | outcome と invariant を残し、探索手順と例を削る |
-| Example anchoring | 例の形だけを再現し、問題に合う探索を狭める | schema、型、rubric、状態遷移で interface を表す |
+| 早すぎる完了 | 完了条件が曖昧で早く終わる | 分岐ごとの完了条件と重要な確認を観測可能にする |
+| 重複 | 同じ規則、評価基準、手順が複数箇所にある | 正本へ寄せる |
+| 堆積 | 古い前提、廃止名、使わない分岐が残る | 挙動を変えない文と関連しない文を削る |
+| 肥大化 | 有用な情報が多すぎて通常の経路が重い | 分岐を設け、必要なときだけ補助文書を読む |
+| 挙動を変えない指示 | 書いても agent の挙動が変わらない文 | 削除するか、明確な完了条件に変える |
+| 否定による想起 | 禁止対象を強調して逆に想起させる | 原則として望む状態を書き、必要な安全策だけを禁止事項にする |
+| 矛盾 | 同じ状況に複数の相反する規則が適用される | 維持対象とインターフェース契約を基準に、優先順位または判断規則を固定する |
+| 過剰な制約 | agent が確認項目の消化に寄り、周辺の前提情報を使えない | 成果と維持する条件を残し、探索手順と例を削る |
+| 例への引きずられ | 例の形だけを再現し、問題に合う探索を狭める | schema、型、評価基準、状態遷移でインターフェースを表す |
 
-## Pruning Test
+## 削除の判定
 
 各文ごとに確認する。
 
 1. この文は agent の判断・手順・停止条件・出力形式を変えるか。
 2. 同じ意味が別の場所にないか。
-3. いまの branch で必要か。
-4. 周辺 context、tool description、code、test、schema から既に分かることではないか。
+3. いまの分岐で必要か。
+4. 周辺の前提情報、ツールの説明、コード、テスト、schema から既に分かることではないか。
 5. README、PR body、commit message、review note に置くべき人間向け情報ではないか。
 
-1 つでも失敗する文は、削除または下位 reference へ移す。
+一つでも失敗する文は、削除または下位の補助文書へ移す。

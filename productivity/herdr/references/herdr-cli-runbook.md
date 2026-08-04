@@ -1,9 +1,9 @@
-# Herdr CLI Runbook Reference
+# Herdr CLI 運用手順の参照資料
 
-この reference は `herdr --help` / `herdr <group> --help` で確認できる CLI の事実と、この repository の Herdr 運用ルールを用途別に整理したもの。
+この参照資料は `herdr --help` / `herdr <group> --help` で確認できる CLI の事実と、この repository の Herdr 運用規則を用途別に整理したものである。
 
 
-# Herdr CLI Runbook
+# Herdr CLI の運用手順
 
 Herdr-managed pane 内で、`herdr` CLI を安全に使うための runbook。
 Herdr の実装や開発ではなく、実行中の Herdr session に対する観測、pane 分割、command 実行、出力待ち、agent 協調を扱う。
@@ -11,7 +11,7 @@ Herdr の実装や開発ではなく、実行中の Herdr session に対する�
 この skill の command map は `herdr --help` / `herdr <group> --help` で確認できる CLI の事実を前提にする。
 詳細が不明な subcommand は、実行前に該当 help を読む。
 
-## Contract
+## 契約
 
 - 最初に `HERDR_ENV=1` を確認する。
 - `HERDR_ENV` が `1` でなければ、Herdr-managed pane 外であることを報告して止める。
@@ -22,7 +22,7 @@ Herdr の実装や開発ではなく、実行中の Herdr session に対する�
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
 - 短い単発 command は通常の shell tool を使い、この skill を使わない。
 
-## When to use
+## 使用する場面
 
 - 長時間 command、dev server、test、log tail を sibling pane に逃がしたい。
 - 隣接 pane や helper agent の出力を読み、現在の作業を続けたい。
@@ -30,7 +30,7 @@ Herdr の実装や開発ではなく、実行中の Herdr session に対する�
 - helper agent を別 pane で起動し、完了後に結果を読む必要がある。
 - Herdr の workspace / tab / pane / agent 状態を確認しながら作業を進める。
 
-## When not to use
+## 使用しない場面
 
 - `HERDR_ENV=1` ではない。
 - `exec_command` など通常の shell tool で短く完結する。
@@ -38,7 +38,7 @@ Herdr の実装や開発ではなく、実行中の Herdr session に対する�
 - focus / close / takeover / layout 変更を、ユーザー承認なしに行う必要がある。
 - Herdr CLI 自体の実装、設定ファイル、配布、更新を調査する作業。必要なら通常の repo 調査として扱う。
 
-## Preflight
+## 事前確認
 
 ### Herdr 内か確認する
 
@@ -95,7 +95,7 @@ herdr pane --help
 herdr agent --help
 ```
 
-## Read-only observation
+## 読み取り専用の確認
 
 まず read-only command で状況を確認する。
 read-only のつもりでも、対象 ID が古いと別 pane を読む可能性があるため、直前に ID を取り直す。
@@ -147,7 +147,7 @@ herdr pane read <pane-id> --source visible --format ansi
 
 出力が多い場合は `--lines` を小さくして、必要な marker だけ読む。
 
-## Running work in another pane
+## 別の pane での作業実行
 
 長時間 command は sibling pane を作って実行する。
 現在 pane を奪わないため、split / create には原則 `--no-focus` を付ける。
@@ -192,7 +192,7 @@ herdr pane rename <pane-id> --clear
 補助 pane の用途が分かりにくい場合だけ rename する。
 rename は destructive ではないが、既存の人間管理ラベルを上書きしうるため、既存 pane では慎重に扱う。
 
-## Waiting
+## 待機
 
 待機 command は、長時間 command を投げた後に使う。
 待機だけで完了扱いにせず、最後に `pane read` / `agent read` で結果を確認する。
@@ -225,7 +225,7 @@ status 候補は `idle`、`working`、`blocked`、`done`、`unknown`。
 herdr pane read <pane-id> --source recent --lines 100
 ```
 
-## Agent operations
+## Agent の操作
 
 agent subcommands は、unique な live agent name またはその agent を現在 host する pane ID を target として扱う。
 曖昧な target は使わず、`agent list` と `agent get` で確認する。
@@ -296,7 +296,7 @@ attach / takeover は agent や人間の操作状態に影響する。
 
 metadata / report 系（`pane report-agent`、`pane report-agent-session`、`pane release-agent`、`pane report-metadata`）は通常の作業では使わない。agent integration や metadata reporting を明示的に扱う場合だけ、該当 command の help を確認してから実行する。
 
-## Workspace / tab operations
+## Workspace と tab の操作
 
 workspace / tab は subcontext を分けるために使う。
 作成は `--no-focus` を基本にし、focus / close は承認 gate を通す。
@@ -331,10 +331,10 @@ herdr tab close <tab-id>
 - `focus` / `close` はユーザー明示依頼時のみ。
 - 補助用途では既存 tab を奪わず、新規 tab / pane を `--no-focus` で作る。
 
-## Layout and risky pane operations
+## 配置変更と危険な pane 操作
 
 次の操作は人間の作業画面や実行中 process に影響しやすい。
-通常 workflow から外し、必要性、対象 ID、予想される影響をユーザーへ提示して承認を得る。
+通常の手順から外し、必要性、対象 ID、予想される影響をユーザーへ提示して承認を得る。
 
 | Operation | Command | Gate |
 |---|---|---|
@@ -357,7 +357,7 @@ herdr pane move <pane-id> --new-tab --workspace <workspace-id> --label "logs" --
 herdr pane move <pane-id> --new-workspace --label "api" --tab-label "logs" --no-focus
 ```
 
-## Task patterns
+## 作業例
 
 ### 隣の pane を読むだけ
 
@@ -369,7 +369,7 @@ herdr pane read <target-pane-id> --source recent --lines 80
 
 報告には、読んだ pane ID、直近出力の要点、追加操作が必要かを書く。
 
-### dev server を sibling pane で起動する
+### 開発サーバーを隣接 pane で起動する
 
 ```sh
 CURRENT_PANE=$(herdr pane current \
@@ -385,7 +385,7 @@ herdr pane read "$SERVER_PANE" --source recent --lines 60
 ready marker は project に合わせて変える。
 timeout したら直近出力を読んで、server が起動中か失敗したかを報告する。
 
-### test / build を sibling pane で実行する
+### テストとビルドを隣接 pane で実行する
 
 ```sh
 CURRENT_PANE=$(herdr pane current \
@@ -400,7 +400,7 @@ herdr pane read "$TEST_PANE" --source recent --lines 100
 
 終了 marker が分からない場合は、timeout を短めにして read し、追加で待つか判断する。
 
-### log tail を隔離する
+### ログの追尾を隔離する
 
 ```sh
 LOG_PANE=$(herdr pane split --current --direction right --no-focus \
@@ -414,7 +414,7 @@ herdr pane read "$LOG_PANE" --source recent --lines 80
 tail は終わらない前提。
 不要になった pane を close する場合はユーザー承認を得る。
 
-### helper agent を別 pane で起動する
+### 補助 agent を別の pane で起動する
 
 ```sh
 herdr agent list
@@ -434,7 +434,7 @@ herdr agent read helper --source recent --lines 120
 
 target 名が曖昧なら `agent list` / `agent get` で確認してから送る。
 
-## Failure handling
+## 失敗時の処理
 
 ### `HERDR_ENV` がない
 
@@ -474,7 +474,7 @@ herdr pane read <pane-id> --source recent-unwrapped --lines 80
 - 見た目が必要なら ANSI。
 - text match / log 解析が目的なら unwrapped。
 
-## Output
+## 出力
 
 Herdr 操作を行ったら、最後に次を短く報告する。
 
@@ -484,7 +484,7 @@ Herdr 操作を行ったら、最後に次を短く報告する。
 - timeout / failure があれば原因候補と次の選択肢。
 - focus / close / takeover / 既存 pane 入力が必要なら、実行せずに承認待ちとして提示する。
 
-## Quick Reference
+## コマンド早見表
 
 | やりたいこと | command |
 |---|---|

@@ -3,7 +3,7 @@ name: draft-design-doc
 description: 技術改善・設計変更、または PRD 後に必要な大きい変更について Design Doc draft を作る。問題・制約を確定し、複数の設計案を比較できる形にする。PRD 作成、Design Doc polish、issue 作成、実装、レビューだけの依頼では使わない。
 ---
 
-# Draft Design Doc
+# Design Doc 草案の作成
 
 Design Doc の draft を作る。
 成果物は、問題・制約と複数案を確定し、案の選択を polish に渡せるたたき台である。
@@ -20,7 +20,7 @@ Design Doc は、技術・設計上の問題を解くための設計判断文書
 新機能・仕様変更の要求そのものを決める文書ではない。
 要求の価値・範囲・成功条件を決める必要がある場合は、先に PRD を作る。
 
-## Prerequisites
+## 前提条件
 
 1. repo-local 設定があれば読む。
 
@@ -39,16 +39,16 @@ template の `TODO(draft)` は draft 作成時に処理する。
 `TODO(draft)` は仮置きではなく、調査・確認して確定する draft gate である。
 採用案は draft で決めない。
 
-## Safety
+## 安全上の制約
 
 - この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
 - この skill の起動を Design Doc draft file 作成の承認として扱い、書き込み前の確認は求めない。
 - 既存 file の上書き、保存先の競合、draft 作成を超える永続変更が必要な場合だけ停止して確認する。
 - Design Doc 作成後は報告で停止する。polish は `polish-design-doc` に委譲する。
 
-## Workflow
+## 手順
 
-### 1. Classify input
+### 1. 入力を分類する
 
 入力がどれかを判定する。
 
@@ -59,7 +59,7 @@ template の `TODO(draft)` は draft 作成時に処理する。
 
 情報が足りなければ一度に一つだけ質問する。
 
-### 2. Confirm Design Doc is appropriate
+### 2. Design Doc が適切か確認する
 
 Design Doc は次のような場合に使う。
 
@@ -74,9 +74,9 @@ Design Doc は次のような場合に使う。
 新機能・仕様変更の「何を作るか」「なぜ作るか」「成功条件」を決める段階なら、Design Doc ではなく PRD から始める。
 小バグや小リファクタで永続化すべき設計判断が不要なら、既存 task またはユーザー説明から `create-plan` へ進むことを提案する。
 
-### 3. Read minimal context
+### 3. 必要最小限の前提情報を読む
 
-必要最小限の context を読む。
+必要最小限の前提情報を読む。
 
 - 指定された PRD / issue / docs
 - 関連する既存 Design Doc / ADR
@@ -85,7 +85,7 @@ Design Doc は次のような場合に使う。
 `TODO(draft)` の確定と案の比較に必要な範囲は調査する。
 採用案を前提にした詳細検証と設計確定は `polish-design-doc` の責務である。
 
-### 4. Draft Design Doc
+### 4. Design Doc の草案を作る
 
 `assets/design-doc-template.md` を seed として使う。
 
@@ -97,13 +97,13 @@ Design Doc は次のような場合に使う。
 - template に最初からある `TODO(polish)` は、採用案を決めて設計へ昇格する polish 段階の作業として残す。
 - 完成した draft に `TODO(draft)` を残さない。
 
-### 5. Write draft
+### 5. 草案を保存する
 
 repo-local 設定に従って filename と保存先を決め、draft を直ちに書く。
 設定がなければ `docs/design/` を必要に応じて作り、title から作った短い kebab-case filename で保存する。
 対象 file が既に存在する場合は上書きせず、既存 file を更新するか別名で作るかを確認する。
 
-### 6. Closeout
+### 6. 完了を報告する
 
 報告には次を含める。
 

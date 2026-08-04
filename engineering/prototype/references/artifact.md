@@ -1,8 +1,8 @@
-# Artifact Prototype
+# 成果物のプロトタイプ
 
 HTML report、文書、diagram、可視化の構成や表現を、正式成果物を作る前に観察する。
 
-## Authoring
+## 作成手順
 
 1. 問いに必要な媒体と忠実度を選ぶ。
 2. 媒体固有の制作手順は、利用可能な `documents`、`visualize` などの authoring skill や適切な tool に委ねる。

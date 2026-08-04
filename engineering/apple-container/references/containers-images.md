@@ -1,4 +1,4 @@
-# Container・image・registry
+# Container、image、registry
 
 ## 用途
 
@@ -115,7 +115,7 @@ container stop job
 container export job > job.tar
 ```
 
-## Image を build する
+## Image をビルドする
 
 ```sh
 container build --tag my-app:latest .
@@ -173,7 +173,7 @@ container image prune --all
 
 `tag` は同じ image に別の参照名を付ける。`save` は複数 image を tar に保存でき、`--output` を省略すると stdout に書く。`load` は tar を local store に読む。`prune` は未使用 image を削除し、`--all` は未使用の tagged image も対象にする。
 
-## Registry に認証する
+## Registry へ認証する
 
 ```sh
 container registry login registry.example.com

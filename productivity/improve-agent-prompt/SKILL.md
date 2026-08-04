@@ -1,89 +1,89 @@
 ---
 name: improve-agent-prompt
-description: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack を、既存意図を保った最小差分で診断・改善する。重複、矛盾、過剰な手順指定、曖昧な成功条件・tool routing・自律性境界・停止条件、context の配置を直すときに使う。単なる文章校正・翻訳、skill の新規作成・構造・routing・lifecycle review、prompt 以外を含む API / model migration、実行型の empirical evaluation、静的 lint 化だけの依頼では使わない。
+description: system prompt、agent 向け指示、tool の説明、AGENTS.md、skill 本文の agent 向け契約、prompt の階層を、既存意図を保った最小差分で診断し改善する。重複、矛盾、過剰な手順指定、曖昧な成功条件、tool の振り分け、自律性の境界、停止条件、前提情報の配置を直すときに使う。単なる文章校正や翻訳、skill の新規作成、構造、振り分け、ライフサイクルのレビュー、prompt 以外を含む API や model の移行、実行型の経験的評価、静的 lint 化だけの依頼では使わない。
 ---
 
-agent-facing prompt を、観測可能な outcome と判断可能な contract を持つ小さい指示へ改善する。
-working prompt を全面 rewrite せず、保存すべき意図を固定してから measured failure または contract gap を最小差分で直す。
+agent 向け prompt を、観測可能な成果と判断可能な契約を持つ小さい指示へ改善する。
+運用中の prompt を全面的に書き直さず、保存すべき意図を固定してから、観測された失敗または契約の欠落を最小差分で直す。
 
-## Branch Router
+## 作業の振り分け
 
-最初に branch を 1 つ選ぶ。
+最初に作業種別を一つ選ぶ。
 
-| Branch | Trigger | Completion |
+| 作業種別 | 起動条件 | 完了条件 |
 | --- | --- | --- |
-| Diagnose | review、分析、問題点の指摘だけを求められた | preservation set、contract map、根拠付き finding、未検証事項を報告した |
-| Improve | 書き換え、改善案、実際の編集を求められた | preservation set を維持した revised prompt または diff と検証結果を返した |
+| 診断 | レビュー、分析、問題点の指摘だけを求められた | 保存対象、契約の対応表、根拠付きの指摘、未検証事項を報告した |
+| 改善 | 書き換え、改善案、実際の編集を求められた | 保存対象を維持した改訂後の prompt または差分と検証結果を返した |
 
-依頼が diagnose / plan / review だけなら prompt を変更しない。
-model / provider の指定だけでは branch を増やさず、観測された failure と共通 contract に基づいて Diagnose / Improve を行う。provider 固有の tuning 仮説は導入しない。
-prompt 以外の API surface、model ID、runtime、tool implementation の変更が必要なら、その範囲を blocker または別 task として分ける。
-skill の新規作成、構造、description / routing、review lifecycle は `skill-workbench` を入口にし、この skill は agent-facing prompt contract の診断・改善だけを担当する。
+依頼が診断、計画、レビューだけなら prompt を変更しない。
+model や provider の指定だけでは作業種別を増やさず、観測された失敗と共通の契約に基づいて診断または改善を行う。provider 固有の調整仮説は導入しない。
+prompt 以外の API 表面、model ID、実行環境、tool の実装を変更する必要があるなら、その範囲を阻害要因または別作業として分ける。
+skill の新規作成、構造、description、振り分け、レビューのライフサイクルは `skill-workbench` を入口にし、この skill は agent 向け prompt の契約の診断と改善だけを担当する。
 
-## Common Workflow
+## 共通手順
 
-1. 対象と authority を固定する。
-   - 対象 prompt、利用箇所、観測された failure、期待成果物を確認する。
-   - 明示値がない項目は、既存ファイル、trace、eval、schema から安全に確認できる範囲を調べる。
-   - authoritative な対象 prompt または必要な evidence を安全な lookup 後も取得できない場合、再構成や推測をせず、最小の不足 artifact を求めて止まる。
-   - 外部 write、destructive action、costly run、scope expansion は、依頼で許可されていなければ実行しない。
-   - completion: 対象、作業 layer、許可された変更範囲が一意になった。
+1. 対象と権限を固定する。
+   - 対象の prompt、利用箇所、観測された失敗、期待する成果物を確認する。
+   - 明示値がない項目は、既存ファイル、実行記録、評価、schema から安全に確認できる範囲を調べる。
+   - 正式な対象 prompt または必要な根拠を安全に探索しても取得できない場合は、再構成や推測をせず、最小限の不足資料を求めて止まる。
+   - 外部への書き込み、破壊的操作、高額な実行、対象範囲の拡大は、依頼で許可されていなければ実行しない。
+   - 完了条件：対象、作業層、許可された変更範囲が一意になった。
 
-2. preservation set を作る。
-   - user-visible outcome、明示された値、safety / permission / business constraint、必要な evidence、tool routing、output shape、validation、stop rule を抽出する。
-   - 相互に矛盾する項目は勝手に片方を削らず、優先順位を根拠から解決するか blocker にする。
-   - completion: 削除・統合してはいけない既存契約を列挙した。
+2. 保存対象を作る。
+   - 利用者に見える成果、明示された値、安全、権限、業務上の制約、必要な根拠、tool の振り分け、出力形式、検証、停止規則を抽出する。
+   - 相互に矛盾する項目は勝手に片方を削らず、優先順位を根拠から解決するか阻害要因にする。
+   - 完了条件：削除または統合してはいけない既存契約を列挙した。
 
-3. prompt contract を診断する。
+3. prompt の契約を診断する。
    - [`references/contract-review.md`](./references/contract-review.md) を読む。
-   - outcome、success criteria、constraints、evidence / prerequisites、authority boundary、tools、output、stop / fallback rules、context placement を必要な範囲で確認する。
-   - 欠落、重複、矛盾、過剰指定、曖昧さを分け、各 finding を観測可能な failure または contract gap に結び付ける。
-   - completion: finding ごとに evidence、影響、最小修正方向がある。
+   - 成果、成功条件、制約、根拠と前提条件、権限境界、tool、出力、停止と代替の規則、前提情報の配置を必要な範囲で確認する。
+   - 欠落、重複、矛盾、過剰指定、曖昧さを分け、各指摘を観測可能な失敗または契約の欠落に結び付ける。
+   - 完了条件：指摘ごとに根拠、影響、最小修正の方向がある。
 
-4. branch を実行する。
-   - Diagnose: prompt を変更せず、contract map と finding を返す。
-   - Improve: pruning、contradiction resolution、contract completion の順で、1 failure theme の最小差分を作る。
+4. 選んだ作業を実行する。
+   - 診断：prompt を変更せず、契約の対応表と指摘を返す。
+   - 改善：削減、矛盾の解消、契約の補完の順で、一つの失敗要因に絞った最小差分を作る。
 
 5. 検証して終了する。
-   - preservation set が維持されたことと、変更対象の failure / gap が解消されたことを確認する。
-   - static check しか行っていない場合、性能改善を実証済みと表現しない。
-   - 実行型評価が必要なら、評価担当へ渡せる scenario、assertion、baseline を提示する。
-   - completion: validation result、未検証事項、次に必要な最小 action を報告した。
+   - 保存対象が維持されたことと、変更対象の失敗または欠落が解消されたことを確認する。
+   - 静的検査しか行っていない場合、性能改善を実証済みと表現しない。
+   - 実行型評価が必要なら、評価担当へ渡せるシナリオ、表明、基準値を提示する。
+   - 完了条件：検証結果、未検証事項、次に必要な最小の行動を報告した。
 
-## Change Rules
+## 変更規則
 
-- outcome を書き、判断可能な path は agent に選ばせる。
+- 成果を書き、判断可能な手順は agent に選ばせる。
 - `always`、`never`、`must`、`only` は invariant に限定し、judgment call は decision rule にする。
-- 同じ rule、approval boundary、style instruction を一箇所に統合する。
-- 常時必要でない詳細は reference や task 固有 context へ移し、必要時だけ取得できる導線を残す。
+- 同じ規則、承認境界、文体の指示を一箇所に統合する。
+- 常時必要でない詳細は参照資料や作業固有の前提情報へ移し、必要時だけ取得できる導線を残す。
 - prose より schema、型、test、code、rubric、linter のほうが高忠実度に表現できる契約は、適切な layer への移動を提案する。
 - required content を先に固定し、短文化では repetition、generic reassurance、optional background から削る。
 - explicit user value を default や keyword map で上書きしない。
 - 空の section を template に合わせて機械的に追加しない。
-- 変更が複数 theme にまたがる場合は分割し、各差分が直す failure を明示する。
+- 変更が複数の主題にまたがる場合は分割し、各差分が直す失敗を明示する。
 
-## Output
+## 出力
 
-branch と finding に必要な項目だけを使い、該当しない section は省略する。
+作業種別と指摘に必要な項目だけを使い、該当しない節は省略する。
 
 ```md
-## Diagnosis
-- Target and layer:
-- Preservation set:
-- Contract gaps:
-- Redundancy / contradictions:
-- Residual uncertainty:
+## 診断
+- 対象と作業層：
+- 保存対象：
+- 契約の欠落：
+- 重複と矛盾：
+- 残る不確実性：
 
-## Proposed changes
-| Change | Type | Failure or gap addressed | Preservation risk |
+## 変更案
+| 変更 | 種別 | 対処する失敗または欠落 | 保存対象への危険 |
 | --- | --- | --- | --- |
 
-## Revised prompt
-<全文、diff、または Diagnose branch では省略>
+## 改訂後の prompt
+<全文、差分、または診断では省略>
 
-## Validation
-- Checks performed:
-- Result:
-- Not verified:
-- Next smallest action:
+## 検証
+- 実施した確認：
+- 結果：
+- 未検証事項：
+- 次に必要な最小の行動：
 ```

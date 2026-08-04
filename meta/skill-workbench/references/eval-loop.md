@@ -1,73 +1,73 @@
-# Skill Evaluation Loop
+# Skill の評価手順
 
-この reference は Create / Improve branch で、skill の効果や context cost を baseline と比較する必要がある場合だけ読む。
+この補助文書は新規作成／改善の分岐で、skill の効果や前提情報を読み込む費用を比較基準と比べる必要がある場合だけ読む。
 すべての skill 変更で必須ではない。
 
-## When to Use
+## 使用条件
 
-- routing が難しい model-invoked skill。
+- 振り分けが難しい自動起動の skill。
 - 過去に品質問題が再発した skill。
 - 客観評価できる成果物を生成する skill。
-- 大幅な context 削減または constraint 削減で、既存 contract の維持を確認したい skill。
+- 前提情報または制約を大幅に減らし、既存契約の維持を確認したい skill。
 - ユーザーが empirical / eval / benchmark を求めた場合。
 
-## Loop
+## 反復手順
 
-1. 評価したい behavior を 2〜3 件選ぶ。
-   - 実際のユーザーが言いそうな prompt にする。
-   - positive case と negative / near-miss case を混ぜる。
+1. 評価したい挙動を 2〜3 件選ぶ。
+   - 実際のユーザーが言いそうな依頼文にする。
+   - 起動すべき例と、起動すべきでない例または紛らわしい例を混ぜる。
    - skill 名や内部手順名を期待値にしない。
 
-2. baseline を決める。
+2. 比較基準を決める。
    - 新規 skill: skill なし。
-   - 既存 skill 改善: 変更前 skill の snapshot。
-   - case、assertion、reasoning setting、tool set、runtime 条件を変更前に固定する。
+   - 既存 skill の改善: 変更前の skill を保存したもの。
+   - 評価例、合格条件、推論設定、使用するツール、実行時の条件を変更前に固定する。
 
-3. with-skill と baseline を同じ iteration で走らせる。
+3. skill 使用時と比較基準を同じ反復で実行する。
    - subagent を使える場合は並列に走らせる。
-   - 出力、tool use、read files、duration / tokens / loaded context が取れるなら保存する。
+   - 出力、ツール利用、読んだファイル、所要時間、token 数、読み込んだ前提情報を取得できるなら保存する。
 
-4. assertion を作る。
-   - 客観的に判定できる expected behavior だけ assertion にする。
-   - 主観評価が必要な成果物は、人間 review を主にする。
+4. 合格条件を作る。
+   - 客観的に判定できる期待する挙動だけを合格条件にする。
+   - 主観評価が必要な成果物は、人間によるレビューを主にする。
 
 5. grade / compare する。
-   - assertion pass/fail、品質差、token / duration の tradeoff を見る。
-   - baseline でも pass する assertion は非識別的として見直す。
-   - token、duration、tool use の削減は、既存の品質 assertion を維持した場合だけ改善と数える。
-   - 手順どおり動いたかではなく、outcome、authority / safety、evidence、completion を満たしたかで判定する。
-   - 新しい instruction が探索を狭め、周辺 context に適応できなくなっていないかを見る。
+   - 合格条件の成否、品質差、token 数と所要時間の得失を見る。
+   - 比較基準でも合格する条件は、差を識別できないものとして見直す。
+   - token 数、所要時間、ツール利用の削減は、既存の品質に関する合格条件を維持した場合だけ改善と数える。
+   - 手順どおり動いたかではなく、成果、権限と安全、根拠、完了条件を満たしたかで判定する。
+   - 新しい指示が探索を狭め、周辺の前提情報に適応できなくなっていないかを見る。
 
 6. 改善する。
-   - feedback から一般化できる instruction gap だけを skill に反映する。
-   - 1 iteration では 1 つの failure theme だけを最小差分で直す。
-   - prompt、tool set、reasoning setting、runtime を同じ iteration で同時に変えない。
-   - measured regression がない working prompt の全面 rewrite は行わない。
-   - test prompt への overfit を避ける。
-   - 例の追加より、routing、schema、type、rubric、tool / file interface の改善を優先する。
-   - 同じ helper や script を複数 run が再生成したら、bundled script 化を検討する。
+   - 評価結果から一般化できる指示の不足だけを skill に反映する。
+   - 一回の反復では一つの失敗傾向だけを最小差分で直す。
+   - 依頼文、使用するツール、推論設定、実行環境を同じ反復で同時に変えない。
+   - 計測された退行がない、動作中のプロンプトを全面的に書き直さない。
+   - 評価用の依頼文だけに過剰適合しないようにする。
+   - 例の追加より、振り分け、schema、型、評価基準、ツールとファイルのインターフェースの改善を優先する。
+   - 同じ補助処理やスクリプトを複数回の実行で再生成したら、付属スクリプトにすることを検討する。
 
 7. 再実行する。
-   - 同じ case と assertion で regression を見た後、必要なら hold-out case を増やす。
-   - meaningful progress がなくなったら止め、残リスクを報告する。
+   - 同じ評価例と合格条件で退行を確認した後、必要なら調整に使っていない評価例を増やす。
+   - 意味のある改善がなくなったら止め、残るリスクを報告する。
 
-## Output
+## 出力
 
 ```md
-## Evaluation Loop
-- Target skill: <path>
-- Iteration: <n>
-- Baseline: no skill / old skill snapshot / other
-- Cases: <n>
-- Assertions: <n or qualitative only>
+## 評価記録
+- 対象 skill: <パス>
+- 反復回数: <回数>
+- 比較基準: skill なし / 変更前の skill / その他
+- 評価例: <件数>
+- 合格条件: <件数、または定性評価のみ>
 
-## Results
-| Case | Baseline | With skill | Judgment | Evidence |
+## 結果
+| 評価例 | 比較基準 | skill 使用時 | 判定 | 根拠 |
 | --- | --- | --- | --- | --- |
 
-## Changes Applied
-- <instruction gap fixed>
+## 反映した変更
+- <修正した指示の不足>
 
-## Residual Risk
-- <unverified behavior、context cost、constraint risk>
+## 残るリスク
+- <未検証の挙動、前提情報を読み込む費用、制約によるリスク>
 ```

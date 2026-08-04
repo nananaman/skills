@@ -1,22 +1,22 @@
 ---
 name: explain-diff
-description: 実装意図を保持するセッションから、staged・unstaged・untrackedを含むlocal差分を変更前後と因果順で解説し、人間が確認とコメントを行う自己完結HTMLを生成するときに明示的に使う。コード品質レビュー、finding生成、修正、branch / commit / PR差分には使わない。
+description: 実装意図を保持するセッションから、ステージ済み、未ステージ、未追跡を含むローカル差分を変更前後と因果順で解説し、人間が確認とコメントを行う自己完結 HTML を生成するときに明示的に使う。コード品質レビュー、指摘生成、修正、branch、commit、PR の差分には使わない。
 disable-model-invocation: true
 ---
 
-# Explain Diff
+# 差分の解説
 
 現在のlocal差分を「なぜ必要か」「何が可能になるか」「各変更がどの順で成立させるか」という物語として人間へ説明する。
 各説明は変更前と変更後を対比し、根拠となるhunkへ掘り下げられる形にする。
 このskillは品質判定を行わない。コードレビューが必要なら `review-diff-code` を別に使う。
 
-## Preconditions
+## 前提条件
 
 - 実装した同一セッション、または実装意図を含むhandoffを受けたセッションで使う。
 - 実装意図がなければ、差分から理由を推測せず、planまたはhandoffを求めて停止する。
 - 対象は現在のGit repositoryにあるstaged、unstaged、untrackedのlocal差分だけ。
 
-## Workflow
+## 手順
 
 1. frontend依存を準備する。
 
@@ -64,9 +64,9 @@ disable-model-invocation: true
    `stale snapshot` はlocal差分が変わった証拠なので、古いmanifestを流用せずStep 2からやり直す。
 
 5. reportの対象、group数、fingerprint、生成pathを伝える。
-   local browserで開かず、生成済みreportの配信を常に `host-artifact` skillへ委譲する。
-   reportはlocal差分全文を含むことを委譲先へ伝え、`host-artifact` のsafety boundaryと自動transport選択に従う。
-   `host-artifact` が配信対象外と判断した場合、または配信に失敗した場合も生成済みreportを削除せず、絶対pathをfallbackとして伝える。
+   ローカルブラウザで開かず、生成済みレポートの配信を常に `host-artifact` skill へ委譲する。
+   レポートはローカル差分全文を含むことを委譲先へ伝え、`host-artifact` の安全境界と自動転送方式の選択に従う。
+   `host-artifact` が配信対象外と判断した場合、または配信に失敗した場合も生成済みレポートを削除せず、絶対パスを代替手段として伝える。
 
 6. 人間の確認とコメントを待って停止する。
    reportのcheckboxは確認状態であり、承認や品質gateではない。
@@ -80,13 +80,13 @@ disable-model-invocation: true
    一致した場合だけ通常のコメント対応へ渡す。
    `stale fingerprint` なら自動適用せず、report再生成または新しい差分への再対応付けを確認する。
 
-## Completion
+## 完了条件
 
 - 全local差分がちょうど一つの変更groupに属するreportを生成した。
-- `host-artifact` の検証済みURLを渡した、または配信対象外・配信失敗時にreportの絶対pathをfallbackとして渡した。
+- `host-artifact` の検証済み URL を渡した、または配信対象外や配信失敗時にレポートの絶対パスを代替手段として渡した。
 - 対象group数とfingerprintを報告し、人間レビュー待ちで停止した。
 
-## Safety
+## 安全上の制約
 
 - snapshot収集とreport生成のためにindex、worktree、差分内容を変更しない。
 - 配信へ渡すのは生成済みreportだけにする。

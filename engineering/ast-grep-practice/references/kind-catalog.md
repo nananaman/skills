@@ -1,4 +1,4 @@
-# ast-grep kind catalog
+# ast-grep の kind 一覧
 
 代表的な kind 名のメモ。
 Tree-sitter grammar に依存するため、最終確認は必ず `--debug-query=ast` で行う。

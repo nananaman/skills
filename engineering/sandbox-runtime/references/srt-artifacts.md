@@ -1,15 +1,15 @@
-# SRT artifact 分類
+# SRT 成果物の分類
 
-この reference は、`SKILL.md` の Step 2 または Step 3 で artifact 分類が必要になったときだけ読む。
+この参照資料は、`SKILL.md` の手順2または手順3で成果物の分類が必要になったときだけ読む。
 
 ## 背景
 
-Anthropic Sandbox Runtime (`srt`) は filesystem write を allowlist で制御する。
+Anthropic Sandbox Runtime (`srt`) はファイルシステムへの書き込みを許可リストで制御する。
 Linux では bubblewrap を使う。
-bubblewrap は危険な path を保護するため、host に存在しない path に bind mount point を作ることがある。
-cleanup が実行されない、または完了できない場合、空 file や空 directory が repository worktree に残って見えることがある。
+bubblewrap は危険なパスを保護するため、host に存在しないパスへ bind mount の接続点を作ることがある。
+後処理が実行されない、または完了できない場合、空ファイルや空ディレクトリがリポジトリの作業ツリーに残って見えることがある。
 
-代表的な protected names:
+代表的な保護対象名：
 
 - `.bashrc`
 - `.bash_profile`
@@ -29,36 +29,36 @@ cleanup が実行されない、または完了できない場合、空 file や
 
 ## 分類ガイド
 
-次のいずれかに当てはまる candidate は、sandbox artifact の可能性が高い。
+次のいずれかに当てはまる候補は、sandbox が作った成果物の可能性が高い。
 
-- `ls -la` が `crw-rw-rw-` のような device entry を示す。特に owner が `nobody nogroup` の場合。
-- protected name の想定外の 0 byte dotfile である。
-- protected directory name と一致する想定外の空 directory である。
-- `mount` に repository 配下の bind mount、tmpfs、bubblewrap、sandbox 関連 entry が出る。
-- sandboxed command の失敗または中断後に path が現れた。
+- `ls -la` が `crw-rw-rw-` のようなデバイス項目を示す。特に所有者が `nobody nogroup` の場合。
+- 保護対象名と一致する想定外の 0 byte dotfile である。
+- 保護対象のディレクトリ名と一致する想定外の空ディレクトリである。
+- `mount` にリポジトリ配下の bind mount、tmpfs、bubblewrap、sandbox 関連の項目が出る。
+- sandbox 内で実行したコマンドの失敗または中断後にパスが現れた。
 
-`secrets` のような secret 風 path は protected name とは限らない。
-device entry、mount entry、または sandboxed command 直後に現れた事実があれば likely artifact とし、空 directory であるだけなら inconclusive として扱う。
-「srt 実行後に気づいた」だけでは直後に新規出現した evidence とみなさない。ユーザーの明言、timestamp、直前の `git status` などで裏取りできない場合は inconclusive として扱う。
+`secrets` のような機密情報らしいパスは保護対象名とは限らない。
+デバイス項目、mount 項目、または sandbox 内のコマンド直後に現れた事実があれば`likely`とし、空ディレクトリであるだけなら`inconclusive`として扱う。
+「srt 実行後に気づいた」だけでは直後に新規出現した根拠とみなさない。ユーザーの明言、時刻、直前の `git status` などで裏取りできない場合は`inconclusive`として扱う。
 
-次の場合は inconclusive として扱う。
+次の場合は`inconclusive`として扱う。
 
-- 内容を持つ通常 file である。
-- sandbox failure より前から存在していた。
-- repository documentation や tracked files から参照されている。
-- 別 process が正当に作成した可能性がある。
+- 内容を持つ通常のファイルである。
+- sandbox の失敗より前から存在していた。
+- リポジトリの文書や追跡済みファイルから参照されている。
+- 別のプロセスが正当に作成した可能性がある。
 
 ## 安全な対応
 
-likely または inconclusive な candidate には、次を守る。
+`likely`または`inconclusive`の候補には、次を守る。
 
 1. 自動削除しない。
 2. `.gitignore` に自動追加しない。
-3. broad pattern で staging しない。
-4. 意図した変更だけを明示 path で staging する。
-5. cleanup の前に candidate list をユーザーに見せる。
+3. 広いパターンでステージしない。
+4. 意図した変更だけを明示したパスでステージする。
+5. 後処理の前に候補一覧をユーザーに見せる。
 
-## 明示確認なしでは危険な command
+## 明示確認なしでは危険なコマンド
 
 ```bash
 git add .

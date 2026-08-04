@@ -10,7 +10,7 @@ nono の拒否を再現し、必要性を判定したうえで、最小 profile 
 
 ## 手順
 
-### Step 1: 最小再現と対照実験
+### 1. 最小再現と対照実験
 
 1. profile、exact command、期待結果、error、exit status を記録する。
 2. 同じ profile と最小 command で再現する。
@@ -19,7 +19,7 @@ nono の拒否を再現し、必要性を判定したうえで、最小 profile 
 
 完了条件: nono 起因である根拠、または別原因として終了する根拠が得られた。
 
-### Step 2: denial を分類する
+### 2. 拒否を分類する
 
 直近 session と解決後 profile を確認する。
 
@@ -49,7 +49,7 @@ nono why --profile <profile> --command <command> -- <args...>
 
 完了条件: denial の対象、操作種別、根拠となったrule、または未特定理由が記録された。
 
-### Step 3: 不足 capability を発見する
+### 3. 不足する権限を見つける
 
 通常は現行 profile のまま `nono run` で再現し、終了時のdenial reportを読む。
 
@@ -69,7 +69,7 @@ credential読取、公開操作、破壊的操作をdiscovery目的で追加実�
 
 完了条件: 不足候補が列挙された、または再現範囲では不足なしと確認された。
 
-### Step 4: 候補を判定する
+### 4. 候補を判定する
 
 各候補を次の順で判定する。
 
@@ -89,7 +89,7 @@ credential読取、公開操作、破壊的操作をdiscovery目的で追加実�
 
 完了条件: すべての候補に分類と理由が付いた。
 
-### Step 5: source-of-truthへpatchする
+### 5. source of truth を修正する
 
 ユーザーがprofile修正を明示している場合だけ、`profile` 候補をsource-of-truthへ反映する。`~/.config/nono/profiles` が展開先やsymlink先なら直接編集しない。修正が未承認ならpatch案を提示して停止する。
 
@@ -109,7 +109,7 @@ credentialをstdoutへ出す限定subcommandがあるなら、親networkのTLS i
 
 完了条件: patchが候補と一対一に対応し、無関係な権限を含まない。
 
-### Step 6: macOSの子processを扱う
+### 6. macOS の子プロセスを扱う
 
 このbranchは、親commandが内部でFoundation `Process`、shell、absolute pathなどから子processを起動して失敗した場合だけ使う。
 
@@ -127,7 +127,7 @@ raw Seatbelt ruleはvalidator warningを残す設計上の例外である。警�
 
 完了条件: child execの経路、pinした実体、追加rule、またはsandbox内で対応不能な理由が明示された。
 
-### Step 7: 検証する
+### 7. 検証する
 
 最初に`NONO_CAP_FILE`の有無を確認する。
 macOSで値が設定済みなら二重の`nono run`をruntime testとして起動しない。

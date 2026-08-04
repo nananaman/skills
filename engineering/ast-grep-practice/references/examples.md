@@ -1,4 +1,4 @@
-# ast-grep examples
+# ast-grep の例
 
 実践的な rule / test の例。
 そのまま catalog として配布するためのものではない。

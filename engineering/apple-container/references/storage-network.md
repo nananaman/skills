@@ -1,4 +1,4 @@
-# Storage・network・DNS
+# ストレージ、ネットワーク、DNS
 
 ## 用途
 
@@ -22,7 +22,7 @@ root filesystem を read-only にし、書き込みが必要な path だけ tmpf
 container run --rm --read-only --tmpfs /tmp --tmpfs /run my-app:latest
 ```
 
-## Anonymous volume と named volume
+## 匿名 volume と名前付き volume
 
 container path だけを指定すると anonymous volume を作る。`--rm` で container を消しても anonymous volume は自動削除されない。
 
@@ -63,7 +63,7 @@ container volume create --opt journal=writeback:64m cache-data
 container volume create --opt journal=journal audit-data
 ```
 
-## Port を localhost に公開する
+## ポートを localhost に公開する
 
 `--publish` / `-p` の書式は `[HOST_IP:]HOST_PORT:CONTAINER_PORT[/PROTOCOL]`。protocol の既定は TCP で、TCP または UDP を指定できる。
 
@@ -75,7 +75,7 @@ container run -d --name dns-server --publish 127.0.0.1:5353:53/udp dns:latest
 
 複数 network に接続した container では、公開 port は最初の network interface の IP へ転送される。
 
-## Default network と隔離 network
+## 既定の network と隔離した network
 
 `container system start` は `default` network を作り、`--network` を省略した container を接続する。追加 network は default や他の network から隔離される。
 
@@ -114,7 +114,7 @@ subnetv6 = "fd00:abcd::/64"
 
 設定は変更後に作成する network へ適用される。既存 network の subnet は変更しない。
 
-## Local DNS と host access
+## ローカル DNS と host へのアクセス
 
 名前付き container は組み込み DNS により `CONTAINER_NAME.DOMAIN` で解決できる。既定 domain は `test`。macOS 側からこの domain を使うには resolver を作成する。
 

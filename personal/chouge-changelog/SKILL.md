@@ -138,7 +138,7 @@ description: CHANGES.md が存在する repository で、git diff、commit、PR�
 - PR 本文全体ではなく、changelog に入る粒度の項目だけを書く。
 - レビュー手順やテスト結果は混ぜない。
 
-## Safety Checks
+## 安全確認
 
 次の場合は、changelog を断定せず確認事項として分離する。
 
@@ -148,7 +148,7 @@ description: CHANGES.md が存在する repository で、git diff、commit、PR�
 - breaking change かどうか判断できない。
 - `CHANGES.md` が存在しない。
 
-## Closeout
+## 完了時の報告
 
 完了報告には次を含める。
 

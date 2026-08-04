@@ -3,12 +3,12 @@ name: polish-design-doc
 description: Design Doc draft を、人間がこの設計で進めてよいか判断でき、task 分割へ進める文書へ磨く。複数案を調査・比較し、採用案を概要/詳細設計へ昇格し、リスク評価と検討した案を完成させる。PRD 作成、task 作成、通常実装、diff review だけの依頼では使わない。
 ---
 
-# Polish Design Doc
+# Design Doc の仕上げ
 
 Design Doc draft を「この設計で進めてよいか判断でき、次に task 分割へ進める文書」に磨く。
 複数案を調査・比較し、採用案を固定する。
 
-## Contract
+## 契約
 
 polished Design Doc は、次を満たす。
 
@@ -35,16 +35,16 @@ polished Design Doc は、次を満たす。
 `grilling` は曖昧さを一問ずつ潰す手順を定める。
 `japanese-tech-writing` は文章品質を定める。
 
-## Safety
+## 安全上の制約
 
 - この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
 - この skill では issue / 実装 diff を作らない。
 - 検証のために変更したコード・一時ファイルは、Design Doc 更新前に戻すか削除する。
 - Design Doc 更新前に polished body をユーザーへ提示し、確認後だけ更新する。
 
-## Workflow
+## 手順
 
-### 1. Load context
+### 1. 前提情報を読む
 
 対象 Design Doc draft を読む。
 repo-local 設定があれば読む。
@@ -58,7 +58,7 @@ Design Doc が存在しない場合は `draft-design-doc` を提案して止め�
 `TODO(draft)` が残っている、または draft が blocked の場合は polish へ進まず、`draft-design-doc` で draft gate を解消するよう報告して止める。
 PRD の要求を実現するための Design Doc であれば、PRD 参照を読む。技術・設計上の問題から直接始まった Design Doc では、PRD は不要である。
 
-### 2. Grill one question at a time
+### 2. 一問ずつ確認する
 
 一度に一つずつ問いを立てる。
 コードベース、既存 docs、既存 ADR から答えられることは、ユーザーに聞く前に調べる。
@@ -79,7 +79,7 @@ draft で根拠とともに確定している設計判断は一律に問い直�
 - セキュリティ / プライバシー / 負荷・コスト / 信頼性 / 開発・運用への影響は評価されているか。
 - task 分割へ進めるか。
 
-### 3. Investigate and verify
+### 3. 調査して検証する
 
 必要に応じてコード・テスト・docs・外部仕様を読む。
 不確実性が高い場合は、小さな検証コード、typecheck、test、benchmark を実行してよい。
@@ -98,7 +98,7 @@ git status --short --untracked-files=all
 
 戻してよいのは、この skill が作った変更・一時ファイルだけである。開始前から存在したユーザー変更は戻さない。Design Doc 文書以外に、この skill が作った modified / staged / untracked が残っている場合は戻す。既存変更と区別できない場合は戻さず、polished にせず blocked として報告する。
 
-### 4. Decide adopted design
+### 4. 採用する設計を決める
 
 `検討した案` にある候補を比較し、採用案を決める。
 
@@ -107,7 +107,7 @@ git status --short --untracked-files=all
 - `検討した案` には不採用案だけを残し、各案の `Conclusion` に不採用理由を書く。
 - 採用案が決められない場合は polished にせず blocked として報告する。
 
-### 5. Rewrite Design Doc
+### 5. Design Doc を書き直す
 
 `../draft-design-doc/assets/design-doc-template.md` の構造に合わせて Design Doc を更新する。
 
@@ -119,7 +119,7 @@ git status --short --untracked-files=all
 - Mermaid 図はどの章でも使ってよい。概要・詳細設計では特に推奨する。
 - 状態を持つ設計では、概要または詳細設計に Mermaid stateDiagram などで状態遷移を書く。
 
-### 6. Validate polished gate
+### 6. 完成条件を検証する
 
 更新前に以下を自己確認する。
 
@@ -137,11 +137,11 @@ git status --short --untracked-files=all
 - `TODO(draft)` が残っていないか。
 - task 分解に進めるか。
 
-### 7. Confirm before update
+### 7. 更新前に確認する
 
 polished body をユーザーへ提示し、確認後だけ Design Doc を更新する。
 
-### 8. Closeout
+### 8. 完了を報告する
 
 報告には次を含める。
 

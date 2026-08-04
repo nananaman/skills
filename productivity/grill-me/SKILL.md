@@ -4,5 +4,5 @@ description: 計画や設計を着手前に grill したいとユーザーが明
 disable-model-invocation: true
 ---
 
-対象を渡して `grilling` session を実行する。
+対象を渡して `grilling` の対話を実行する。
 対象が曖昧なら、まず何を grill するかを確認する。

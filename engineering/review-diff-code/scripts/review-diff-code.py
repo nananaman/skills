@@ -16,7 +16,11 @@ import tempfile
 from string import Template
 
 
-NO_FINDINGS = {"No actionable findings", "No actionable findings."}
+NO_FINDINGS = {
+    "対応が必要な指摘はありません。",
+    "No actionable findings",
+    "No actionable findings.",
+}
 FINDING_HEADING = re.compile(r"^### \[(critical|high|medium|low)\] .+")
 REVIEWER_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SHA256_DIGEST = re.compile(r"^[0-9a-f]{64}$")
@@ -25,7 +29,8 @@ ADVERSARIAL_REVIEWER = {
     "name": "Adversarial",
 }
 MAX_REVIEWER_PROMPT_BYTES = 1_000_000
-REQUIRED_FINDING_FIELDS = ("- Target:", "- Problem:", "- Evidence:", "- Suggested fix:")
+JAPANESE_FINDING_FIELDS = ("- 対象:", "- 問題:", "- 根拠:", "- 修正案:")
+LEGACY_ENGLISH_FINDING_FIELDS = ("- Target:", "- Problem:", "- Evidence:", "- Suggested fix:")
 SKILL_DIR = Path(__file__).resolve().parent.parent
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
 RUN_MARKER = ".review-diff-code-run"
@@ -334,15 +339,27 @@ def validate_output(stdout: str) -> str:
         return "protocol_failure(empty_output)"
     if "\n".join(lines) in NO_FINDINGS:
         return "success"
-    if lines[0] == "## Findings":
+    required_fields = JAPANESE_FINDING_FIELDS
+    has_explicit_format = False
+    if lines[0] == "## 指摘":
+        has_explicit_format = True
+        lines = lines[1:]
+    elif lines[0] == "## Findings":
+        has_explicit_format = True
+        required_fields = LEGACY_ENGLISH_FINDING_FIELDS
         lines = lines[1:]
     if not lines or not FINDING_HEADING.fullmatch(lines[0]):
         return "protocol_failure(invalid_format)"
     heading_indexes = [index for index, line in enumerate(lines) if FINDING_HEADING.fullmatch(line)]
+    if not has_explicit_format:
+        first_end = heading_indexes[1] if len(heading_indexes) > 1 else len(lines)
+        first_block = lines[heading_indexes[0] + 1 : first_end]
+        if any(line.startswith(LEGACY_ENGLISH_FINDING_FIELDS[0]) for line in first_block):
+            required_fields = LEGACY_ENGLISH_FINDING_FIELDS
     for position, start in enumerate(heading_indexes):
         end = heading_indexes[position + 1] if position + 1 < len(heading_indexes) else len(lines)
         block = lines[start + 1 : end]
-        if not all(any(line.startswith(field) for line in block) for field in REQUIRED_FINDING_FIELDS):
+        if not all(any(line.startswith(field) for line in block) for field in required_fields):
             return "protocol_failure(invalid_format)"
     return "success"
 
@@ -754,7 +771,7 @@ def collect_review(args: argparse.Namespace) -> int:
     print("| --- | --- |")
     for _, title, status, _ in results:
         print(f"| {title} | {status} |")
-    print("\n# Findings by Reviewer")
+    print("\n# レビュー担当別の指摘")
     for _, title, status, output in results:
         print(f"\n## {title}\n\nstatus: {status}\n")
         print(output.rstrip() if output.strip() else "No output.")

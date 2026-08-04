@@ -1,4 +1,4 @@
-# Web UI Prototype
+# Web UI のプロトタイプ
 
 Web の見た目、情報設計、操作感を既存画面の文脈で観察する。
 
