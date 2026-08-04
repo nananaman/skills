@@ -1,7 +1,6 @@
 ---
 name: skill-workbench
 description: agent skill の新規作成、構造、振り分け、ライフサイクルの改善、差分レビュー、全体レビュー、一覧の棚卸しを扱う。skill 本文だけのエージェント向けプロンプト契約を診断し、最小差分で改善する場合は improve-agent-prompt を使う。
-disable-model-invocation: true
 ---
 
 agent skill のライフサイクルを扱う作業台。

@@ -122,7 +122,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Type: `model-invoked`
 - **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
   - Use when: 新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
-  - Type: `user-invoked`
+  - Type: `model-invoked`
 - **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
   - Type: `user-invoked`
