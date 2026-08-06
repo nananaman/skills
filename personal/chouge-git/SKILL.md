@@ -109,6 +109,7 @@ plan が複数ある、対象が判断できない、marker が既存 commit に
 - PR title / body / reviewer 向け説明は、project に明文化された言語指定がない限り日本語で書く。
 - PR body は実際の diff、commit、テスト状況と一致させる。
 - project に PR template がある場合は、その構成を優先する。
+- PR body には `review-diff-code`、`skill-workbench` 差分レビューなど、個人的な内部レビュー運用の実施内容(reviewer 構成、指摘内容、採否理由など)を書かない。これらの gate は実施するが、公開する PR description の記述対象にはしない。
 
 ## 履歴の書き換え
 

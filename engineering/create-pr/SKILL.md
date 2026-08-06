@@ -14,7 +14,7 @@ disable-model-invocation: true
 - 作成する PR は通常 draft にする。ready PR で作成するのは、ユーザーが明示的に ready PR 作成を指示した場合だけにする。
 - project 規則が ready PR 作成を求めていても、ユーザーの明示指示がなければ draft で作成する。
 - project に PR template がある場合は、その構成を優先して body を作る。
-- PR body は実際の diff、commit、テスト状況、review gate の結果と一致させる。
+- PR body は実際の diff、commit、テスト状況と一致させる。
 - branch の commit body に `Implementation-Plan:` marker がある場合は、plan 原文を PR body の折りたたみに転記する。
 - uncommitted changes、未 push、base branch 不明、既存 PR などの状態を確認してから作成する。
 - push または PR 作成の前に、変更種別に応じた review gate が通っていることを確認する。
@@ -92,13 +92,10 @@ disable-model-invocation: true
 
    ## テスト
    - 
-
-   ## レビュー記録
-   - 
    ```
 
    `Tests` には、実行したコマンドを書く。未実行なら `未実行` と理由を書く。推測で「テスト済み」と書かない。
-   `Review notes` には、後続の review gate 確認後に、review gate の種類、実行した skill / command、対象 base、結果を書く。review gate が不要な docs-only 変更なら、その理由を書く。
+   `review-diff-code`、`skill-workbench` 差分レビューなど内部レビュー運用の実施内容(reviewer 構成、指摘内容、採否理由など)は PR body に書かない。実施自体は step 7 の review gate として行う。
 
    commit body に implementation plan がある場合は、template の末尾または標準 body の末尾へ次を追加する。
    plan 用の見出しは追加せず、`<details>`、`<summary>Implementation plan</summary>`、`</details>` を PR body に literal な HTML tag として含める。
@@ -118,13 +115,13 @@ disable-model-invocation: true
 
 7. review gate を確認する。
    - docs-only の変更なら review gate は不要。
-   - skill 変更を含むなら `skill-workbench` の差分レビューを使い、対象差分と結果を記録する。
+   - skill 変更を含むなら `skill-workbench` の差分レビューを使う。
    - コード、設定、テスト、CI、実行時の動作に影響する変更を含むなら `review-diff-code` skill を使い、実際の基点または変更のある作業ツリーを一度評価して指摘の採否台帳を確認する。
    - 既に同じ base / head diff に対して review 済みなら再実行しなくてよい。
-   - 会話、直近の作業ログ、PR body の `Review notes` などで review 済みと確認できなければ、未実施として扱う。
+   - 会話や直近の作業ログで review 済みと確認できなければ、未実施として扱う。PR body は review 済み判定の根拠にしない。
    - 未実施なら push 前に実行する。push が不要な場合でも、PR 作成前に実行する。
    - 対応可能な指摘が残る場合は、push や PR 作成へ進まない。
-   - review gate の実行または確認後、PR body の `Review notes` を結果に合わせて更新する。
+   - review gate の結果は PR body に書かず、完了報告でユーザーに伝える。
 
 8. PR を作成する。
    - 既存 PR がない場合だけ作成する。
@@ -174,6 +171,7 @@ template を使うときは、次を守る。
 - issue link、screenshot、migration、rollout など project 固有の欄を勝手に省略しない。
 - template の文言と矛盾する内容を書かない。
 - template の要求情報が diff から分からない場合は、PR 作成前にユーザーへ質問する。
+- template にレビュー記録相当の欄がある場合も、`review-diff-code` などの内部レビュー運用の実施内容は書かない。欄の趣旨に沿う範囲(例: 人間 reviewer への依頼事項)だけを埋める。
 
 ## 安全確認
 
