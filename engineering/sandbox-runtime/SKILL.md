@@ -44,15 +44,15 @@ Anthropic Sandbox Runtime (`srt`) の挙動とリポジトリの実変更を切�
 1. 次を実行する。
    ```bash
    gh auth status -h github.com
-   git config --show-origin --list | grep -E 'insteadOf|remote\.origin|credential' || true
    ```
-2. `Token scopes` に `workflow` がなければ、ユーザーに sandbox の外で次を実行してもらう。
+2. Git config は `remote.origin.url` と `url.*.insteadOf` だけを確認し、URL の userinfo を除去するまで値を出力・記録しない。対象外の `credential.*` まで含む config 全体は表示しない。
+3. `Token scopes` に `workflow` がなければ、ユーザーに sandbox の外で次を実行してもらう。
    ```bash
    gh auth refresh -h github.com -s workflow
    ```
-3. srt 内で実行済みの `gh auth refresh` が `hosts.yml: read-only file system` で失敗していた場合、srt 内で再試行しない。
-4. ユーザーが認証情報を更新した後、`gh auth status -h github.com` を再実行し、`Token scopes` に `workflow` が含まれることを確認する。
-5. Git config が SSH remote を HTTPS に rewrite している場合、SSH push で回避できると決めつけない。
+4. srt 内で実行済みの `gh auth refresh` が `hosts.yml: read-only file system` で失敗していた場合、srt 内で再試行しない。
+5. ユーザーが認証情報を更新した後、`gh auth status -h github.com` を再実行し、`Token scopes` に `workflow` が含まれることを確認する。
+6. Git config が SSH remote を HTTPS に rewrite している場合、SSH push で回避できると決めつけない。
 
 ### 5. 結果を報告する
 1. `assets/report-template.md` の構成で報告する。
