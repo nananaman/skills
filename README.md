@@ -138,6 +138,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`chouge-git`](./personal/chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
   - Use when: commit、branch、push、PR 作成・更新
   - Type: `model-invoked`
+- **[`chouge-git-wt`](./personal/chouge-git-wt/SKILL.md)** — branch/working tree の安全確認と、必要な場合の git worktree 分離を適用する。
+  - Use when: ファイルを変更する前
+  - Type: `model-invoked`
 - **[`merge-closeout`](./personal/merge-closeout/SKILL.md)** — PR マージ後の default branch 同期と retrospective を一度に行う。
   - Use when: PR マージ後の local 同期と知見の棚卸し
   - Type: `user-invoked`
