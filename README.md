@@ -78,9 +78,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`review-plan`](./engineering/review-plan/SKILL.md)** — 作成済みの一時実装planを、実現可能性と単純性のfresh reviewerで独立評価する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
   - Type: `model-invoked`
-- **[`implement`](./engineering/implement/SKILL.md)** — goalとquality barに対するBuilder / Criticの実装loopを編成する。
-  - Use when: `implement`の明示起動、複数unitや反復評価を伴う実装、actual artifactとreferenceの比較
-  - Type: `user-invoked`
+- **[`implement`](./engineering/implement/SKILL.md)** — 実装を検証、簡素化、完成差分のレビューまで通して完了させる。
+  - Use when: コード、設定、テスト、schema、依存関係、agent 指示の作成または変更
+  - Type: `model-invoked`
 - **[`simplify-code`](./engineering/simplify-code/SKILL.md)** — 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する。
   - Use when: 実装後に簡素化の必要性を判断するとき、明示的な簡素化や振る舞いを変えないリファクタリング
   - Type: `model-invoked`
