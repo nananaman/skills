@@ -1,7 +1,7 @@
 # Engineering Skills
 
 コード作業、設計文書、task 分解、一時 plan、実装、レビュー、PR 作成に使う skill 群です。
-PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBuilder / Criticによる実装、TDD、実装後レビュー、レビューしやすいPR作成までの導線を扱います。
+PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、実装後レビュー、レビューしやすいPR作成までの導線を扱います。
 
 ## どの Skill を使うか
 
@@ -14,7 +14,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 - 合意済みの要求・設計を独立実行可能な task 群へ分解する → [`task-breakdown`](./task-breakdown/SKILL.md)
 - issue を取得し、grill 後に一時的な実装 plan を作る → [`create-plan`](./create-plan/SKILL.md)
 - 作成済みの実装 plan を検討漏れと不要な複雑性の観点で独立評価する → [`review-plan`](./review-plan/SKILL.md)
-- quality barに向けてBuilderとCriticの実装loopを編成する → [`implement`](./implement/SKILL.md)
+- コードや設定などの実装を、検証、簡素化、完成差分のレビューまで通して完了する → [`implement`](./implement/SKILL.md)
 - 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する → [`simplify-code`](./simplify-code/SKILL.md)
 - 実行コードのロジック・状態遷移・データ変換・処理規則の変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
@@ -34,14 +34,10 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 3. 技術改善・設計変更、または PRD 実現に設計判断が必要な変更は `draft-design-doc` → `polish-design-doc` で設計を固める。
 4. 合意済みの要求・設計は `task-breakdown` で独立実行可能な issue 群へ分ける。
 5. issue を取得したら `create-plan` で grill と調査を行い、untracked の一時 plan を作る。`create-plan`は完了前に`review-plan`を自動実行し、検討漏れと不要な複雑性のblockerを解消する。
-6. 実行コードのロジック・状態遷移・データ変換・処理規則を変更するときは、`tdd` で RED → GREEN → Refactor の順に進める。
-7. テストを書くときは、`test-writing-style` で既存テスト文化と読みやすさを揃える。
-8. 長い実装loopが必要なtaskでは、明示的に`implement`を使い、goalとquality barに対してBuilder / Criticを編成する。
-9. 実装と検証が完了した後、`simplify-code`を適用する必要があるか判断する。追加の簡素化が費用に見合わなければ何も変更せず、必要な場合だけ振る舞いを保った修正と再検証を行う。
-10. planを保持したまま、簡素化後の完成差分を`review-diff-code`で一度評価し、指摘の採否を確認する。修正が必要なら実装フローへ戻す。
-11. 大きなlocal差分を人間へ説明するときは、必要に応じて `explain-diff` で変更の物語と根拠を確認する画面を作る。
-12. review 後、plan 原文を commit body に保存して plan file を削除する。
-13. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
+6. コード、設定、テスト、schema、依存関係、agent 指示の実装には`implement`を使い、必要な専門 skill、検証、簡素化の判断、完成差分のレビューまで完了する。
+7. 大きなlocal差分を人間へ説明するときは、必要に応じて `explain-diff` で変更の物語と根拠を確認する画面を作る。
+8. レビュー後、plan 原文を commit body に保存して plan file を削除する。
+9. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
 
 ## Skill 一覧
 
@@ -72,9 +68,9 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、独立したBui
 - **[`review-plan`](./review-plan/SKILL.md)** — 作成済みの一時実装planを、実現可能性と単純性のfresh reviewerで独立評価する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
   - Type: `model-invoked`
-- **[`implement`](./implement/SKILL.md)** — goalとquality barに対するBuilder / Criticの実装loopを編成する。
-  - Use when: `implement`の明示起動、複数unitや反復評価を伴う実装、actual artifactとreferenceの比較
-  - Type: `user-invoked`
+- **[`implement`](./implement/SKILL.md)** — 実装を検証、簡素化、完成差分のレビューまで通して完了させる。
+  - Use when: コード、設定、テスト、schema、依存関係、agent 指示の作成または変更
+  - Type: `model-invoked`
 - **[`simplify-code`](./simplify-code/SKILL.md)** — 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する。
   - Use when: 実装後に簡素化の必要性を判断するとき、明示的な簡素化や振る舞いを変えないリファクタリング
   - Type: `model-invoked`
