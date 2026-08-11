@@ -39,6 +39,8 @@ Go のテストを追加・修正するときは、[`references/go.md`](./refere
 
 3. **表示文字列ではなく元の契約を検証する**
    - 文言、表示データ、translation table のみを固定するテストは原則追加しない。
+   - system prompt、agent 向け指示、`AGENTS.md`、skill 本文の意味や振る舞いを、特定文言や見出しの存在で検証しない。テストする場合は、frontmatter、schema、relative link、生成物など機械的に判定できる契約を対象にする。
+   - agent の判断順序、振る舞い、安全性は文字列一致で代用せず、代表例による Execution smoke やレビューで評価する。
    - validation は error message ではなく error type / field / code を検証する。
    - empty state は表示文言ではなく state の種別を検証する。
    - CTA はラベルではなく route / href / action / tracking contract を検証する。
@@ -97,6 +99,7 @@ Go のテストを追加・修正するときは、[`references/go.md`](./refere
 - 既存テストの naming / grouping / helper / assertion style に揃っているか。
 - 1 テスト 1 関心になっているか。1 つの契約を assertion ごとに分断していないか。
 - 文言や表示データそのものではなく、type / state / route / formatting rule など元の契約を検証しているか。
+- agent 向け prompt の意味や振る舞いを、特定文言の存在だけで検証していないか。
 - 正常系・異常系・境界条件が混ざっていないか。
 - Arrange / Act / Assert が読み取れるか。
 - 非自明な Arrange / Assert には、ケース条件と検証契約がコメントで説明されているか。
