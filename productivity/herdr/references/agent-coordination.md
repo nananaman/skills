@@ -8,7 +8,7 @@
 既存 pane は current、list、get で対象を確認してから read する。
 soft wrap が解析を妨げる場合は unwrapped source、TUI の見た目が必要な場合は ANSI format を選ぶ。
 
-長時間 command、dev server、test、log tail は、現在 pane を奪わないよう `--no-focus` で補助 pane を作って実行する。
+長時間 command、dev server、test、log tail、screenshot 取得のような一時作業も含め、現在 pane を占有したくない作業は、現在 tab を split した補助 pane を `--no-focus` で作って実行する。
 agent が直前に作成した補助 pane は、`tests`、`dev server`、`logs`、`review`、helper の個別タスクなど、その pane 固有の label を付けてよい。
 人間がファイル確認などに使う既存 pane と、その pane に人間が付けた label は変更しない。
 
@@ -43,5 +43,5 @@ split response の pane ID を保持し、その pane に個別タスクの labe
 
 ## 承認が必要な操作
 
-focus、close、attach、takeover、pane move、swap、resize、zoom、既存 pane や既存 agent への入力は、ユーザーが明示依頼した場合だけ実行する。
+tab と workspace の作成、focus、close、attach、takeover、pane move、swap、resize、zoom、既存 pane や既存 agent への入力は、ユーザーが明示依頼した場合だけ実行する。
 実行前に対象 ID、現在の process または agent 状態、操作、予想される影響を提示する。
