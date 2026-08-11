@@ -13,10 +13,10 @@ CLI 構文は実行時の `herdr <group> --help` を正本とし、用途固有�
 - 最初に `HERDR_ENV=1`、`herdr status --json`、`herdr pane current` を確認する。Herdr 外または server 接続失敗なら操作せず止める。
 - workspace、tab、pane ID は stable handle として扱う。pane move 後だけ response から新しい pane ID を取得する。
 - agent target は unique な live agent 名か、その agent を現在 host する pane ID に限定する。
-- 補助 pane、tab、workspace は原則 `--no-focus` で作る。
-- focus、close、takeover、layout 変更、既存 pane や既存 agent への入力は、ユーザーが明示依頼した場合だけ実行する。
+- agent が作る補助的な作業場は現在 tab を split した pane に限り、原則 `--no-focus` で作る。
+- tab と workspace の作成、focus、close、takeover、layout 変更、既存 pane や既存 agent への入力は、ユーザーが明示依頼した場合だけ実行する。
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
-- tab label は tab 全体の主タスク、pane label は pane 固有の役割や作業を表す。
+- tab は人間が主タスクを見分ける単位とし、tab label は tab 全体の主タスク、pane label は pane 固有の役割や作業を表す。
 - pane label を自動変更できるのは、agent が直前に作成した補助 pane だけとする。人間が管理する既存 pane とその label は変更しない。
 - pane の metadata report は agent integration を明示的に扱う場合だけ実行する。
 - managed Hunk review pane の起動、reload、close は agent が行わない。
@@ -38,4 +38,4 @@ Herdr CLI 自体の実装、設定、配布、更新はこの skill の対象外
 - command が失敗したら、command、exit code、stderr を報告し、後続の変更操作へ進まない。
 - ID が見つからない場合は list、current、get で取り直し、推測で補正しない。
 - wait が timeout または stalled になった場合は、対象の get と read で失敗、実行中、marker 不一致、state change 未検出を切り分ける。
-- focus、close、takeover、layout 変更、既存 pane や既存 agent への入力が必要になった場合は、対象と影響を示して承認を待つ。
+- 明示依頼が必要な操作へ進む必要が生じた場合は、対象と影響を示して承認を待つ。
