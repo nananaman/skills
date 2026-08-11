@@ -17,6 +17,7 @@ Herdr の実装や開発ではなく、実行中の Herdr session に対する�
 - `HERDR_ENV` が `1` でなければ、Herdr-managed pane 外であることを報告して止める。
 - Herdr 外から focused pane を推測して操作しない。
 - workspace / tab / pane ID は stable handle として扱うが、pane move 後は新しい ID を response から取り直す。agent target は unique な live agent 名か、その agent を現在 host する pane ID に限定する。
+- 最初の実質的なタスクで、現在 agent が generic 名なら、現在 pane と agent を一度だけタスク由来名へ rename する。命名済みの session は後続タスクで更新しない。
 - 補助用の pane / tab / workspace を作るときは、原則 `--no-focus` を付ける。
 - focus / close / takeover / layout 変更 / 既存 pane への入力は、ユーザーが明示依頼した場合だけ実行する。
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
@@ -152,6 +153,48 @@ herdr pane read <pane-id> --source visible --format ansi
 長時間 command は sibling pane を作って実行する。
 現在 pane を奪わないため、split / create には原則 `--no-focus` を付ける。
 
+## Agent session の初回命名
+
+最初の実質的なタスクで、現在 agent が generic 名のままなら session を一度だけ命名する。
+generic は `agent get` / `agent list` の top-level `agent` と `agent_session.agent` が同じ状態を指す。
+非 generic な agent 名は命名済みの印として扱い、タスクが変わっても agent 名と pane label を更新しない。
+
+まず stable target と現在の命名状態を読む。
+
+```sh
+CURRENT_PANE=$(herdr pane current \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
+herdr pane get "$CURRENT_PANE"
+herdr agent get "$CURRENT_PANE"
+herdr agent list
+```
+
+top-level `agent` と `agent_session.agent` が異なる場合は、ここで終了する。
+同じ場合は、次の規則で task label と agent 名を決める。
+
+- task label は最初の依頼を人間が識別できる短い表現にし、ASCII の語を含める。例: `Review Herdr labels`。
+- agent 名の stem は label を ASCII 小文字化し、`[a-z0-9]` 以外の連続を `-` に置き換え、前後の `-` を除いて作る。例: `review-herdr-labels`。
+- stem が空、または先頭が `[a-z]` でなければ自動 rename せず、命名不能として報告する。
+- agent 名は `[a-z][a-z0-9_-]{0,31}` に収める。32文字を超える場合は末尾を切り詰める。
+- `agent list` の generic / non-generic を問わない全 live agent 名と照合する。衝突時は、32文字以内へ stem を切り詰めて `-2`、`-3` の順に未使用名を探す。未使用名を生成できなければ変更せず報告する。
+
+初回は pane label を先に設定し、成功した場合だけ stable な pane ID を target に agent を rename する。
+
+```sh
+herdr pane rename "$CURRENT_PANE" "Review Herdr labels"
+herdr agent rename "$CURRENT_PANE" review-herdr-labels
+herdr agent get "$CURRENT_PANE"
+```
+
+- pane rename が失敗したら agent rename へ進まない。
+- agent rename が失敗したら停止する。agent は generic のままなので再試行できる。
+- 再試行時に pane state の `label` があれば、それを最初の task label として同じ規則で agent 名を再生成し、pane label は再設定せず agent rename だけを行う。後続タスクから別の label を作らない。
+- 既存 label が空、または有効な stem を生成できない場合は変更せず報告する。
+- rename 後も agent 操作には同じ pane ID を使う。pane move を行った場合だけ response から新しい pane ID を取得する。
+
+現在の generic agent とその pane の初回 rename は自律実行してよい。
+別 agent、命名済み agent、`--clear` はこの自動操作の対象外とする。
+
 ### 基本パターン
 
 ```sh
@@ -259,12 +302,15 @@ herdr agent prompt <target> "次の観点で調査してください: ..." --wai
 herdr agent list
 AGENT_PANE=$(herdr pane split --current --direction right --cwd /path/to/repo --no-focus \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
-herdr agent start helper --kind claude --pane "$AGENT_PANE"
+herdr pane rename "$AGENT_PANE" "Review test structure"
+herdr agent start review-test-structure --kind claude --pane "$AGENT_PANE"
 ```
 
+- helper の task label を先に設定し、pane rename が成功した場合だけ `agent start` を実行する。
 - `agent start` 自体は layout を変更しない。interactive shell が foreground で待機している既存 pane を `--pane` で指定する。
 - `--kind` には起動する agent kind を指定する。native agent 引数は `--` より後ろへ渡す。
-- `agent list` を起動前に読み、agent 名が `[a-z][a-z0-9_-]{0,31}` を満たし、live agent 間で unique になるよう選ぶ。
+- agent 名は helper の pane label から初回命名と同じ規則で生成する。`agent list` を起動前に読み、`[a-z][a-z0-9_-]{0,31}` を満たす未使用名を選ぶ。
+- `agent start` が失敗した場合は pane label を保持する。再試行時はその label を使い、`agent list` を読み直して候補名の一意性を再計算する。
 
 ### agent 完了を待つ
 
@@ -420,16 +466,17 @@ tail は終わらない前提。
 herdr agent list
 HELPER_PANE=$(herdr pane split --current --direction right --cwd "$PWD" --no-focus \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
-herdr agent start helper --kind claude --pane "$HELPER_PANE"
-herdr agent wait helper --timeout 120000
-herdr agent read helper --source recent --lines 120
+herdr pane rename "$HELPER_PANE" "Review test structure"
+herdr agent start review-test-structure --kind claude --pane "$HELPER_PANE"
+herdr agent wait "$HELPER_PANE" --timeout 120000
+herdr agent read "$HELPER_PANE" --source recent --lines 120
 ```
 
 agent 起動後に task を送る場合:
 
 ```sh
-herdr agent prompt helper "この repository の test 構成を調査して、200字以内で報告してください。" --wait --timeout 120000
-herdr agent read helper --source recent --lines 120
+herdr agent prompt "$HELPER_PANE" "この repository の test 構成を調査して、200字以内で報告してください。" --wait --timeout 120000
+herdr agent read "$HELPER_PANE" --source recent --lines 120
 ```
 
 target 名が曖昧なら `agent list` / `agent get` で確認してから送る。
@@ -504,6 +551,7 @@ Herdr 操作を行ったら、最後に次を短く報告する。
 | 出力待ち | `herdr pane wait-output <pane-id> --match "ready" --timeout 30000` |
 | regex 待ち | `herdr pane wait-output <pane-id> --regex "server.*ready" --timeout 30000` |
 | agent 一覧 | `herdr agent list` |
+| agent 初回命名 | `herdr agent rename <pane-id> <task-name>` |
 | agent 読み取り | `herdr agent read <target> --source recent --lines 100` |
 | agent 起動 | `herdr agent start <name> --kind <kind> --pane <pane-id> -- <agent-args...>` |
 | agent prompt | `herdr agent prompt <target> "<text>" --wait --timeout 120000` |
