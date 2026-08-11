@@ -17,7 +17,9 @@ Herdr の実装や開発ではなく、実行中の Herdr session に対する�
 - `HERDR_ENV` が `1` でなければ、Herdr-managed pane 外であることを報告して止める。
 - Herdr 外から focused pane を推測して操作しない。
 - workspace / tab / pane ID は stable handle として扱うが、pane move 後は新しい ID を response から取り直す。agent target は unique な live agent 名か、その agent を現在 host する pane ID に限定する。
-- 最初の実質的なタスクで、現在 agent が generic 名なら、現在 pane と agent を一度だけタスク由来名へ rename する。命名済みの session は後続タスクで更新しない。
+- tab label は主タスクを表し、pane label は pane 固有の役割や作業を表す。
+- 最初の実質的なタスクで、response に `name` がない現在 agent と番号だけの現在 tab を、タスク由来名へ一度だけ rename する。非番号の tab label は上書きせず agent 名の生成に使い、`name` がある agent は命名済みとして変更しない。
+- pane label を自動変更できるのは、agent が直前に作成した補助 pane だけとする。人間が管理する既存 pane とその label は変更しない。
 - 補助用の pane / tab / workspace を作るときは、原則 `--no-focus` を付ける。
 - focus / close / takeover / layout 変更 / 既存 pane への入力は、ユーザーが明示依頼した場合だけ実行する。
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
@@ -153,24 +155,42 @@ herdr pane read <pane-id> --source visible --format ansi
 長時間 command は sibling pane を作って実行する。
 現在 pane を奪わないため、split / create には原則 `--no-focus` を付ける。
 
+tab label は tab 全体の主タスクを表す。
+pane label は `tests`、`dev server`、`logs`、`review`、ファイル確認など、その pane 固有の役割や作業を表す。
+一つの tab に一つの pane しかなく、固有の役割を示す必要がなければ pane label は変更しない。
+
 ## Agent session の初回命名
 
-最初の実質的なタスクで、現在 agent が generic 名のままなら session を一度だけ命名する。
-generic は `agent get` / `agent list` の top-level `agent` と `agent_session.agent` が同じ状態を指す。
-非 generic な agent 名は命名済みの印として扱い、タスクが変わっても agent 名と pane label を更新しない。
+最初の実質的なタスクで、現在 agent が generic 名のままなら agent と tab を一度だけ命名する。
+generic は `agent get` response に `name` がない状態を指す。
+`name` がある agent は命名済みとして扱い、タスクが変わっても agent 名と tab label を更新しない。
 
 まず stable target と現在の命名状態を読む。
 
 ```sh
-CURRENT_PANE=$(herdr pane current \
+CURRENT=$(herdr pane current)
+CURRENT_PANE=$(printf '%s\n' "$CURRENT" \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
-herdr pane get "$CURRENT_PANE"
+CURRENT_TAB=$(printf '%s\n' "$CURRENT" \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["tab_id"])')
+herdr tab get "$CURRENT_TAB"
 herdr agent get "$CURRENT_PANE"
 herdr agent list
 ```
 
-top-level `agent` と `agent_session.agent` が異なる場合は、ここで終了する。
-同じ場合は、次の規則で task label と agent 名を決める。
+`agent get` response に `name` があれば、ここで終了する。
+`name` がない場合は、tab label から次の分岐を選ぶ。
+
+| tab label | tab 操作 | agent 名の入力 |
+|---|---|---|
+| ASCII の番号だけ | 最初の task label へ rename | 最初の task label |
+| 非番号 | 変更しない | 既存 tab label |
+| 空 | 変更せず停止 | なし |
+
+非番号の tab label は、人間が付けた名前または前回の部分成功で残った task label として保護する。
+同じ tab に複数の generic agent がいる場合も tab label は上書きせず、後続 agent の名前だけを既存の衝突回避規則で一意にする。
+
+canonical label から次の規則で agent 名を決める。
 
 - task label は最初の依頼を人間が識別できる短い表現にし、ASCII の語を含める。例: `Review Herdr labels`。
 - agent 名の stem は label を ASCII 小文字化し、`[a-z0-9]` 以外の連続を `-` に置き換え、前後の `-` を除いて作る。例: `review-herdr-labels`。
@@ -178,22 +198,22 @@ top-level `agent` と `agent_session.agent` が異なる場合は、ここで終
 - agent 名は `[a-z][a-z0-9_-]{0,31}` に収める。32文字を超える場合は末尾を切り詰める。
 - `agent list` の generic / non-generic を問わない全 live agent 名と照合する。衝突時は、32文字以内へ stem を切り詰めて `-2`、`-3` の順に未使用名を探す。未使用名を生成できなければ変更せず報告する。
 
-初回は pane label を先に設定し、成功した場合だけ stable な pane ID を target に agent を rename する。
+番号だけの tab label は、tab label を先に設定し、成功した場合だけ stable な pane ID を target に agent を rename する。
 
 ```sh
-herdr pane rename "$CURRENT_PANE" "Review Herdr labels"
+herdr tab rename "$CURRENT_TAB" "Review Herdr labels"
 herdr agent rename "$CURRENT_PANE" review-herdr-labels
 herdr agent get "$CURRENT_PANE"
 ```
 
-- pane rename が失敗したら agent rename へ進まない。
+- tab rename が失敗したら agent rename へ進まない。
 - agent rename が失敗したら停止する。agent は generic のままなので再試行できる。
-- 再試行時に pane state の `label` があれば、それを最初の task label として同じ規則で agent 名を再生成し、pane label は再設定せず agent rename だけを行う。後続タスクから別の label を作らない。
-- 既存 label が空、または有効な stem を生成できない場合は変更せず報告する。
+- 再試行時は非番号になった tab label を canonical label とし、tab label は再設定せず agent rename だけを行う。後続タスクから別の label を作らない。
+- tab label が空、または有効な stem を生成できない場合は変更せず報告する。
 - rename 後も agent 操作には同じ pane ID を使う。pane move を行った場合だけ response から新しい pane ID を取得する。
 
-現在の generic agent とその pane の初回 rename は自律実行してよい。
-別 agent、命名済み agent、`--clear` はこの自動操作の対象外とする。
+現在の generic agent の初回 rename と、番号だけの現在 tab の rename は自律実行してよい。
+pane label、別 agent、命名済み agent、非番号の tab label、`--clear` はこの自動操作の対象外とする。
 
 ### 基本パターン
 
@@ -232,8 +252,8 @@ herdr pane rename <pane-id> "dev server"
 herdr pane rename <pane-id> --clear
 ```
 
-補助 pane の用途が分かりにくい場合だけ rename する。
-rename は destructive ではないが、既存の人間管理ラベルを上書きしうるため、既存 pane では慎重に扱う。
+agent が直前に作成した補助 pane は、固有の用途がある場合だけ rename する。
+人間が管理する既存 pane は、ファイル確認などの用途や人間が付けた label を保護するため、自動 rename しない。
 
 ## 待機
 
@@ -557,5 +577,6 @@ Herdr 操作を行ったら、最後に次を短く報告する。
 | agent prompt | `herdr agent prompt <target> "<text>" --wait --timeout 120000` |
 | agent key | `herdr agent send-keys <target> esc` |
 | agent 待機 | `herdr agent wait <target> --timeout 120000` |
+| tab rename | `herdr tab rename <tab-id> "<main-task>"` |
 | tab 作成 | `herdr tab create --workspace <workspace-id> --label "logs" --no-focus` |
 | workspace 作成 | `herdr workspace create --cwd /path/to/project --label "api" --no-focus` |

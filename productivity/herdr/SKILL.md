@@ -15,8 +15,10 @@ CLI のコマンド一覧、用途別の運用手順、作業例は `references/
 - `HERDR_ENV` が `1` でなければ、Herdr-managed pane 外であることを報告して止める。
 - Herdr 外から focused pane を推測して操作しない。
 - workspace / tab / pane ID は stable handle として扱うが、pane move 後は新しい ID を response から取り直す。agent target は unique な live agent 名か、その agent を現在 host する pane ID に限定する。
-- 最初の実質的なタスクで、現在 agent の表示名が検出された agent kind と同じ generic 名なら、現在 pane に task label を付けてから agent をタスク由来名へ一度だけ rename する。非 generic 名は命名済みとして扱い、後続タスクでは更新しない。
-- 現在の generic agent とその pane の初回 rename は自律実行してよい。別 agent、命名済み agent、`--clear` は自動 rename の対象にしない。
+- tab label は主タスクを表し、pane label は pane 固有の役割や作業を表す。
+- 最初の実質的なタスクで、response に `name` がない現在 agent と番号だけの現在 tab を、タスク由来名へ一度だけ rename する。非番号の tab label は上書きせず agent 名の生成に使い、`name` がある agent は命名済みとして変更しない。
+- 現在の generic agent の初回 rename と、番号だけの現在 tab の rename は自律実行してよい。pane label、別 agent、命名済み agent、非番号の tab label、`--clear` は自動変更の対象にしない。
+- pane label を自動変更できるのは、agent が直前に作成した補助 pane だけとする。人間が管理する既存 pane とその label は変更しない。
 - 補助用の pane / tab / workspace を作るときは、原則 `--no-focus` を付ける。
 - focus / close / takeover / layout 変更 / 既存 pane への入力は、ユーザーが明示依頼した場合だけ実行する。
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
@@ -55,7 +57,7 @@ CLI のコマンド一覧、用途別の運用手順、作業例は `references/
    `HERDR_ENV` が `1` でない、または `herdr status` が失敗する場合は止める。
 
 2. 作業種別を決める。
-   - 初回命名: 現在 agent が generic 名なら、runbook の初回命名手順を一度だけ実行する。
+   - 初回命名: 現在 agent の response に `name` がなければ、runbook の初回命名手順を一度だけ実行する。
    - 読むだけ: `pane read` / `agent read` / list / get 系に限定する。
    - 補助 pane で実行: `pane split --no-focus` で shell pane を作り、必要ならその pane を指定して `agent start` を使う。
    - 待機: 通常 command は `pane wait-output`、agent は `agent wait` を使い、最後に read で結果を確認する。
