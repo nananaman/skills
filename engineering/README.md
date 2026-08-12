@@ -26,6 +26,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - nono の拒否を診断し、最小権限の profile patch を作成・検証する → [`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)
 - ast-grep を project-local な構造 lint / rewrite として運用する → [`ast-grep-practice`](./ast-grep-practice/SKILL.md)
 - Apple `container` CLI で OCI image・container・network・volume・machine を操作する → [`apple-container`](./apple-container/SKILL.md)
+- Realtime API の音声対話で観測された症状から system prompt の技法を選び、診断・改善する → [`realtime-prompt-review`](./realtime-prompt-review/SKILL.md)
 
 ## 典型フロー
 
@@ -103,4 +104,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
   - Type: `model-invoked`
 - **[`apple-container`](./apple-container/SKILL.md)** — Apple `container` CLI を実機 version に合わせて安全に操作する。
   - Use when: OCI image の build / run、registry、network・volume・machine 管理、障害調査
+  - Type: `model-invoked`
+- **[`realtime-prompt-review`](./realtime-prompt-review/SKILL.md)** — Realtime API の音声対話で観測された症状から system prompt の介入を選び、診断・改善する。
+  - Use when: 意図しない言語切替、冗長・平板な発話、咳・無音・背景音への応答、発音、tool 誤選択、会話 flow・human escalation の逸脱
   - Type: `model-invoked`

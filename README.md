@@ -114,6 +114,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`apple-container`](./engineering/apple-container/SKILL.md)** — Apple `container` CLI を実機 version に合わせて安全に操作する。
   - Use when: OCI image の build / run、registry、network・volume・machine 管理、障害調査
   - Type: `model-invoked`
+- **[`realtime-prompt-review`](./engineering/realtime-prompt-review/SKILL.md)** — Realtime API の音声対話で観測された症状から system prompt の介入を選び、診断・改善する。
+  - Use when: 意図しない言語切替、冗長・平板な発話、咳・無音・背景音への応答、発音、tool 誤選択、会話 flow・human escalation の逸脱
+  - Type: `model-invoked`
 
 ### Meta
 
