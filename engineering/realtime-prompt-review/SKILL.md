@@ -1,6 +1,7 @@
 ---
 name: realtime-prompt-review
 description: OpenAI Realtime API の音声 agent で、言語切替、冗長・平板な発話、咳・無音・背景音への誤応答、数字や固有名詞の読み上げ、tool 誤選択、会話 flow や human escalation の逸脱など、観測済みの症状から system prompt を診断・改善する。汎用 agent prompt、Realtime API の接続・音声設定・実装障害、症状のない新規 prompt 作成には使わない。
+disable-model-invocation: true
 ---
 
 OpenAI Realtime API 用 system prompt の変更を、観測された音声対話の症状と検証可能な仮説に結び付ける。
