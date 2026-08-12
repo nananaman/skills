@@ -107,4 +107,4 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
   - Type: `model-invoked`
 - **[`realtime-prompt-review`](./realtime-prompt-review/SKILL.md)** — Realtime API の音声対話で観測された症状から system prompt の介入を選び、診断・改善する。
   - Use when: 意図しない言語切替、冗長・平板な発話、咳・無音・背景音への応答、発音、tool 誤選択、会話 flow・human escalation の逸脱
-  - Type: `model-invoked`
+  - Type: `user-invoked`
