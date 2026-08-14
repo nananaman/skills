@@ -18,8 +18,12 @@ skill が安定させるのは agent の探索順序ではなく、成果、判�
 
 ## 起動方法
 
-- 自動起動: agent が自律発火すべき、または他の skill から到達させる必要がある場合だけ使う。description を読み込む負荷が常に生じる。
-- ユーザーによる明示起動: 人間が明示起動するだけでよい場合に使う。`disable-model-invocation: true` を付ける。ほかの skill から到達させる用途には使わない。
+- 自動起動: agent が自律発火すべき、または他の skill から Skill tool で起動させる必要がある場合だけ使う。description を読み込む負荷が常に生じる。
+- ユーザーによる明示起動: 人間が明示起動するだけでよい場合に使う。`disable-model-invocation: true` を付ける。
+
+明示起動の skill へ別の skill から委譲する場合は、Skill tool ではなく呼び出し元が `../<skill 名>/SKILL.md` を読む。
+skill の実行時には base directory の絶対パスが与えられ、インストール先では skill が名前ごとの兄弟ディレクトリへ展開されるため、この相対パスで到達できる。
+repository 内の category 階層とは一致しないので、リンク記法ではなくコードスパンで書く。
 
 自動起動する skill の description は、紹介文ではなく振り分け情報である。
 本文の手順を description に要約すると、agent が本文を読まずに実行する近道を作る。

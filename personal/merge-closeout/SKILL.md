@@ -15,7 +15,7 @@ disable-model-invocation: true
 3. 未コミットの変更を stash、破棄、commit せずにデフォルトブランチへ切り替える。未コミットの変更が切り替えを妨げる場合は、変更内容を報告して停止する。
 4. デフォルトブランチでリモートを fetch し、リモート追跡ブランチへ `--ff-only` で merge する。履歴が分岐している場合は、履歴を変更せず停止する。
 5. ローカルとリモートのデフォルトブランチが同じ commit を指すことを確認する。
-6. `retrospective-codify` の手順を実行し、提案を提示する。永続ファイルへの書き出しは、同 skill の承認条件に従う。
+6. この skill の base directory から `../retrospective-codify/SKILL.md` を読み、その手順を実行して提案を提示する。永続ファイルへの書き出しは、同 skill の承認条件に従う。
 
 ## 安全上の制約
 
