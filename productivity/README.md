@@ -20,7 +20,7 @@
 2. ユーザーが明示的に grill を求めた場合は `grill-me` を入口にする。
 3. 作業が長くなったら `handoff` で次の agent が読める状態に圧縮する。
 4. 学習目的の directory では `teach` で記録を残しながら複数セッションで進める。
-5. Herdr-managed pane では `herdr` で長時間 command や helper agent を sibling pane に分離する。
+5. 長時間 command や helper agent を Herdr の sibling pane に分離するときは `herdr` を使う。
 6. browser で確認する静的成果物は `host-artifact` で workspace/name の安定 URL へ publish する。
 7. agent-facing prompt と skill 本文の contract は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。skill の新規作成・構造・routing・lifecycle は `skill-workbench` を使う。
 
@@ -37,7 +37,7 @@
   - Type: `user-invoked`
 - **[`herdr`](./herdr/SKILL.md)** — Herdr-managed pane 内で workspace / tab / pane を操作する。
   - Use when: 隣接 pane の出力確認、pane 分割、長時間 command / helper agent 起動、出力待ち
-  - Type: `model-invoked`
+  - Type: `user-invoked`
 - **[`host-artifact`](./host-artifact/SKILL.md)** — 静的成果物を workspace/name の安定 URL で publish し、Tailscale Serve または localhost から確認できるようにする。
   - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
   - Type: `model-invoked`

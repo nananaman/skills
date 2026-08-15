@@ -35,7 +35,7 @@ timeout または stalled の場合は、対象 pane の read と agent の get�
 helper の具体的な依頼を決めてから、現在の working directory で補助 pane を `--no-focus` で作る。
 split response の pane ID を保持し、その pane に個別タスクの label を設定してから agent を起動する。
 
-- helper agent 名は pane label から生成する。正規化、長さ、一意化は[`session-naming.md`](session-naming.md)の「名前の生成」に従う。
+- helper agent 名は pane label から生成する。正規化、長さ、一意化は[`session-naming.md`](session-naming.md)に従う。
 - pane rename が失敗したら agent を起動しない。
 - agent start が失敗した場合は pane label を保持する。再試行時は agent list を読み直して名前を再計算する。
 - prompt、wait、read は agent 名より stable な helper pane ID を優先して target にする。
