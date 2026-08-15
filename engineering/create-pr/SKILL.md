@@ -15,6 +15,7 @@ disable-model-invocation: true
 - project 規則が ready PR 作成を求めていても、ユーザーの明示指示がなければ draft で作成する。
 - project に PR template がある場合は、その構成を優先して body を作る。
 - PR body は実際の diff、commit、テスト状況と一致させる。
+- UIの変更・追加を含むPRには、実際のaffected route / screenを撮影したscreenshotまたはvideoを添付する。
 - branch の commit body に `Implementation-Plan:` marker がある場合は、plan 原文を PR body の折りたたみに転記する。
 - uncommitted changes、未 push、base branch 不明、既存 PR などの状態を確認してから作成する。
 - push または PR 作成の前に、変更種別に応じた review gate が通っていることを確認する。
@@ -76,7 +77,7 @@ disable-model-invocation: true
 5. 必要に応じて変更内容を読む。
    - PR body に書く必要がある主要ファイルを読む。
    - generated file、lockfile、機械的変更、テストだけの変更は分類して明示する。
-   - UIの変更・追加を含むPRには、実際のaffected route / screenを撮影したscreenshotまたはvideoを必ず添付する。添付候補をそれぞれ実際に開き、PRが示す変更後stateが写っていること、PR bodyに記載するplatform、device、viewportと一致することを目視確認する。意図したevidenceでないscaffold、mock専用画面、splash、loading中の状態は使わない。capture commandの成功、ファイル名、UI testのassertionは目視確認の代替にしない。
+   - UIの変更・追加を含む場合は、screenshotまたはvideoの候補をそれぞれ実際に開き、affected route / screenとPRが示す変更後stateが写っていること、PR bodyに記載するplatform、device、viewportと一致することを目視確認する。意図したevidenceでないscaffold、mock専用画面、splash、loading中の状態は使わない。capture commandの成功、ファイル名、UI testのassertionは目視確認の代替にしない。
    - PR body で local markdown issue / Design Doc / changelog などの repository 内 artifact を参照する場合は、その artifact が base branch に既に存在するか、今回の branch diff に含まれているかを確認する。存在しない artifact を参照する PR body は作らない。
    - 大きすぎる PR なら、PR 作成前に split を提案する。
 
@@ -94,6 +95,8 @@ disable-model-invocation: true
    ## テスト
    - 
    ```
+
+   UIの変更・追加を含み、templateにscreenshot / video用の欄がない場合は、`Screenshot / Video` sectionを追加して検証済みのevidenceを添付する。
 
    `Tests` には、実行したコマンドを書く。未実行なら `未実行` と理由を書く。推測で「テスト済み」と書かない。
    `review-diff-code`、`skill-workbench` 差分レビューなど内部レビュー運用の実施内容(reviewer 構成、指摘内容、採否理由など)は PR body に書かない。実施自体は step 7 の review gate として行う。
@@ -181,6 +184,7 @@ template を使うときは、次を守る。
 - working tree に未 commit の変更があり、それが PR に含まれるべきか判断できない。
 - base branch が確定できない。
 - PR template の必須項目が埋められない。
+- UIの変更・追加を含むが、検証済みのscreenshotまたはvideoを用意できない。
 - PR body で参照する repository 内 artifact が base branch にも branch diff にも存在しない。
 - implementation plan marker が不完全、空、または対象を一意に決められない。
 - 必要なレビュー判定が未実施、または対応可能な指摘が残っている。
