@@ -161,7 +161,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Type: `user-invoked`
 - **[`herdr`](./productivity/herdr/SKILL.md)** — Herdr pane 内で workspace / tab / pane を操作する。
   - Use when: Herdr-managed pane で隣接 pane の出力確認、pane 分割、長時間 command / helper agent 起動、出力待ち
-  - Type: `model-invoked`
+  - Type: `user-invoked`
 - **[`host-artifact`](./productivity/host-artifact/SKILL.md)** — 静的成果物を workspace/name の安定 URL で publish し、Tailscale Serve または localhost から確認できるようにする。
   - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
   - Type: `model-invoked`

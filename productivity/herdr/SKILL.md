@@ -1,6 +1,7 @@
 ---
 name: herdr
-description: Herdr が管理する pane 内で HERDR_ENV=1 を確認し、herdr CLI で pane の観測、長時間 command、agent 協調、初回命名、Hunk review のコメント回収を行う運用手順。Herdr 外、短い単発 command、Herdr CLI 自体の実装、承認のない既存 pane 操作では使わない。
+description: Herdr CLI による pane の観測・分割、長時間 command、agent 協調、tab や pane の操作、Hunk review のコメント回収を依頼されたときに使う。Herdr 内にいるだけの通常タスク、短い単発 command、Herdr CLI 自体の実装、承認のない既存 pane 操作では使わない。
+disable-model-invocation: true
 ---
 
 # Herdr
@@ -14,16 +15,16 @@ CLI 構文は実行時の `herdr <group> --help` を正本とし、用途固有�
 - workspace、tab、pane ID は stable handle として扱う。pane move 後だけ response から新しい pane ID を取得する。
 - agent target は unique な live agent 名か、その agent を現在 host する pane ID に限定する。
 - agent が作る補助的な作業場は現在 tab を split した pane に限り、原則 `--no-focus` で作る。
-- tab と workspace の作成、focus、close、takeover、layout 変更、既存 pane や既存 agent への入力は、ユーザーが明示依頼した場合だけ実行する。
+- tab と workspace の作成、focus、close、attach、takeover、pane move、swap、resize、zoom、既存 pane や既存 agent への入力は、ユーザーが明示依頼した場合だけ実行する。
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
 - tab は人間が主タスクを見分ける単位とし、tab label は tab 全体の主タスク、pane label は pane 固有の役割や作業を表す。
+- 現在 tab、pane、agent の通常セッション命名は自動で行わない。label や name の変更は、ユーザーが明示依頼した対象または agent が直前に作成した補助 pane と helper agent に限定する。
 - pane label を自動変更できるのは、agent が直前に作成した補助 pane だけとする。人間が管理する既存 pane とその label は変更しない。
 - pane の metadata report は agent integration を明示的に扱う場合だけ実行する。
 - managed Hunk review pane の起動、reload、close は agent が行わない。
 
 ## 振り分け
 
-- 最初の実質的なタスクで現在 agent の response に `name` がない場合は、[`references/session-naming.md`](references/session-naming.md)を読む。
 - 隣接 pane での command 実行、出力待ち、helper agent の起動や操作では、[`references/agent-coordination.md`](references/agent-coordination.md)を読む。
 - 人間が Hunk review の完了を伝えた後のコメント回収では、[`references/hunk-review.md`](references/hunk-review.md)を読む。
 - workspace、tab、pane、agent の単純な list、get、read は、対象 ID を取り直して該当 group の `--help` に従う。
