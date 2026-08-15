@@ -76,7 +76,7 @@ disable-model-invocation: true
 5. 必要に応じて変更内容を読む。
    - PR body に書く必要がある主要ファイルを読む。
    - generated file、lockfile、機械的変更、テストだけの変更は分類して明示する。
-   - UI変更でscreenshot / videoを添付する場合は、添付前に成果物を実際に開いて目視確認する。実際のaffected route / screenと変更後stateが写り、PR bodyに記載するplatform、device、viewportと一致することを確認する。意図したevidenceでないscaffold、mock専用画面、splash、loading中の状態は添付しない。capture commandの成功、ファイル名、UI testのassertionだけで代替しない。
+   - UI変更でscreenshot / videoを添付する場合は、添付候補をそれぞれ実際に開き、実際のaffected route / screenとPRが示す変更後stateが写っていること、PR bodyに記載するplatform、device、viewportと一致することを目視確認する。意図したevidenceでないscaffold、mock専用画面、splash、loading中の状態は使わない。capture commandの成功、ファイル名、UI testのassertionは目視確認の代替にしない。
    - PR body で local markdown issue / Design Doc / changelog などの repository 内 artifact を参照する場合は、その artifact が base branch に既に存在するか、今回の branch diff に含まれているかを確認する。存在しない artifact を参照する PR body は作らない。
    - 大きすぎる PR なら、PR 作成前に split を提案する。
 
