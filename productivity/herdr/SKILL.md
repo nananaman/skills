@@ -15,6 +15,7 @@ CLI 構文は実行時の `herdr <group> --help` を正本とし、用途固有�
 - workspace、tab、pane ID は stable handle として扱う。pane move 後だけ response から新しい pane ID を取得する。
 - agent target は unique な live agent 名か、その agent を現在 host する pane ID に限定する。
 - agent が作る補助的な作業場は現在 tab を split した pane に限り、原則 `--no-focus` で作る。
+- 補助 pane の foreground が shell でなくなった、または pane が消えた場合は、承認を求めずその pane を放棄し、新しい補助 pane を作って作業を続ける。放棄した pane への入力、close、rename はしない。
 - tab と workspace の作成、focus、close、attach、takeover、pane move、swap、resize、zoom、既存 pane や既存 agent への入力は、ユーザーが明示依頼した場合だけ実行する。
 - 人間が見ている active pane に入力、focus 移動、close、takeover をしない。
 - tab は人間が主タスクを見分ける単位とし、tab label は tab 全体の主タスク、pane label は pane 固有の役割や作業を表す。
