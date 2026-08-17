@@ -15,6 +15,15 @@ agent が直前に作成した補助 pane は、`tests`、`dev server`、`logs`�
 直前に作成した補助 pane への run は通常操作として扱う。
 それ以外の既存 pane への run、text、key の送信は、対象と内容を示してユーザーの承認を得る。
 
+## 補助 pane の再取得
+
+補助 pane へ run、send-text、send-keys する前に、`herdr pane process-info` で foreground process を確認する。
+shell 以外が foreground にある pane は、人間が使い始めたか前の作業が残っているものとして扱い、入力、close、rename をしない。
+
+この場合は承認を求めず、現在 tab を split した新しい補助 pane を `--no-focus` で作って作業を続ける。
+放棄した pane ID、新しい pane ID、放棄した理由を報告する。
+同一作業での作り直しは2回までとし、それを超える場合は状況を報告して止める。
+
 ## 待機
 
 通常 command の出力は pane の wait-output、agent の状態は agent wait で待つ。
@@ -23,6 +32,7 @@ timeout は有限にし、完了後または timeout 後に read で実際の出
 timeout または stalled の場合は、対象 pane の read と agent の get、read を使い、次を区別する。
 
 - command または agent の失敗
+- 補助 pane が人間に使われ始めた
 - まだ実行中
 - readiness marker の不一致
 - 読み取り source の不一致
