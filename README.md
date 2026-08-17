@@ -121,7 +121,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 ### Meta
 
 - **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
-  - Use when: apm.yml 更新、SHA pin 更新、global install / dotfiles 連携
+  - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`
 - **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
   - Use when: 新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
@@ -129,8 +129,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
   - Type: `user-invoked`
-- **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新の full SHA へ更新する。
-  - Use when: apm.yml の pin drift、複数 skill の一括更新、source-of-truth と展開先の同期確認
+- **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新化する。
+  - Use when: apm.yml の pin drift、local 参照先の同期漏れ、複数 skill の一括更新、source-of-truth と展開先の同期確認
   - Type: `user-invoked`
 
 ### Personal
