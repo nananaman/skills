@@ -1,6 +1,6 @@
 ---
 name: apm-usage
-description: APM で agent skill を管理または更新するときに使う。apm.yml、SHA pin、グローバルインストール、dotfiles 連携の手順を確認する。
+description: APM で agent skill を管理または更新するときに使う。apm.yml、参照方式（path / SHA pin）、グローバルインストール、dotfiles 連携の手順を確認する。
 ---
 
 # APM の運用
@@ -11,7 +11,7 @@ APM で agent skill を管理・更新するときの運用手順です。
 
 - グローバルに入れる skill 一覧は dotfiles の `apm/apm.yml` で管理する。
 - 自作した再利用可能な skill 本体は `nananaman/skills` を正本にする。
-- 外部 repo / 自作 repo の skill は full SHA で pin する。
+- 正本をローカルに置く skill は path で参照し、参照先 repository の最新化で追従する。ローカルに置かない skill は full SHA で pin する。
 - グローバル skill の管理では、`apm.lock.yaml` と `apm_modules/` は commit しない。
 - project 固有 skill は、その project 配下に置く。汎用化できるものだけ `nananaman/skills` に移す。
 - install、manifest 更新、lock 更新、APM pin 更新、展開は、ユーザーが明示依頼した場合だけ実行する。依頼がない場合はコマンド提示に留める。
@@ -57,9 +57,9 @@ dependencies:
 
 ## skill の追加
 
-1. 追加したい skill のリポジトリ、パス、commit SHA を確認する。
+1. 追加したい skill のリポジトリ、パス、参照方式（path または full SHA）を確認する。
 2. `apm/apm.yml` の `dependencies.apm` 変更案を作る。
-3. `skill-workbench` の差分レビューで APM manifest と pin の変更をレビューする。
+3. `skill-workbench` の差分レビューで APM manifest の変更をレビューする。
 4. 対応可能な指摘がなく、ユーザーが明示依頼した場合だけ `apm/apm.yml` を更新する。
 5. ユーザーが明示依頼した場合だけインストールする。
 
@@ -72,16 +72,10 @@ apm install -g
 1. `nananaman/skills` で skill を編集する。
 2. `skill-workbench` の差分レビューを実行する。
 3. 対応可能な指摘がなく、ユーザーが明示依頼した場合だけ commit / push する。
-4. full SHA を取得する。
-
-```sh
-git rev-parse HEAD
-```
-
-5. `readlink ~/.apm` と `realpath ~/.apm/apm.yml` で user-scope manifest の実体を確認する。
-6. `grep -n "<skill-name>" ~/.apm/apm.yml` で、`apm install -g` が読む pin を確認する。
-7. ユーザーが明示依頼した場合だけ、`~/.apm/apm.yml` の実体、または dotfiles の source-of-truth manifest の該当 SHA を更新する。
-8. ユーザーが明示依頼した場合だけ展開する。
+4. `readlink ~/.apm` と `realpath ~/.apm/apm.yml` で user-scope manifest の実体を確認する。
+5. `grep -n "<skill-name>" ~/.apm/apm.yml` で、`apm install -g` が読む参照方式を確認する。
+6. ユーザーが明示依頼した場合だけ参照先を更新する。path 参照なら manifest を変えずに参照先 repository を最新化し、pin なら `git rev-parse HEAD` の full SHA へ `~/.apm/apm.yml` の実体、または dotfiles の source-of-truth manifest を更新する。
+7. ユーザーが明示依頼した場合だけ展開する。
 
 ```sh
 apm install -g
@@ -114,17 +108,19 @@ apm install \
 
 ### local path skill
 
-一時的な検証だけに使う。
+正本 repository をローカルに置き、pin なしで最新へ追従する場合に使う。
+更新は manifest ではなく参照先 repository の最新化で行い、手順は `../update-skills/SKILL.md` に従う。
 
 ```yaml
 dependencies:
   apm:
+    - path: ~/ghq/github.com/nananaman/skills/meta/example
     - path: ./skills/example
 ```
 
 ### GitHub skill
 
-継続運用する skill は GitHub 参照にする。
+正本をローカルに置かない場合、または環境をまたいで同じ内容へ固定する場合に使う。
 
 ```yaml
 dependencies:
