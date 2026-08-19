@@ -72,8 +72,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`task-breakdown`](./engineering/task-breakdown/SKILL.md)** — 合意済みの情報を独立実行可能な task 群へ分解する。
   - Use when: Design Doc、ADR、PRD、会話上の合意、ユーザー説明から tracker 用 task を設計・作成
   - Type: `user-invoked`
-- **[`create-plan`](./engineering/create-plan/SKILL.md)** — issue を取得した後、grill と調査を経て一時的な実装 plan を作成する。
-  - Use when: `create-plan <issue>`、個別 task の実装前設計、`plans/<task>-<slug>.md` の作成
+- **[`create-plan`](./engineering/create-plan/SKILL.md)** — issue、task、またはユーザーの実装依頼から、grill と調査を経て一時的な実装 plan を作成する。
+  - Use when: `create-plan <issue-or-task>`、個別 task やユーザー依頼の実装前設計、`plans/<task>-<slug>.md` の作成
   - Type: `user-invoked`
 - **[`review-plan`](./engineering/review-plan/SKILL.md)** — 作成済みの一時実装planを、実現可能性と単純性のfresh reviewerで独立評価する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
