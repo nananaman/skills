@@ -1,7 +1,7 @@
 # nananaman/skills
 
 nananaman の個人用 agent skills 集です。
-APM で配布・インストールし、dotfiles から full SHA で pin して使います。
+APM で配布・インストールし、dotfiles からローカル正本は path、ローカルに置かない正本は full SHA で参照します。
 
 ## インストール
 
@@ -194,6 +194,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 - dotfiles 側には global skill の install 一覧として `apm/apm.yml` だけを置く。
 - skill 本体はこの repository を source of truth にする。
-- dotfiles から参照するときは full SHA で pin する。
-- skill 更新後に配布する場合は、`skill-workbench` の Review diff branch を通してから、この repository で commit / push し、dotfiles 側の SHA を更新する。
-- commit / push / pin 更新 / `apm install -g` はユーザーが明示依頼した場合だけ行う。
+- dotfiles から参照するときは、ローカルに置く正本を path、ローカルに置かない正本を full SHA で指定する。
+- skill 更新後に配布する場合は、`skill-workbench` の Review diff branch を通してから、この repository で commit / push し、path 参照なら参照先 repository、pin 参照なら dotfiles 側の SHA を更新する。
+- commit / push / 参照先または pin の更新 / `apm install -g` はユーザーが明示依頼した場合だけ行う。
