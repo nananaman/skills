@@ -89,7 +89,7 @@ docs/adr/
 
 #### C. 一時的な計画の保存場所
 
-説明：計画は担当者が issue を取得した後に作る、一度も commit しない一時的な実装設計の契約である。
+説明：計画は issue、task、またはユーザーの実装依頼を受けた後に作る、一度も commit しない一時的な実装設計の契約である。
 デフォルト:
 
 ```text
@@ -178,7 +178,7 @@ docs/issues/closed/
 - Issue tracker：`docs/agents/issue-tracker.md`
 - ドメイン文書と設計文書：`docs/agents/domain.md`
 
-タスクを取得したら、このフローに従って一時的な実装計画を作成する。計画ファイルは commit せず、内容を指定された commit message に保存し、実装レビュー後に削除する。
+issue、task、またはユーザーの実装依頼を受けたら、このフローに従って一時的な実装計画を作成する。計画ファイルは commit せず、内容を指定された commit message に保存し、実装レビュー後に削除する。
 <!-- END engineering-flow -->
 ```
 
