@@ -82,7 +82,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
 - **[`explain-diff`](./explain-diff/SKILL.md)** — local差分を変更前後と因果順で解説する人間向けHTMLを生成する。
-  - Use when: 大きな未コミット差分の説明、変更グループごとの確認・コメント、LAN配信、元セッション向けfeedback作成
+  - Use when: 大きな未コミット差分の説明、変更グループごとの確認・コメント、元セッション向けfeedback作成
   - Type: `user-invoked`
 - **[`hunk-human-review`](./hunk-human-review/SKILL.md)** — commit 前に Hunk TUI で人間レビューを依頼する。
   - Use when: Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、レビュー完了後に Hunk コメントを回収する
