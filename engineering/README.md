@@ -20,7 +20,6 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
 - diff / branch diff / PR diff を厳しめに見る → [`review-diff-code`](./review-diff-code/SKILL.md)
-- local差分を変更前後と因果順で解説する画面を作る → [`explain-diff`](./explain-diff/SKILL.md)
 - commit 前に Hunk で人間レビューを依頼する → [`hunk-human-review`](./hunk-human-review/SKILL.md)
 - sandbox runtime 起因の ghost dotfiles、mount artifact、workflow scope 不足を診断する → [`sandbox-runtime`](./sandbox-runtime/SKILL.md)
 - nono の拒否を診断し、最小権限の profile patch を作成・検証する → [`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)
@@ -36,9 +35,8 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 4. 合意済みの要求・設計は `task-breakdown` で独立実行可能な issue 群へ分ける。
 5. issue、task、またはユーザーの実装依頼を受けたら `create-plan` で grill と調査を行い、untracked の一時 plan を作る。`create-plan`は完了前に`review-plan`を自動実行し、検討漏れと不要な複雑性のblockerを解消する。
 6. コード、設定、テスト、schema、依存関係、agent 指示の実装には`implement`を使い、必要な専門 skill、検証、簡素化の判断、完成差分のレビューまで完了する。
-7. 大きなlocal差分を人間へ説明するときは、必要に応じて `explain-diff` で変更の物語と根拠を確認する画面を作る。
-8. レビュー後、plan 原文を commit body に保存して plan file を削除する。
-9. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
+7. レビュー後、plan 原文を commit body に保存して plan file を削除する。
+8. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
 
 ## Skill 一覧
 
@@ -81,9 +79,6 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - **[`review-diff-code`](./review-diff-code/SKILL.md)** — 現在のdiff / branch diff / PR diffをrisk-based reviewerとblind Adversarialで一度評価する。
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
-- **[`explain-diff`](./explain-diff/SKILL.md)** — local差分を変更前後と因果順で解説する人間向けHTMLを生成する。
-  - Use when: 大きな未コミット差分の説明、変更グループごとの確認・コメント、LAN配信、元セッション向けfeedback作成
-  - Type: `user-invoked`
 - **[`hunk-human-review`](./hunk-human-review/SKILL.md)** — commit 前に Hunk TUI で人間レビューを依頼する。
   - Use when: Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、レビュー完了後に Hunk コメントを回収する
   - Type: `model-invoked`
