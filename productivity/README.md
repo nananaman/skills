@@ -1,7 +1,7 @@
 # Productivity Skills
 
-汎用的な作業フロー、思考補助、引き継ぎ、学習支援、agent prompt 改善に使う skill 群です。
-コード作業に限らず、計画を詰める・会話を圧縮する・継続学習する・agent-facing instructions を改善する場面を扱います。
+汎用的な作業フロー、思考補助、引き継ぎ、agent prompt 改善に使う skill 群です。
+コード作業に限らず、計画を詰める・会話を圧縮する・agent-facing instructions を改善する場面を扱います。
 
 ## どの Skill を使うか
 
@@ -10,7 +10,6 @@
 - 現在の会話を別 agent へ引き継げる形に圧縮する → [`handoff`](./handoff/SKILL.md)
 - Herdr pane 内で隣接 pane の出力確認、pane 分割、長時間 command の実行を行う → [`herdr`](./herdr/SKILL.md)
 - agent が生成した静的成果物を安定 URL から確認できるようにする → [`host-artifact`](./host-artifact/SKILL.md)
-- 現在の directory を学習 workspace として使う → [`teach`](./teach/SKILL.md)
 - system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack を診断・改善する → [`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)
   - skill の新規作成・構造・routing・lifecycle は [`skill-workbench`](../meta/skill-workbench/SKILL.md) を使う
 
@@ -19,10 +18,9 @@
 1. 他 skill から再利用する場合は `grilling` で判断分岐を一つずつ解消する。
 2. ユーザーが明示的に grill を求めた場合は `grill-me` を入口にする。
 3. 作業が長くなったら `handoff` で次の agent が読める状態に圧縮する。
-4. 学習目的の directory では `teach` で記録を残しながら複数セッションで進める。
-5. 長時間 command や helper agent を Herdr の sibling pane に分離するときは `herdr` を使う。
-6. browser で確認する静的成果物は `host-artifact` で workspace/name の安定 URL へ publish する。
-7. agent-facing prompt と skill 本文の contract は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。skill の新規作成・構造・routing・lifecycle は `skill-workbench` を使う。
+4. 長時間 command や helper agent を Herdr の sibling pane に分離するときは `herdr` を使う。
+5. browser で確認する静的成果物は `host-artifact` で workspace/name の安定 URL へ publish する。
+6. agent-facing prompt と skill 本文の contract は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。skill の新規作成・構造・routing・lifecycle は `skill-workbench` を使う。
 
 ## Skill 一覧
 
@@ -41,9 +39,6 @@
 - **[`host-artifact`](./host-artifact/SKILL.md)** — 静的成果物を workspace/name の安定 URL で publish し、Tailscale Serve または localhost から確認できるようにする。
   - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
   - Type: `model-invoked`
-- **[`teach`](./teach/SKILL.md)** — 現在のディレクトリを学習 workspace として使い、複数セッションで教える。
-  - Use when: 新しい概念の学習、技術・技能の継続学習、学習記録の管理
-  - Type: `user-invoked`
 - **[`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)** — agent-facing prompt と skill 本文の contract を既存意図を保った最小差分で診断・改善する。
   - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack、context 配置の改善（skill の新規作成・構造・routing・lifecycle は `skill-workbench`）
   - Type: `model-invoked`

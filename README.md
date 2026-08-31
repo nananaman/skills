@@ -90,9 +90,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`review-diff-code`](./engineering/review-diff-code/SKILL.md)** — 現在のdiff / branch diff / PR diffをrisk-based reviewerとblind Adversarialで一度評価する。
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
-- **[`explain-diff`](./engineering/explain-diff/SKILL.md)** — local差分を変更前後と因果順で解説する人間向けHTMLを生成する。
-  - Use when: 大きな未コミット差分の説明、変更グループごとの確認・コメント、元セッション向けfeedback作成
-  - Type: `user-invoked`
 - **[`hunk-human-review`](./engineering/hunk-human-review/SKILL.md)** — commit 前に Hunk TUI で人間レビューを依頼する。
   - Use when: Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、レビュー完了後に Hunk コメントを回収する
   - Type: `model-invoked`
@@ -165,9 +162,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`host-artifact`](./productivity/host-artifact/SKILL.md)** — 静的成果物を workspace/name の安定 URL で publish し、Tailscale Serve または localhost から確認できるようにする。
   - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
   - Type: `model-invoked`
-- **[`teach`](./productivity/teach/SKILL.md)** — 現在のディレクトリを学習 workspace として使い、複数セッションで教える。
-  - Use when: 新しい概念の学習、技術・技能の継続学習、学習記録の管理
-  - Type: `user-invoked`
 - **[`improve-agent-prompt`](./productivity/improve-agent-prompt/SKILL.md)** — agent-facing prompt と skill 本文の contract を既存意図を保った最小差分で診断・改善する。
   - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack、context 配置の改善（skill の新規作成・構造・routing・lifecycle は `skill-workbench`）
   - Type: `model-invoked`
