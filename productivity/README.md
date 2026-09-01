@@ -5,6 +5,7 @@
 
 ## どの Skill を使うか
 
+- 本筋を止めずに寄り道タスクを別 tab のセッションへ切り出す → [`btw`](./btw/SKILL.md)
 - 他 skill から計画・設計・PRD・Design Doc・issue を一問ずつ詰める → [`grilling`](./grilling/SKILL.md)
 - ユーザーが明示的に計画や設計を質問攻めして詰めたい → [`grill-me`](./grill-me/SKILL.md)
 - 現在の会話を別 agent へ引き継げる形に圧縮する → [`handoff`](./handoff/SKILL.md)
@@ -17,13 +18,17 @@
 
 1. 他 skill から再利用する場合は `grilling` で判断分岐を一つずつ解消する。
 2. ユーザーが明示的に grill を求めた場合は `grill-me` を入口にする。
-3. 作業が長くなったら `handoff` で次の agent が読める状態に圧縮する。
-4. 長時間 command や helper agent を Herdr の sibling pane に分離するときは `herdr` を使う。
-5. browser で確認する静的成果物は `host-artifact` で workspace/name の安定 URL へ publish する。
-6. agent-facing prompt と skill 本文の contract は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。skill の新規作成・構造・routing・lifecycle は `skill-workbench` を使う。
+3. 本筋から外れた調査や実験が出てきたら `btw` で別 tab のセッションへ切り出し、本筋はそのまま続ける。
+4. 作業が長くなったら `handoff` で次の agent が読める状態に圧縮する。
+5. 長時間 command や helper agent を Herdr の sibling pane に分離するときは `herdr` を使う。
+6. browser で確認する静的成果物は `host-artifact` で workspace/name の安定 URL へ publish する。
+7. agent-facing prompt と skill 本文の contract は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。skill の新規作成・構造・routing・lifecycle は `skill-workbench` を使う。
 
 ## Skill 一覧
 
+- **[`btw`](./btw/SKILL.md)** — 寄り道タスクを新しい Herdr tab の別セッションへ切り出して起動する。
+  - Use when: 本筋を止めずに脇道の調査・実験・別案検証を並行させる
+  - Type: `user-invoked`
 - **[`grilling`](./grilling/SKILL.md)** — 計画、設計、PRD、Design Doc、issue を共有理解に到達するまで一問ずつ詰める。
   - Use when: 他 skill から曖昧さ、未決定、依存する判断を解消する
   - Type: `model-invoked`

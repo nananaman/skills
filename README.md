@@ -147,6 +147,9 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Productivity
 
+- **[`btw`](./productivity/btw/SKILL.md)** — 寄り道タスクを新しい Herdr tab の別セッションへ切り出して起動する。
+  - Use when: 本筋を止めずに脇道の調査・実験・別案検証を並行させる
+  - Type: `user-invoked`
 - **[`grilling`](./productivity/grilling/SKILL.md)** — 計画、設計、PRD、Design Doc、issue を一問ずつ詰める reusable discipline。
   - Use when: 他 skill から曖昧さ、未決定、依存する判断を一つずつ解消する
   - Type: `model-invoked`
