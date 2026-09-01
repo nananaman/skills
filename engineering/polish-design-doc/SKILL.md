@@ -29,7 +29,8 @@ polished Design Doc は、次を満たす。
 
 ## 併用する skill
 
-この Design Doc を対象に、`japanese-tech-writing` skill を併用して `grilling` session を実行する。
+この Design Doc を対象に、`japanese-tech-writing` skill を併用する。
+比較軸の確定にユーザーの価値判断が必要な場合は、`grilling` session も併用する。
 
 この skill は Design Doc の構造と完了条件を定める。
 `grilling` は曖昧さを一問ずつ潰す手順を定める。
@@ -40,7 +41,8 @@ polished Design Doc は、次を満たす。
 - この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
 - この skill では issue / 実装 diff を作らない。
 - 検証のために変更したコード・一時ファイルは、Design Doc 更新前に戻すか削除する。
-- Design Doc 更新前に polished body をユーザーへ提示し、確認後だけ更新する。
+- 採用案を決める前に、案の比較結果と推奨案をユーザーへ提示する。Design Doc 全文の事前提示はしない。
+- ユーザーが採用案を決めた後は、その判断を反映した Design Doc を直接更新する。
 
 ## 手順
 
@@ -58,14 +60,17 @@ Design Doc が存在しない場合は `draft-design-doc` を提案して止め�
 `TODO(draft)` が残っている、または draft が blocked の場合は polish へ進まず、`draft-design-doc` で draft gate を解消するよう報告して止める。
 PRD の要求を実現するための Design Doc であれば、PRD 参照を読む。技術・設計上の問題から直接始まった Design Doc では、PRD は不要である。
 
-### 2. 一問ずつ確認する
+### 2. 判断事項と根拠の不足を特定する
 
-一度に一つずつ問いを立てる。
 コードベース、既存 docs、既存 ADR から答えられることは、ユーザーに聞く前に調べる。
 draft に残った `TODO(polish)` と、polished gate を阻害する具体的な不足・矛盾を優先する。
 draft で根拠とともに確定している設計判断は一律に問い直さない。
 
-不足・矛盾がある場合に詰める問い:
+最初に、採用案を決めるための判断事項、候補、比較軸、既存の根拠、根拠が不足している点を整理する。
+候補や比較軸に不足があれば調査で補う。
+ユーザーの価値判断がなければ比較軸を確定できない場合だけ、`grilling` に従って一度に一つずつ確認する。
+
+判断事項と polished gate の確認対象:
 
 - この設計で何が実現されるか。
 - 技術設計として何をやらないか。
@@ -79,10 +84,14 @@ draft で根拠とともに確定している設計判断は一律に問い直�
 - セキュリティ / プライバシー / 負荷・コスト / 信頼性 / 開発・運用への影響は評価されているか。
 - task 分割へ進めるか。
 
-### 3. 調査して検証する
+### 3. 比較に必要な根拠を作る
 
-必要に応じてコード・テスト・docs・外部仕様を読む。
-不確実性が高い場合は、小さな検証コード、typecheck、test、benchmark を実行してよい。
+案を比較するために必要なコード・テスト・docs・外部仕様を調査する。
+文書調査だけでは重要な成立条件、実現可能性、性能、型や API の制約を判断できない場合は、最小の prototype、検証コード、typecheck、test、benchmark を実行する。
+調査や prototype を行わずに判断できる場合は、既存の根拠を明示して省略する。
+
+prototype は設計判断の根拠を得るための使い捨ての検証であり、本番実装へ広げない。
+結果は成功・失敗だけでなく、実行条件、観測結果、判断への影響が分かる形で残す。
 
 検証前に worktree snapshot を取る。
 
@@ -90,29 +99,42 @@ draft で根拠とともに確定している設計判断は一律に問い直�
 git status --short --untracked-files=all
 ```
 
-検証で worktree を変更した場合は、最終確認として再度実行する。
+検証で worktree を変更した場合は、この skill が作った変更・一時ファイルを戻した後に再度実行し、開始時の snapshot と照合する。
 
 ```bash
 git status --short --untracked-files=all
 ```
 
-戻してよいのは、この skill が作った変更・一時ファイルだけである。開始前から存在したユーザー変更は戻さない。Design Doc 文書以外に、この skill が作った modified / staged / untracked が残っている場合は戻す。既存変更と区別できない場合は戻さず、polished にせず blocked として報告する。
+戻してよいのは、この skill が作った変更・一時ファイルだけである。開始前から存在したユーザー変更は戻さない。
+復元後の snapshot に、この skill が作った modified / staged / untracked が残っている場合は Design Doc を更新せず、blocked として報告する。
+既存変更と区別できない場合も戻さず、polished にせず blocked として報告する。
 
-### 4. 採用する設計を決める
+### 4. 比較結果を提示して採用案を決める
 
-`検討した案` にある候補を比較し、採用案を決める。
+`検討した案` にある候補を比較し、次をユーザーへ提示する。
+
+- 判断事項と比較軸
+- 各案の重要な Pros / Cons と成立条件
+- 調査・prototype から得た根拠
+- 推奨案と、その案が比較軸に最も適合する理由
+- 推奨案を採用した場合に受け入れる落とし穴と残る不確実性
+
+Design Doc 全文や完成本文の preview は提示しない。
+比較結果に対してユーザーが採用案を決めるまで Design Doc を更新しない。
+追加の根拠を求められた場合は手順 3 に戻る。
+採用案を決められない場合は polished にせず blocked として報告する。
+
+採用案が決まったら、文書へ反映する内容を次のように整理する。
 
 - 採用案は `概要` と `詳細設計` に反映する。
 - 採用案の仕組み、成立条件、重要な Pros / Cons を `概要`・`採用理由`・`詳細設計`・`落とし穴` へ欠落なく反映してから、その subsection を `検討した案` から外す。
 - `検討した案` には不採用案だけを残し、各案の `Conclusion` に不採用理由を書く。
-- 採用案が決められない場合は polished にせず blocked として報告する。
 
 ### 5. Design Doc を書き直す
 
 `../draft-design-doc/assets/design-doc-template.md` の構造に合わせて Design Doc を更新する。
 
 - template の `TODO(draft)` は draft 作成用の指示であり、polished Design Doc に転記しない。
-- polished gate を満たした Design Doc は `状態: Polished` に更新する。
 - `TODO(polish)` コメントは polished Design Doc に残さない。
 - リスク評価系の章は `なし` / `特になし` / `影響なし` だけで終わらせない。
 - 考慮不要な場合も、なぜ不要かを書く。
@@ -121,7 +143,7 @@ git status --short --untracked-files=all
 
 ### 6. 完成条件を検証する
 
-更新前に以下を自己確認する。
+更新した Design Doc で以下を自己確認する。
 
 - 人間がこの設計で進めてよいか判断できるか。
 - 目的が数行で端的か。
@@ -137,11 +159,10 @@ git status --short --untracked-files=all
 - `TODO(draft)` が残っていないか。
 - task 分解に進めるか。
 
-### 7. 更新前に確認する
+満たさない項目があれば文書を直して再検証する。
+すべて満たした後に `状態: Polished` へ更新する。
 
-polished body をユーザーへ提示し、確認後だけ Design Doc を更新する。
-
-### 8. 完了を報告する
+### 7. 完了を報告する
 
 報告には次を含める。
 
