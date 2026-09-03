@@ -53,9 +53,10 @@ git status --short
 
 - `hunk` がない、Git repo 外、未ステージ差分がない場合は止める。
 - staged 変更がある場合は、Hunk 対象外であることをレビュー依頼文に明示する。
-- untracked files がある場合は `git ls-files --others --exclude-standard -z` で列挙し、`git add -N --pathspec-from-file=<file> --pathspec-file-nul` を実行する。
+- untracked files がある場合は `git ls-files --others --exclude-standard -z` で列挙し、そのうち作業対象として把握している path だけを pathspec file に入れて `git add -N --pathspec-from-file=<file> --pathspec-file-nul` を実行する。
+  - 作業対象を特定できない場合は、対象 path をユーザーに確認して止まる。
   - 実行後に `git status --short` と `git diff --quiet` を確認する。
-  - `git add -N` が非通常ファイル、権限、unrelated dotfiles などで失敗した場合は、作業対象として把握している新規ファイルだけに絞って再実行する。作業対象を特定できない場合は、対象 path をユーザーに確認して止まる。
+  - `git add -N` が非通常ファイルや権限などで失敗した場合は、失敗した path と理由を報告して止まる。
   - intent-to-add した path set を保持する。途中で止まる場合は、intent-to-add が残ることを報告し、戻す操作はユーザー確認後だけ行う。
 
 ## Hunk を開く
