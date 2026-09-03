@@ -31,6 +31,7 @@ description: 新しい作業を始める前に、working tree に既存の差分
   - `git worktree add ../<repo>.worktrees/<branch> -b <branch> origin/<default-branch>`
 - 既存 branch に切り替える場合(他所でチェックアウトされていない branch に限る。分離元の branch 自身は必ず他所でチェックアウトされているため対象にならない): `git worktree add ../<repo>.worktrees/<branch> <branch>`
 - 一覧: `git worktree list`
+- 移動: branch 名の変更に合わせる場合などは `git worktree move <旧パス> <新パス>` を使う。移動後は、絶対パスを焼き込んだ生成物(Python の `.venv` 等)が旧パスを指して壊れるため作り直す。
 - 削除: 変更を commit または破棄したうえで `git worktree remove ../<repo>.worktrees/<branch>`。未commit/未追跡ファイルが残っていると失敗するため、意図して破棄する場合だけ `--force` を付ける。不要な branch は `git branch -d <branch>` で削除する。
 
 ## 関連
