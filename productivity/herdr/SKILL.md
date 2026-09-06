@@ -1,6 +1,6 @@
 ---
 name: herdr
-description: Herdr CLI による pane の観測・分割、長時間 command、agent 協調、tab や pane の操作、Hunk review のコメント回収を依頼されたときに使う。Herdr 内にいるだけの通常タスク、短い単発 command、Herdr CLI 自体の実装、承認のない既存 pane 操作では使わない。
+description: Herdr CLI による pane の観測・分割、長時間 command、agent 協調、tab や pane の操作を依頼されたときに使う。Herdr 内にいるだけの通常タスク、短い単発 command、Herdr CLI 自体の実装、承認のない既存 pane 操作では使わない。
 disable-model-invocation: true
 ---
 
@@ -22,12 +22,10 @@ CLI 構文は実行時の `herdr <group> --help` を正本とし、用途固有�
 - 現在 tab、pane、agent の通常セッション命名は自動で行わない。label や name の変更は、ユーザーが明示依頼した対象または agent が直前に作成した補助 pane と helper agent に限定する。
 - pane label を自動変更できるのは、agent が直前に作成した補助 pane だけとする。人間が管理する既存 pane とその label は変更しない。
 - pane の metadata report は agent integration を明示的に扱う場合だけ実行する。
-- managed Hunk review pane の起動、reload、close は agent が行わない。
 
 ## 振り分け
 
 - 隣接 pane での command 実行、出力待ち、helper agent の起動や操作では、[`references/agent-coordination.md`](references/agent-coordination.md)を読む。
-- 人間が Hunk review の完了を伝えた後のコメント回収では、[`references/hunk-review.md`](references/hunk-review.md)を読む。
 - workspace、tab、pane、agent の単純な list、get、read は、対象 ID を取り直して該当 group の `--help` に従う。
 - 短い単発 command は通常の shell tool を使う。
 
