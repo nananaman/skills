@@ -90,9 +90,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`review-diff-code`](./engineering/review-diff-code/SKILL.md)** — 現在のdiff / branch diff / PR diffをrisk-based reviewerとblind Adversarialで一度評価する。
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
-- **[`hunk-human-review`](./engineering/hunk-human-review/SKILL.md)** — commit 前に Hunk TUI で人間レビューを依頼する。
-  - Use when: Hunk で人間に確認してもらう、commit 前に未ステージ差分を人間へ見せる、レビュー完了後に Hunk コメントを回収する
-  - Type: `model-invoked`
 - **[`sandbox-runtime`](./engineering/sandbox-runtime/SKILL.md)** — Anthropic Sandbox Runtime 起因の ghost dotfiles や mount artifact を診断する。
   - Use when: sandbox 実行後の想定外 untracked files、read-only filesystem、workflow scope 不足、gh auth refresh 失敗の診断
   - Type: `model-invoked`
