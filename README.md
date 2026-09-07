@@ -117,8 +117,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`
-- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
-  - Use when: 新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
+- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の改善提案・作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
+  - Use when: 改善案の提示、新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
   - Type: `model-invoked`
 - **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
@@ -144,9 +144,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Productivity
 
-- **[`btw`](./productivity/btw/SKILL.md)** — 寄り道タスクを新しい Herdr tab の別セッションへ切り出して起動する。
-  - Use when: 本筋を止めずに脇道の調査・実験・別案検証を並行させる
-  - Type: `user-invoked`
 - **[`grilling`](./productivity/grilling/SKILL.md)** — 計画、設計、PRD、Design Doc、issue を一問ずつ詰める reusable discipline。
   - Use when: 他 skill から曖昧さ、未決定、依存する判断を一つずつ解消する
   - Type: `model-invoked`
@@ -155,9 +152,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Type: `user-invoked`
 - **[`handoff`](./productivity/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
   - Use when: セッション引き継ぎ、長い会話の圧縮、別 agent への作業移管
-  - Type: `user-invoked`
-- **[`herdr`](./productivity/herdr/SKILL.md)** — Herdr pane 内で workspace / tab / pane を操作する。
-  - Use when: Herdr-managed pane で隣接 pane の出力確認、pane 分割、長時間 command / helper agent 起動、出力待ち
   - Type: `user-invoked`
 - **[`host-artifact`](./productivity/host-artifact/SKILL.md)** — 静的成果物を workspace/name の安定 URL で publish し、Tailscale Serve または localhost から確認できるようにする。
   - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信

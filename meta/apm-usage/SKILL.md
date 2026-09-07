@@ -14,7 +14,7 @@ APM で agent skill を管理・更新するときの運用手順です。
 - 正本をローカルに置く skill は path で参照し、参照先 repository の最新化で追従する。ローカルに置かない skill は full SHA で pin する。
 - グローバル skill の管理では、`apm.lock.yaml` と `apm_modules/` は commit しない。
 - project 固有 skill は、その project 配下に置く。汎用化できるものだけ `nananaman/skills` に移す。
-- install、manifest 更新、lock 更新、APM pin 更新、展開は、ユーザーが明示依頼した場合だけ実行する。依頼がない場合はコマンド提示に留める。
+- install、manifest 更新、lock 更新、APM pin 更新、展開は、ユーザーが明示依頼した場合だけ実行する。依頼がない場合はコマンド提示に留める。同じ対象・操作への会話内の許可は引き継ぎ、段階ごとに再確認しない。
 
 ## グローバル skill とプロジェクト単位の skill
 
@@ -43,12 +43,14 @@ grep -n "<skill-name>" ~/.apm/apm.yml
 
 ## `apm.yml` の基本形
 
-APM 0.14.2 の user scope では `targets:` ではなく `target:` を使う。
+インストール済みの `apm install --help` で対応する形式を確認し、既存 manifest の形式を維持する。`targets:` に対応する版での例:
 
 ```yaml
 name: chouge-agent-context
 version: 0.1.0
-target: claude,agent-skills
+targets:
+  - claude
+  - agent-skills
 
 dependencies:
   apm:
@@ -58,9 +60,9 @@ dependencies:
 ## skill の追加
 
 1. 追加したい skill のリポジトリ、パス、参照方式（path または full SHA）を確認する。
-2. `apm/apm.yml` の `dependencies.apm` 変更案を作る。
-3. `skill-workbench` の差分レビューで APM manifest の変更をレビューする。
-4. 対応可能な指摘がなく、ユーザーが明示依頼した場合だけ `apm/apm.yml` を更新する。
+2. 追加が依頼されていれば `apm/apm.yml` の `dependencies.apm` にローカル差分を作る。提案だけなら差分案を会話内に示す。
+3. 提案だけなら、会話内の案、根拠、検証方法を静的に確認して終了する。実装した場合は実際の差分を `skill-workbench` でレビューし、対象、参照先、展開範囲を確認する。
+4. 実装した場合は対応可能な指摘を修正し、配布前の確認を完了する。
 5. ユーザーが明示依頼した場合だけインストールする。
 
 ```sh

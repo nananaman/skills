@@ -20,8 +20,8 @@ skill lifecycle は `skill-workbench` に集約し、APM 配布運用は別 skil
 - **[`apm-usage`](./apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`
-- **[`skill-workbench`](./skill-workbench/SKILL.md)** — agent skill の作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
-  - Use when: 新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
+- **[`skill-workbench`](./skill-workbench/SKILL.md)** — agent skill の改善提案・作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
+  - Use when: 改善案の提示、新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
   - Type: `model-invoked`
 - **[`retrospective-codify`](./retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
