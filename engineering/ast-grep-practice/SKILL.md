@@ -18,8 +18,8 @@ ast-grep を「project-local な構造 lint / rewrite」として扱う。
 
 ## 標準レイアウト
 
-対象 repository に ast-grep 基盤がない場合は、まず導入提案を出す。
-ユーザーが承認したら、最小構成を project-local に作る。
+対象 repository に ast-grep 基盤がない場合は、依頼範囲を確認する。
+導入を依頼済みなら最小構成を project-local に作る。調査・提案だけの依頼なら導入案を提示する。
 
 ```text
 project/
@@ -64,8 +64,8 @@ testConfigs:
    - 初回または rule 挙動を固定したい場合だけ `ast-grep test -U` を提案する。
    - snapshot diff は人間が確認してから commit する。
 7. CI / scripts への組み込みは別判断にする。
-   - 既存 CI がある場合だけ、対象 repo の toolchain に合わせた最小追加を提案する。
-   - CI 追加、package install、lockfile 更新はユーザー確認なしに実行しない。
+   - 既存 CI があれば、その toolchain に合わせる。CI の新設は依頼範囲に含まれる場合に行う。
+   - 導入・CI 組込を依頼済みなら、その実現に必要なローカル依存、lockfile、CI 設定の変更を作成・検証する。依頼範囲外の導入や外部システムの権限変更は確認する。
 
 ## rule draft の最小形
 
@@ -134,7 +134,7 @@ ast-grep run --pattern '<code>' --lang <language> --debug-query=cst
 - 既存 linter で代替できない理由があるか。
 - rule draft と test draft までで止めるのか、実装・検証まで行うのか。
 
-基盤がない repo では、勝手に `sgconfig.yml` を作らず、導入案と最小 diff を提示して確認する。
+基盤がない repo でも導入が採用済みなら `sgconfig.yml` を含む最小構成を実装する。採用されていなければ導入案と最小 diff の提示までに留める。
 
 ## 完了条件
 
@@ -144,4 +144,4 @@ ast-grep run --pattern '<code>' --lang <language> --debug-query=cst
 - valid / invalid に false positive / false negative を防ぐ例がある。
 - 実装まで行う場合は、`ast-grep test --skip-snapshot-tests` と必要な `scan` の結果を報告している。
 - `fix` を付けた場合、安全性の理由を説明している。
-- CI 追加、lockfile 更新、commit / push はユーザーの明示依頼なしに行っていない。
+- CI 追加と lockfile 更新は依頼された導入範囲に収まり、commit / push はそれぞれ許可された場合だけ行っている。

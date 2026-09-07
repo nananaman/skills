@@ -43,8 +43,8 @@ template の `TODO(draft)` は draft 作成時に処理する。
 
 - この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
 - この skill の起動を Design Doc draft file 作成の承認として扱い、書き込み前の確認は求めない。
-- 既存 file の上書き、保存先の競合、draft 作成を超える永続変更が必要な場合だけ停止して確認する。
-- Design Doc 作成後は報告で停止する。polish は `polish-design-doc` に委譲する。
+- 更新対象として指定された既存 draft は、その対象と依頼範囲を確認して更新する。対象が不明な保存先の競合、無関係な内容の破壊、未許可の永続変更が必要な場合だけ、その操作を保留して確認する。
+- 依頼が draft 作成までなら報告して終了する。polish まで依頼済みなら `polish-design-doc` に引き継いで続ける。
 
 ## 手順
 
@@ -101,7 +101,7 @@ Design Doc は次のような場合に使う。
 
 repo-local 設定に従って filename と保存先を決め、draft を直ちに書く。
 設定がなければ `docs/design/` を必要に応じて作り、title から作った短い kebab-case filename で保存する。
-対象 file が既に存在する場合は上書きせず、既存 file を更新するか別名で作るかを確認する。
+対象 file が既に存在する場合は、指定された更新対象なら依頼範囲内で更新する。対象が不明な衝突だけ、既存 file を更新するか別名で作るか確認する。
 
 ### 6. 完了を報告する
 
