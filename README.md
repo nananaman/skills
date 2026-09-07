@@ -45,7 +45,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 - `user-invoked`: ユーザーが明示的に呼ぶ skill。作業フローを組み立てる orchestration を担う。
 - `model-invoked`: ユーザーが明示して呼ぶことも、タスクに合うと agent が自動参照することもある skill。再利用可能な discipline、policy、domain runbook を持つ。
-- `user-invoked` skill は `model-invoked` skill を参照してよいが、別の `user-invoked` skill を内部から起動しない。
+- `user-invoked` skill は `model-invoked` skill を参照してよい。別の `user-invoked` skill へ委譲するときは Skill tool で起動せず、対象の `SKILL.md` を直接読む。
 
 ## Skill 一覧
 
