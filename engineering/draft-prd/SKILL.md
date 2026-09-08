@@ -5,96 +5,24 @@ description: 新機能・仕様変更の一言アイデア、メモ、会話ロ�
 
 # PRD 草案の作成
 
-新機能・仕様変更のアイデアを、PRD template に沿った draft にする。
-成果物は、問題・対象ユーザー・要求、合意済みの判断と未決定の案を整理し、具体化を polish に渡せる draft である。
+新機能・仕様変更の問題、対象ユーザー、要求を整理し、具体化を `polish-prd` に渡せる draft を作る。
+技術設計は Design Doc、実装手順は実装計画で扱う。
 
-## 前提条件
+## 入力と保存先
 
-1. repo-local 設定があれば読む。
+依頼と関連文書を読み、repo-local の `docs/agents/engineering-flow.md`・`domain.md` があれば使う。
+保存先は repo の規則に従い、指定がなければ `docs/prd/<short-slug>.md` とする。
 
-   ```text
-   docs/agents/engineering-flow.md
-   docs/agents/domain.md
-   ```
+## 草案の契約
 
-2. 設定が存在しない場合でも、ユーザーが明示的に PRD draft 作成を求めていれば進めてよい。保存先は `docs/prd/` を使う。
-3. 既存 issue / memo / conversation log が指定されていれば読む。
+[PRD template](assets/prd-template.md) を構造と記述内容の基準にする。
+問題・要求を調査し、ユーザー判断が必要な不足は一問ずつ確認する。
+合意済みの案は根拠とともに記録する。未決定の案は比較できる形にし、採否の判断を polish に残す。
 
-## PRD draft の責務
+`TODO(draft)` を本文へ置き換え、`TODO(polish)` を次段階の課題として残す。
+draft の前提を確定できなければ不足を示し、完成扱いにしない。
 
-PRD は価値・範囲・成功条件の判断文書である。
-`assets/prd-template.md` を記述内容と出力構造の source of truth とする。
-template の `TODO(draft)` は draft 作成時に処理する。
-`TODO(draft)` は仮置きではなく、調査・確認して確定する draft gate である。
-技術設計・実装方針・task 分割には踏み込まない。
+## 完了
 
-## 安全上の制約
-
-- この skill では `git commit`、`git push`、APM pin 更新、skill install を実行しない。
-- この skill の起動を PRD draft file 作成の承認として扱い、書き込み前の確認は求めない。
-- 更新対象として指定された既存 draft は、その対象と依頼範囲を確認して更新する。対象が不明な保存先の競合、無関係な内容の破壊、未許可の永続変更が必要な場合だけ、その操作を保留して確認する。
-- 依頼が draft 作成までなら報告して終了する。polish まで依頼済みなら `polish-prd` に引き継いで続ける。
-
-## 手順
-
-### 1. 入力を分類する
-
-入力がどれかを判定する。
-
-- 一言アイデア
-- ユーザーのメモ / 会話ログ
-- 既存 issue
-- 既存 PRD draft の作り直し
-
-情報が足りなければ一度に一つだけ質問する。
-
-### 2. PRD が適切か確認する
-
-PRD は新機能・仕様変更に使う。
-
-次の場合は PRD ではなく Design Doc または issue から始める提案をする。
-
-- CI 改善、build 改善、architecture 改善など、主に技術設計の問題である。
-- 小バグ、小リファクタ、chore である。
-- 実装作業単位が既に明確で、価値・範囲の判断が不要である。
-
-ユーザーが PRD を明示的に求める場合は続行する。理由を改めて質問することを着手条件にしない。
-
-### 3. 必要最小限の前提情報を読む
-
-必要最小限の前提情報を読む。
-
-- 指定された memo / issue / conversation log
-- 関連する既存 PRD
-- repo-local domain docs
-
-`TODO(draft)` の確定に必要な前提情報は調査する。
-未決定の案の採否や詳細な具体化は polish で行う。既に合意済みの案はその判断を記録し、比較のためだけに選び直さない。
-
-### 4. PRD の草案を作る
-
-`assets/prd-template.md` を seed として使う。
-
-- `状態: Draft` にする。
-- 未決定の案は `検討した案` に書き、意味のある候補を同じ軸で比較できるようにする。
-- 採用済みの案はその根拠とともに記録し、既知の不採用案だけを残す。未検討の候補や空の案見出しを形式のために追加しない。
-- 各 `TODO(draft)` を調査・確認して本文に置き換える。
-- `TODO(draft)` を解消できない場合は polish へ送らず、draft を blocked として不足情報を報告する。
-- template に最初からある `TODO(polish)` は polish 段階の作業として残す。
-- 完成した draft に `TODO(draft)` を残さない。
-
-### 5. 草案を保存する
-
-repo-local 設定に従って filename と保存先を決め、draft を直ちに書く。
-設定がなければ `docs/prd/` を必要に応じて作り、title から作った短い kebab-case filename で保存する。
-対象 file が既に存在する場合は、指定された更新対象なら依頼範囲内で更新する。対象が不明な衝突だけ、既存 file を更新するか別名で作るか確認する。
-
-### 6. 完了を報告する
-
-報告には次を含める。
-
-- 作成した PRD location
-- draft であること
-- 主要な TODO(polish)
-- 次に実行すべき skill: `polish-prd`
-- commit / push / APM pin 更新 / install は未実行であること
+`TODO(draft)` のない `状態: Draft` の文書を保存し、場所と主要な未決定事項を報告する。
+polish まで依頼されていれば `polish-prd` へ続ける。
