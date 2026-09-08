@@ -12,7 +12,7 @@ skill lifecycle は `skill-workbench` に集約し、APM 配布運用は別 skil
 
 ## 典型フロー
 
-1. `skill-workbench` で skill を作成し、構造・routing・lifecycle を改善して、Review diff / Review whole / Audit inventory branch で必要な gate を通す。
+1. `skill-workbench` で skill を作成し、構造・routing・lifecycle を改善して、必要に応じて差分レビュー、全体レビュー、一覧の監査を行う。
 2. ユーザーが明示依頼した場合だけ commit / push / 参照方式に応じた参照先または SHA pin の更新 / `apm install -g` に進む。
 
 ## Skill 一覧
