@@ -54,7 +54,7 @@ disable-model-invocation: true
    ```
 
    `Implementation-Plan:` から `End-Implementation-Plan` までがある場合は、開始・終了 marker が一組で、内容が空でないことを確認する。
-   marker が壊れている場合や複数の plan があり対象を判断できない場合は PR body を作らず停止する。
+   marker が壊れている場合や複数の plan があり対象を判断できない場合も、diff、commit、テスト状況で裏付けられる PR title / body の下書きは作る。plan 原文を推測して復元せず、転記に必要な不足だけを確認する。plan の転記が確定するまで push / PR 作成は保留する。
 
    `origin/<base>...HEAD` が今回の目的だけを含むことを確認する。既に merge 済みの commit、別目的の変更、古い base 由来の差分が混ざる場合は、PR 作成へ進まず、最新 base へ載せ替える案または branch 分割案を提示してユーザーに確認する。history rewrite が必要なら `chouge-git` の History Rewrite に委譲し、共有済み branch では `--force-with-lease` を使う前に明示確認を取る。
 
@@ -101,7 +101,7 @@ disable-model-invocation: true
    `Tests` には、実行したコマンドを書く。未実行なら `未実行` と理由を書く。推測で「テスト済み」と書かない。
    `review-diff-code`、`skill-workbench` 差分レビューなど内部レビュー運用の実施内容(reviewer 構成、指摘内容、採否理由など)は PR body に書かない。実施自体は step 7 の review gate として行う。
 
-   commit body に implementation plan がある場合は、template の末尾または標準 body の末尾へ次を追加する。
+   commit body の implementation plan を一意に取得できる場合は、template の末尾または標準 body の末尾へ次を追加する。不備がある場合はこの転記だけを保留し、未解決のまま公開しない。
    plan 用の見出しは追加せず、`<details>`、`<summary>Implementation plan</summary>`、`</details>` を PR body に literal な HTML tag として含める。
 
    ```md
@@ -120,10 +120,10 @@ disable-model-invocation: true
 7. review gate を確認する。
    - docs-only の変更なら review gate は不要。
    - skill 変更を含むなら `skill-workbench` の差分レビューを使う。
-   - コード、設定、テスト、CI、実行時の動作に影響する変更を含むなら `review-diff-code` skill を使い、実際の基点または変更のある作業ツリーを一度評価して指摘の採否台帳を確認する。
+   - その他の変更は `implement` の「レビュー範囲の選択」に従う。局所的で容易に戻せ、必要な検証を終えた変更は主担当の差分確認でよい。独立レビューが必要な変更だけ `review-diff-code` を使う。この判断のために実装フロー全体を再実行しない。
    - 既に同じ base / head diff に対して review 済みなら再実行しなくてよい。
    - 会話や直近の作業ログで review 済みと確認できなければ、未実施として扱う。PR body は review 済み判定の根拠にしない。
-   - 未実施なら push 前に実行する。push が不要な場合でも、PR 作成前に実行する。
+   - 必要な確認が未実施なら push 前に実行する。push が不要な場合でも、PR 作成前に実行する。独立レビュー不要と判断した変更に、PR 作成だけを理由に追加レビューを課さない。
    - 対応可能な指摘が残る場合は、push や PR 作成へ進まない。
    - review gate の結果は PR body に書かず、完了報告でユーザーに伝える。
 

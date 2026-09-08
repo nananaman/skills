@@ -28,7 +28,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 
 ## 典型フロー
 
-1. 継続運用の規則が必要なら `setup-engineering-flow` で issue tracker、PRD、Design Doc / ADR、一時 plan の配置を記録する。`task-breakdown` にはこの設定が必須だが、`create-plan` は設定なしでも実行できる。
+1. 継続運用の規則が必要なら `setup-engineering-flow` で issue tracker、PRD、Design Doc / ADR、一時 plan の配置を記録する。`task-breakdown` の分解案と `create-plan` は設定なしでも作成できる。tracker への書き込みには作成先と方法を確定する。
 2. 新機能・仕様変更は `draft-prd` → `polish-prd` で要求を固める。
 3. 技術改善・設計変更、または PRD 実現に設計判断が必要な変更は `draft-design-doc` → `polish-design-doc` で設計を固める。
 4. 合意済みの要求・設計は `task-breakdown` で独立実行可能な issue 群へ分ける。
@@ -63,7 +63,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - **[`create-plan`](./create-plan/SKILL.md)** — issue、task、またはユーザーの実装依頼から、grill と調査を経て一時的な実装 plan を作成する。
   - Use when: `create-plan <issue-or-task>`、個別 task やユーザー依頼の実装前設計、`plans/<task>-<slug>.md` の作成
   - Type: `user-invoked`
-- **[`review-plan`](./review-plan/SKILL.md)** — 作成済みの一時実装planを、実現可能性と単純性のfresh reviewerで独立評価する。
+- **[`review-plan`](./review-plan/SKILL.md)** — 作成済みの一時実装planをリスクに応じた独立担当が評価し、局所的な修正は影響範囲を確認する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
   - Type: `model-invoked`
 - **[`implement`](./implement/SKILL.md)** — 実装を検証、簡素化、完成差分のレビューまで通して完了させる。

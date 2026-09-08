@@ -1,6 +1,6 @@
 ---
 name: task-breakdown
-description: Design Doc、ADR、PRD、会話上の合意、ユーザー説明から、独立して担当・実行できる task 群へ分解する。依存関係と作業境界を整理し、確認後に repo 設定済みの GitHub Issue、local markdown、Asana などへ作成する。実装 plan、コード変更、既存 issue の詳細化だけの依頼では使わない。
+description: Design Doc、ADR、PRD、会話上の合意、ユーザー説明を独立実行可能な task 群へ分解する。repo-local 設定がなくても分解案を作り、作成先と内容の許可がある場合に tracker へ作成する。実装 plan、コード変更、既存 issue の詳細化だけの依頼では使わない。
 disable-model-invocation: true
 ---
 
@@ -11,7 +11,7 @@ issue は共有する作業単位であり、個別実装の設計契約には�
 
 ## 前提条件
 
-次の repo-local 設定を読む。
+次の repo-local 設定があれば読む。
 
 ```text
 docs/agents/engineering-flow.md
@@ -19,7 +19,7 @@ docs/agents/issue-tracker.md
 docs/agents/domain.md
 ```
 
-設定がなければ `setup-engineering-flow` を提案して止める。
+設定がなくても、入力と既存文書から task 分解案を作る。作成先や命名・採番規則はユーザーの指定と既存の運用から特定し、不明な場合は tracker への書き込みだけを保留する。継続運用の設定を保存したい場合だけ `setup-engineering-flow` を使い、今回の分解の前提にしない。
 入力は Design Doc に限定しない。ADR、PRD、既存 issue、会話上の合意、ユーザー説明を使ってよい。
 ただし task 分解に必要な要求や設計判断が未確定なら、分解で補わず上流の文書または `grilling` へ戻す。
 
@@ -51,15 +51,15 @@ docs/agents/domain.md
    - 依存関係
    - 並行実行可能性
    - 作成先 tracker
-4. ユーザー確認後だけ `docs/agents/issue-tracker.md` に従って作成する。
+4. task の内容と作成先が依頼・合意で許可されていれば、既存の設定または今回確認した作成方法に従って作成する。内容や作成先が未許可なら、分解案を示してその判断だけを確認する。提案だけの依頼では作成しない。
    - GitHub Issue：`gh issue create`
-   - ローカル Markdown：設定済みのディレクトリ、ファイル名、`SEQUENCE` 規則
-   - その他：Asana、Jira、Linear などの設定文書にある操作と権限規則
+   - ローカル Markdown：指定されたディレクトリと、既存または合意済みの命名・採番規則
+   - その他：Asana、Jira、Linear などの設定文書または今回の依頼から確定した操作と権限規則
 5. 作成した issue の URL / path と依存関係を報告する。
 
 ## 安全上の制約
 
-- tracker へ作成する前に分解案の確認を得る。
+- tracker への作成は、対象・内容・作成先を含む依頼または合意の範囲内で行う。既存の許可を段階ごとに取り直さない。
 - 既存 issue の変更、close、担当者設定、label 変更は、分解案の作成とは別の変更として扱う。
 - commit、push、APM pin 更新、install、実装は行わない。
 
@@ -67,5 +67,5 @@ docs/agents/domain.md
 
 - 合意済みの情報が、重複せず独立実行可能な task 群へ分かれている。
 - 各 task の範囲、完了条件、依存関係、参照元が確認できる。
-- ユーザー確認後、設定済み tracker に全 task が作成され、location が報告されている。
+- 提案の依頼では分解案と依存関係を返す。作成の依頼では許可された全 task を作成し、location を報告する。書き込みを保留した場合は、分解案と不足する判断を返し、作成済みとは表現しない。
 - 各 task の次の入口として `create-plan <issue>` が案内されている。

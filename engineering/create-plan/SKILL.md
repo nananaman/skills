@@ -63,8 +63,8 @@ repo-local flow を継続運用として保存したい場合だけ `setup-engin
 7. 計画を読み直し、別セッションの実装エージェントが追加の設計判断なしに実装と検証を行えることを確認する。
 8. prototype を使った場合は、観察結果と設計判断が plan に残っていることを確認し、prototype 固有の file と diff を削除してから[プロトタイプのライフサイクル](#プロトタイプのライフサイクル)の清潔性判定を通す。
 9. `review-plan`で計画を独立評価する。
-   - `revise` findingは、要求とrepository contextから一意に直せる範囲でplanへ反映し、fresh reviewerで再reviewする。
-   - `investigate` findingは、安全な調査やproofで解消できる場合は実行し、planへ反映して再reviewする。
+   - `revise` findingは、要求とrepository contextから一意に直せる範囲でplanへ反映し、`review-plan` の修正確認で該当箇所と影響範囲を評価する。
+   - `investigate` findingは、安全な調査やproofで解消できる場合は実行し、planへ反映して同じ基準で確認する。主要方針や変更境界が変わる場合は独立評価をやり直す。
    - `decision` の指摘、上流設計の変更、対象範囲の拡大、追加の権限が必要な場合は、自動で決めずユーザーへ一度に一つ質問する。
    - 同じfindingが再発する、finding同士が矛盾する、または修正の複雑性が低減するriskに見合わない場合はloopを止め、blockedとして報告する。
    - `ready`以外の結果で実装可能と表現しない。

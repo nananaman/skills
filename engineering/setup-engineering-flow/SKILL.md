@@ -1,12 +1,12 @@
 ---
 name: setup-engineering-flow
-description: リポジトリごとのエンジニアリングフローを初期設定する。issue tracker、PRD、Design Doc、ADR、一時的な計画の配置、ローカル Markdown issue の採番、AGENTS.md や CLAUDE.md の参照ブロックを整える。task-breakdown の利用前、または create-plan の規則を継続運用として保存するときに、ユーザーの明示指示で実行する。通常のタスク分解、計画作成、実装、レビューでは使わない。
+description: リポジトリごとのエンジニアリングフローを初期設定する。issue tracker、PRD、Design Doc、ADR、一時的な計画の配置、ローカル Markdown issue の採番、AGENTS.md や CLAUDE.md の参照ブロックを整える。タスク分解や計画作成の規則を継続運用として保存するときに、ユーザーの明示指示で実行する。通常のタスク分解、計画作成、実装、レビューでは使わない。
 disable-model-invocation: true
 ---
 
 # エンジニアリングフローの設定
 
-`task-breakdown` が前提にし、`create-plan` が任意の追加情報として使うリポジトリ固有の設定を作る。
+`task-breakdown` や `create-plan` が、存在する場合に利用するリポジトリ固有の設定を作る。
 これは一度だけ実行する対話駆動の skill であり、決定的に動くスクリプトではない。
 
 ## 目的

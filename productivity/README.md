@@ -10,7 +10,7 @@
 - 現在の会話を別 agent へ引き継げる形に圧縮する → [`handoff`](./handoff/SKILL.md)
 - agent が生成した静的成果物を安定 URL から確認できるようにする → [`host-artifact`](./host-artifact/SKILL.md)
 - system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack を診断・改善する → [`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)
-  - skill の新規作成・構造・routing・lifecycle は [`skill-workbench`](../meta/skill-workbench/SKILL.md) を使う
+  - skill の作成・構造・振り分け・本文を含むレビューは [`skill-workbench`](../meta/skill-workbench/SKILL.md) を使う
 
 ## 典型フロー
 
@@ -18,7 +18,7 @@
 2. ユーザーが明示的に grill を求めた場合は `grill-me` を入口にする。
 3. 作業が長くなったら `handoff` で次の agent が読める状態に圧縮する。
 4. browser で確認する静的成果物は `host-artifact` で workspace/name の安定 URL へ publish する。
-5. agent-facing prompt と skill 本文の contract は `improve-agent-prompt` で preservation set を固定し、最小差分で改善する。skill の新規作成・構造・routing・lifecycle は `skill-workbench` を使う。
+5. agent向け指示のモデル固有の改善は `improve-agent-prompt` を使う。既存の停止・検証規則も必要性を見直す。skill の作成・構造・振り分けと、本文の過剰制約を含むレビューは `skill-workbench` を使う。
 
 ## Skill 一覧
 
@@ -34,6 +34,6 @@
 - **[`host-artifact`](./host-artifact/SKILL.md)** — 静的成果物を workspace/name の安定 URL で publish し、Tailscale Serve または localhost から確認できるようにする。
   - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
   - Type: `model-invoked`
-- **[`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)** — agent-facing prompt と skill 本文の contract を既存意図を保った最小差分で診断・改善する。
-  - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack、context 配置の改善（skill の新規作成・構造・routing・lifecycle は `skill-workbench`）
+- **[`improve-agent-prompt`](./improve-agent-prompt/SKILL.md)** — GPT-6 Astra を基準に、agent向け指示の不要な停止・過剰手順・競合を診断・改善する。
+  - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack、context 配置の改善（skill の作成・構造・振り分け・本文を含むレビューは `skill-workbench`）
   - Type: `model-invoked`

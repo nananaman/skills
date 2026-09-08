@@ -1,12 +1,12 @@
 ---
 name: draft-design-doc
-description: 技術改善・設計変更、または PRD 後に必要な大きい変更について Design Doc draft を作る。問題・制約を確定し、複数の設計案を比較できる形にする。PRD 作成、Design Doc polish、issue 作成、実装、レビューだけの依頼では使わない。
+description: 技術改善・設計変更、または PRD 後に必要な大きい変更について Design Doc draft を作る。問題・制約と既存の設計判断を整理し、未決定の案を比較できる形にする。PRD 作成、Design Doc polish、issue 作成、実装、レビューだけの依頼では使わない。
 ---
 
 # Design Doc 草案の作成
 
 Design Doc の draft を作る。
-成果物は、問題・制約と複数案を確定し、案の選択を polish に渡せるたたき台である。
+成果物は、問題・制約、合意済みの判断と未決定の案を整理し、設計の具体化を polish に渡せるたたき台である。
 
 Design Doc は、技術・設計上の問題を解くための設計判断文書である。
 
@@ -37,7 +37,7 @@ Design Doc は、技術・設計上の問題を解くための設計判断文書
 `assets/design-doc-template.md` を記述内容と出力構造の source of truth とする。
 template の `TODO(draft)` は draft 作成時に処理する。
 `TODO(draft)` は仮置きではなく、調査・確認して確定する draft gate である。
-採用案は draft で決めない。
+未決定の採用案を独断で確定しない。ユーザー指定や既存の合意で採用案が決まっている場合は、その判断と根拠を記録し、比較のためだけに代替案を作らない。
 
 ## 安全上の制約
 
@@ -90,8 +90,8 @@ Design Doc は次のような場合に使う。
 `assets/design-doc-template.md` を seed として使う。
 
 - `状態: Draft` にする。
-- `検討した案` に検討中の案を複数書く。
-- 各案を同じ軸で Pros / Cons 比較できるようにする。
+- 未決定の案は `検討した案` に書き、意味のある候補を同じ軸で比較する。
+- 採用済みの案がある場合は判断を採用理由へ反映し、既知の不採用案だけを残す。未検討の候補や空の案見出しを形式のために追加しない。
 - 各 `TODO(draft)` を調査・確認して本文に置き換える。
 - `TODO(draft)` を解消できない場合は polish へ送らず、draft を blocked として不足情報を報告する。
 - template に最初からある `TODO(polish)` は、採用案を決めて設計へ昇格する polish 段階の作業として残す。
