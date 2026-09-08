@@ -14,7 +14,7 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - 合意済みの要求・設計を独立実行可能な task 群へ分解する → [`task-breakdown`](./task-breakdown/SKILL.md)
 - issue、task、またはユーザーの実装依頼から、grill 後に一時的な実装 plan を作る → [`create-plan`](./create-plan/SKILL.md)
 - 作成済みの実装 plan を検討漏れと不要な複雑性の観点で独立評価する → [`review-plan`](./review-plan/SKILL.md)
-- コードや設定などの実装を、検証、簡素化、完成差分のレビューまで通して完了する → [`implement`](./implement/SKILL.md)
+- コードや設定などの実装を、必要な検証と完成差分のレビューまで完了する → [`implement`](./implement/SKILL.md)
 - 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する → [`simplify-code`](./simplify-code/SKILL.md)
 - 実行コードのロジック・状態遷移・データ変換・処理規則の変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
@@ -28,12 +28,12 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 
 ## 典型フロー
 
-1. 継続運用の規則が必要なら `setup-engineering-flow` で issue tracker、PRD、Design Doc / ADR、一時 plan の配置を記録する。`task-breakdown` にはこの設定が必須だが、`create-plan` は設定なしでも実行できる。
+1. 継続運用の規則が必要なら `setup-engineering-flow` で issue tracker、PRD、Design Doc / ADR、一時 plan の配置を記録する。`task-breakdown` の分解案と `create-plan` は設定なしでも作成できる。tracker への書き込みには作成先と方法を確定する。
 2. 新機能・仕様変更は `draft-prd` → `polish-prd` で要求を固める。
 3. 技術改善・設計変更、または PRD 実現に設計判断が必要な変更は `draft-design-doc` → `polish-design-doc` で設計を固める。
 4. 合意済みの要求・設計は `task-breakdown` で独立実行可能な issue 群へ分ける。
 5. issue、task、またはユーザーの実装依頼を受けたら `create-plan` で grill と調査を行い、untracked の一時 plan を作る。`create-plan`は完了前に`review-plan`を自動実行し、検討漏れと不要な複雑性のblockerを解消する。
-6. コード、設定、テスト、schema、依存関係、agent 指示の実装には`implement`を使い、必要な専門 skill、検証、簡素化の判断、完成差分のレビューまで完了する。
+6. コード、設定、テスト、schema、依存関係、agent 指示の実装には`implement`を使い、必要な専門 skill を使い、検証と完成差分のレビューまで完了する。
 7. レビュー後、plan 原文を commit body に保存して plan file を削除する。
 8. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
 
@@ -63,10 +63,10 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - **[`create-plan`](./create-plan/SKILL.md)** — issue、task、またはユーザーの実装依頼から、grill と調査を経て一時的な実装 plan を作成する。
   - Use when: `create-plan <issue-or-task>`、個別 task やユーザー依頼の実装前設計、`plans/<task>-<slug>.md` の作成
   - Type: `user-invoked`
-- **[`review-plan`](./review-plan/SKILL.md)** — 作成済みの一時実装planを、実現可能性と単純性のfresh reviewerで独立評価する。
+- **[`review-plan`](./review-plan/SKILL.md)** — 作成済みの一時実装planをリスクに応じた独立担当が評価し、局所的な修正は影響範囲を確認する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
   - Type: `model-invoked`
-- **[`implement`](./implement/SKILL.md)** — 実装を検証、簡素化、完成差分のレビューまで通して完了させる。
+- **[`implement`](./implement/SKILL.md)** — 実装を必要な検証と完成差分のレビューまで完了させる。
   - Use when: コード、設定、テスト、schema、依存関係、agent 指示の作成または変更
   - Type: `model-invoked`
 - **[`simplify-code`](./simplify-code/SKILL.md)** — 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する。

@@ -75,10 +75,10 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`create-plan`](./engineering/create-plan/SKILL.md)** — issue、task、またはユーザーの実装依頼から、grill と調査を経て一時的な実装 plan を作成する。
   - Use when: `create-plan <issue-or-task>`、個別 task やユーザー依頼の実装前設計、`plans/<task>-<slug>.md` の作成
   - Type: `user-invoked`
-- **[`review-plan`](./engineering/review-plan/SKILL.md)** — 作成済みの一時実装planを、実現可能性と単純性のfresh reviewerで独立評価する。
+- **[`review-plan`](./engineering/review-plan/SKILL.md)** — 作成済みの一時実装planをリスクに応じた独立担当が評価し、局所的な修正は影響範囲を確認する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
   - Type: `model-invoked`
-- **[`implement`](./engineering/implement/SKILL.md)** — 実装を検証、簡素化、完成差分のレビューまで通して完了させる。
+- **[`implement`](./engineering/implement/SKILL.md)** — 実装を必要な検証と完成差分のレビューまで完了させる。
   - Use when: コード、設定、テスト、schema、依存関係、agent 指示の作成または変更
   - Type: `model-invoked`
 - **[`simplify-code`](./engineering/simplify-code/SKILL.md)** — 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する。
@@ -117,10 +117,10 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`
-- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の改善提案・作成・構造・routing・lifecycle・レビュー・棚卸しを扱う。
+- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・改善と、本文の過剰制約・振り分け・参照連鎖のレビュー・監査を扱う。
   - Use when: 改善案の提示、新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
   - Type: `model-invoked`
-- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 試行錯誤で得た再利用可能な知見を固定する。
+- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 再利用可能な知見を、既存規則の削除・限定・更新や適切な設定へ固定する。
   - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
   - Type: `user-invoked`
 - **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新化する。
@@ -129,7 +129,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Personal
 
-- **[`chouge-changelog`](./personal/chouge-changelog/SKILL.md)** — CHANGES.md が存在する repository で変更履歴を書く。
+- **[`chouge-changelog`](./personal/chouge-changelog/SKILL.md)** — 既存の CHANGES.md を更新する。新規作成は明示依頼時に行う。
   - Use when: CHANGES.md 更新、release note 下書き、PR / commit 内容の変更履歴化
   - Type: `model-invoked`
 - **[`chouge-git`](./personal/chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
@@ -156,8 +156,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`host-artifact`](./productivity/host-artifact/SKILL.md)** — 静的成果物を workspace/name の安定 URL で publish し、Tailscale Serve または localhost から確認できるようにする。
   - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
   - Type: `model-invoked`
-- **[`improve-agent-prompt`](./productivity/improve-agent-prompt/SKILL.md)** — agent-facing prompt と skill 本文の contract を既存意図を保った最小差分で診断・改善する。
-  - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack、context 配置の改善（skill の新規作成・構造・routing・lifecycle は `skill-workbench`）
+- **[`improve-agent-prompt`](./productivity/improve-agent-prompt/SKILL.md)** — GPT-6 Astra を基準に、agent向け指示の不要な停止・過剰手順・競合を診断・改善する。
+  - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack、context 配置の改善（skill の作成・構造・振り分け・本文を含むレビューは `skill-workbench`）
   - Type: `model-invoked`
 
 ### Sakura Cloud
@@ -174,7 +174,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Writing
 
-- **[`japanese-tech-writing`](./writing/japanese-tech-writing/SKILL.md)** — 日本語の技術文書・書籍原稿の文章規範。
+- **[`japanese-tech-writing`](./writing/japanese-tech-writing/SKILL.md)** — 日本語の技術文書・PRD・Design Doc・書籍の共通文章規範。書籍の構成・演出は必要時だけ参照する。
   - Use when: 技術書・記事の執筆、草稿の推敲、日本語技術文書の構成レビュー
   - Type: `model-invoked`
 

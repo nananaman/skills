@@ -5,151 +5,53 @@ description: APM で agent skill を管理または更新するときに使う�
 
 # APM の運用
 
-APM で agent skill を管理・更新するときの運用手順です。
+APM の manifest、参照方式、展開先を確認するときに使う。
+依存関係の最新化は [update-skills](../update-skills/SKILL.md)、skill 本文の編集は `implement` と `skill-workbench` が担当する。
 
-## 基本方針
+## 正本と scope
 
-- グローバルに入れる skill 一覧は dotfiles の `apm/apm.yml` で管理する。
-- 自作した再利用可能な skill 本体は `nananaman/skills` を正本にする。
-- 正本をローカルに置く skill は path で参照し、参照先 repository の最新化で追従する。ローカルに置かない skill は full SHA で pin する。
-- グローバル skill の管理では、`apm.lock.yaml` と `apm_modules/` は commit しない。
-- project 固有 skill は、その project 配下に置く。汎用化できるものだけ `nananaman/skills` に移す。
-- install、manifest 更新、lock 更新、APM pin 更新、展開は、ユーザーが明示依頼した場合だけ実行する。依頼がない場合はコマンド提示に留める。同じ対象・操作への会話内の許可は引き継ぎ、段階ごとに再確認しない。
+- 再利用可能な自作 skill 本体は `nananaman/skills` を正本とする。project 固有 skill はその project に置く。
+- グローバルの依存一覧は dotfiles の `apm/apm.yml`。グローバルの `apm.lock.yaml` と `apm_modules/` は commit しない。
+- 正本 repository をローカルに置く場合は path 参照、置かない場合は full SHA pin を使う。
 
-## グローバル skill とプロジェクト単位の skill
-
-APM では、常時有効にするグローバル skill と、特定リポジトリでだけ使うプロジェクト単位の skill を分けて管理する。
-
-| 用途 | manifest | install | 展開先 |
+| scope | manifest | install | 展開先 |
 |---|---|---|---|
-| 全 repo で常時使う skill | dotfiles の `apm/apm.yml` | `apm install -g` | `~/.claude/skills`, `~/.agents/skills` |
-| 特定リポジトリでだけ使う skill | リポジトリ直下の `apm.yml` | `apm install --target claude,agent-skills` | `<repo>/.claude/skills`, `<repo>/.agents/skills` |
+| グローバル | `~/.apm/apm.yml`（dotfiles の `apm/apm.yml` へのリンク） | `apm install -g` | `~/.claude/skills`, `~/.agents/skills` |
+| project | repository 直下の `apm.yml` | repository 直下で `apm install` | `.claude/skills`, `.agents/skills` |
 
-## ユーザー単位の manifest の場所
+既存 manifest の形式と target を維持し、形式やオプションが不明ならインストール済みの `apm install --help` で確認する。
+project の target 上書きは依頼がある場合にだけ行う。
 
-`apm install -g` は current directory の `apm/apm.yml` ではなく、user-scope の `~/.apm/apm.yml` を読む。
-dotfiles では `~/.apm` が repo の `apm/` へ symlink されるため、worktree で作業している場合は更新先を間違えやすい。
+## user-scope の実体確認
 
-pin の更新やグローバルインストールの前に、必ず実体を確認する。
+グローバルの manifest 更新・install 前に `realpath ~/.apm/apm.yml` で実体を確認する。
+worktree の `apm/apm.yml` と install が読む実体が異なる場合、worktree の編集だけでは反映されない。
+依頼された正本と install の入力を照合し、別 checkout を無断で編集しない。どちらを変更するか会話から決められなければ確認する。
 
-```sh
-readlink ~/.apm
-realpath ~/.apm/apm.yml
-grep -n "<skill-name>" ~/.apm/apm.yml
-```
-
-`~/.apm` が本体 repo を指している場合、worktree 側の `apm/apm.yml` だけを更新しても `apm install -g` には反映されない。
-その場合は `~/.apm/apm.yml` の実体側を更新するか、どの manifest を正本として変更するかをユーザーに確認する。
-
-## `apm.yml` の基本形
-
-インストール済みの `apm install --help` で対応する形式を確認し、既存 manifest の形式を維持する。`targets:` に対応する版での例:
-
-```yaml
-name: chouge-agent-context
-version: 0.1.0
-targets:
-  - claude
-  - agent-skills
-
-dependencies:
-  apm:
-    - nananaman/skills/meta/apm-usage#<full-sha>
-```
-
-## skill の追加
-
-1. 追加したい skill のリポジトリ、パス、参照方式（path または full SHA）を確認する。
-2. 追加が依頼されていれば `apm/apm.yml` の `dependencies.apm` にローカル差分を作る。提案だけなら差分案を会話内に示す。
-3. 提案だけなら、会話内の案、根拠、検証方法を静的に確認して終了する。実装した場合は実際の差分を `skill-workbench` でレビューし、対象、参照先、展開範囲を確認する。
-4. 実装した場合は対応可能な指摘を修正し、配布前の確認を完了する。
-5. ユーザーが明示依頼した場合だけインストールする。
-
-```sh
-apm install -g
-```
-
-## 自作 skill の更新
-
-1. `nananaman/skills` で skill を編集する。
-2. `skill-workbench` の差分レビューを実行する。
-3. 対応可能な指摘がなく、ユーザーが明示依頼した場合だけ commit / push する。
-4. `readlink ~/.apm` と `realpath ~/.apm/apm.yml` で user-scope manifest の実体を確認する。
-5. `grep -n "<skill-name>" ~/.apm/apm.yml` で、`apm install -g` が読む参照方式を確認する。
-6. ユーザーが明示依頼した場合だけ参照先を更新する。path 参照なら manifest を変えずに参照先 repository を最新化し、pin なら `git rev-parse HEAD` の full SHA へ `~/.apm/apm.yml` の実体、または dotfiles の source-of-truth manifest を更新する。
-7. ユーザーが明示依頼した場合だけ展開する。
-
-```sh
-apm install -g
-```
-
-pin 更新後に content hash mismatch が出た場合は、まず `readlink ~/.apm`、`realpath ~/.apm/apm.yml`、該当 pin を再確認する。manifest が意図した full SHA を指しており、変更を受け入れる判断ができる場合だけ、lock 更新として `apm install -g --update` を実行する。`apm.lock.yaml` と `apm_modules/` は user-scope の cache / lock として扱い、dotfiles へ commit しない。
-
-## プロジェクト単位の skill の導入
-
-特定リポジトリの作業でだけ使う skill は、リポジトリ直下の `apm.yml` で管理する。
-GitHub 上の skill は、`fetch_content` や手動コピーではなく APM で導入する。
-導入前に `skill-workbench` の差分レビューで APM manifest、pin、インストール対象を確認し、対応可能な指摘が残る場合は進まない。
-ユーザーが明示依頼した場合だけ、次のような install command を実行する。
-
-```sh
-apm install <owner/repo/path#full-sha> --target claude,agent-skills
-```
-
-例：skill 作成・レビュー一式を導入する。
-
-```sh
-apm install \
-  nananaman/skills/meta/skill-workbench#<full-sha> \
-  --target claude,agent-skills
-```
-
-このコマンドはリポジトリ直下の `apm.yml` と `apm.lock.yaml` を更新し、`.claude/skills/` と `.agents/skills/` に skill を展開する。
-
-## local path skill と GitHub skill の使い分け
-
-### local path skill
-
-正本 repository をローカルに置き、pin なしで最新へ追従する場合に使う。
-更新は manifest ではなく参照先 repository の最新化で行い、手順は `../update-skills/SKILL.md` に従う。
+## 参照方式
 
 ```yaml
 dependencies:
   apm:
     - path: ~/ghq/github.com/nananaman/skills/meta/example
     - path: ./skills/example
+    - owner/repo/path#<full-sha>
 ```
 
-### GitHub skill
+path 参照は manifest を変えず、参照先 repository の更新で追従する。
+SHA pin は参照先の full SHA を manifest に記録して固定する。
+GitHub 上の skill は手動コピーではなく APM で導入する。
 
-正本をローカルに置かない場合、または環境をまたいで同じ内容へ固定する場合に使う。
+## 変更と展開
 
-```yaml
-dependencies:
-  apm:
-    - nananaman/skills/meta/example#<full-sha>
-```
+ユーザーが依頼した範囲で manifest・参照先を更新する。同じ対象・操作への許可は引き継ぐ。
+提案だけの依頼では変更せず、本文編集だけの依頼から install や依存更新を推測しない。
+依存関係の「更新」は通常 install まで含む。manifest のみ、dry-run、install 不要という指定は優先する。
+commit / push は別途明示依頼がある場合だけ行う。
 
-## dotfiles の manifest
+追加・更新した manifest の参照先、SHA、scope、target を実際の差分で確認する。
+レビューの規模は `skill-workbench` の変更リスクに合わせ、依存更新だけで全 skill 本文の再監査を必須にしない。
+install 後は展開先を確認する。特に path 参照はコマンドの成功表示だけで反映済みと判断しない。
 
-dotfiles repo では、二つの APM manifest を区別する。
-
-- `apm/apm.yml`：ユーザー単位のグローバル skill を管理する。
-- リポジトリ直下の `apm.yml`：dotfiles リポジトリ自体で使うプロジェクト単位の skill を管理する。
-
-## グローバル skill で dotfiles 側に残すもの
-
-```text
-apm/apm.yml
-apm/.gitignore
-```
-
-グローバル skill 本体は dotfiles に置かない。
-
-## 確認コマンド
-
-```sh
-apm install -g
-ls ~/.claude/skills
-ls ~/.agents/skills
-```
+content hash mismatch が出たら manifest の実体と意図した SHA を再確認する。
+`--update` は lock 内容の受け入れを伴うため、変更内容を説明し、ユーザーが受け入れた場合だけ同じ scope の install に付ける。既に当該変更への受け入れがあれば再確認しない。

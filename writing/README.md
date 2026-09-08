@@ -13,10 +13,10 @@
 
 1. 執筆・推敲対象の読者、目的、媒体を確認する。
 2. `japanese-tech-writing` の規範に沿って構成・論証・文体を点検する。
-3. 必要に応じて一文一行、引用、脚注、コラム記法などの整形規則を適用する。
+3. 成果物に合う整形を行い、書籍の構成・演出は該当する場合だけ補助資料を参照する。
 
 ## Skill 一覧
 
-- **[`japanese-tech-writing`](./japanese-tech-writing/SKILL.md)** — 日本語の技術文書・書籍原稿の文章規範。
+- **[`japanese-tech-writing`](./japanese-tech-writing/SKILL.md)** — 日本語の技術文書・PRD・Design Doc・書籍の共通文章規範。書籍の構成・演出は必要時だけ参照する。
   - Use when: 技術書・記事の執筆、草稿の推敲、日本語技術文書の構成レビュー
   - Type: `model-invoked`
