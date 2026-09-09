@@ -9,7 +9,7 @@ Issue はこのリポジトリの GitHub Issues で管理する。
 
 ## task 作成
 
-- `task-breakdown` は task 分解案を提示し、ユーザー確認後に `gh issue create` を実行する。
+- `task-breakdown` は task 分解案を提示し、作成先と内容の許可がある場合に `gh issue create` を実行する。
 - Issue は共有する作業範囲として書き、個別実装の plan は含めない。
 - PRD / Design Doc / ADR が関係する場合は、issue body に参照 link と task の境界に必要な要約を含める。
 - 担当者は issue を取得した後、`create-plan <issue>` で一時 plan を作る。
