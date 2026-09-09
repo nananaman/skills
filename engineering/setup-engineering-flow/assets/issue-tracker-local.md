@@ -50,5 +50,5 @@ NNNN-short-kebab-title.md
 
 PRD / Design Doc / ADR から issue を作る場合でも、issue 番号に feature ID を埋め込まない。
 永続文書との関係は issue 本文の `参照` に link として書く。
-`task-breakdown` は分解案の確認後に issue file を作り、`SEQUENCE` を更新する。
+`task-breakdown` は作成先と内容の許可がある場合に issue file を作り、`SEQUENCE` を更新する。
 Issue は共有する作業範囲として書き、個別実装の plan は含めない。

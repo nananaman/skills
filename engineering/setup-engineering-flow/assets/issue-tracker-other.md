@@ -17,5 +17,5 @@ Issue tracker 種別: other
 ## エージェントのルール
 
 この tracker が設定されている場合、`task-breakdown` と `create-plan` は GitHub Issue やローカル Markdown の挙動を仮定しない。
-`task-breakdown` は分解案を提示し、ユーザー確認後だけ上記の手順に従ってタスクを作成する。
+`task-breakdown` は分解案を提示し、作成先と内容の許可がある場合に上記の手順に従ってタスクを作成する。
 既存成果物の変更やタスク作成を超える不可逆な tracker 操作の前にはユーザー確認を取る。
