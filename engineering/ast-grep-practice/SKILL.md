@@ -1,6 +1,6 @@
 ---
 name: ast-grep-practice
-description: ast-grep を project-local な構造 lint / rewrite として導入・運用する。既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンドを作るとき、または kind 名・rule 例を調べるときに使う。単なる grep、既存 linter 設定で足りる規約、global rule catalog 作成、commit / push / APM pin / install だけの依頼では使わない。
+description: コーディングガイドの具体的な規則を、既存検査では不十分な場合にproject-localな構造lintへ落とす。ast-grepのrule・分類テスト・rewriteの作成や、kind・rule例の調査にも使う。通常の規範レビューや既存linter設定だけで足りる依頼には使わない。
 ---
 
 # ast-grep の実践
@@ -10,7 +10,7 @@ ast-grep を「project-local な構造 lint / rewrite」として扱う。
 
 ## 基本方針
 
-- 既存 linter / formatter / type checker で表現できるなら、そちらを優先する。
+- 既存 linter / formatter / type checker や単純な文字列検査で十分なら、そちらを使い、ast-grepへ二重実装しない。
 - ast-grep は「構造パターン」「project 固有の禁止 API」「安全な機械 rewrite」「既存 linter で表現しにくい文脈条件」に使う。
 - rule 本体は原則として対象 repository に置く。global rule catalog は作らない。
 - dotfiles の global `ast-grep` は開発者用 CLI として扱う。CI / repo scripts は対象 repository の既存 toolchain に合わせる。
@@ -43,9 +43,9 @@ testConfigs:
 ## 手順
 
 1. ルール化する対象を確認する。
-   - 禁止したいコード、許可したいコード、対象言語、対象パスを明確にする。
-   - 既存 linter で表現できるかを先に確認する。
-   - 表現できるなら ast-grep rule ではなく既存 linter 設定を提案する。
+   - ガイドや合意を根拠に意図、禁止したいコード、似ているが許可したいコード、対象言語・パス、例外を明確にする。
+   - 規範のうち構造で判定できる範囲を選ぶ。import aliasや同名の別オブジェクトなど、名前一致だけでは識別できないケースを確認し、型解決・実行時状態・意味判断まで保証しない。
+   - 既存検査で十分なら、依頼範囲に応じてその設定を提案・変更して終える。意味判断のみなら検査の限界を説明し、ガイドやレビューで扱う。以降はast-grepを採用する場合に進む。
 2. 既存基盤を調べる。
    - `sgconfig.yml` / `sgconfig.yaml`、`rules/`、`rule-tests/`、CI、package manager、task runner、dev shell などを確認する。
    - 既存の配置・コマンド・命名に合わせる。
@@ -55,10 +55,11 @@ testConfigs:
 4. rule を書く。
    - `rules/<rule-id>.yml` に `id`、`language`、`severity`、`rule`、`message` を置く。
    - 対象範囲が限定されるなら `files` / `ignores` を明示する。
-   - 必要なら `note` に背景と手動修正手順を書く。
+   - 必要なら `note` に背景と手動修正手順を書く。ガイドがある場合はそこからruleを参照し、message / noteからガイドの理由を辿れるようにする。ガイドは意図・適用範囲・例外、ruleは詳細な検査条件を持ち、条件一覧を二重管理しない。矛盾があれば合意に照らして揃える。
 5. 検証する。
    - 分類テスト: `ast-grep test --skip-snapshot-tests`
    - scan: `ast-grep scan` または `ast-grep scan --error`
+   - `files` / `ignores` による適用範囲は、対象パスと除外パスにfixtureを置いてscanでも確かめる。snippetの分類テストだけではパスの制限を検証できない。
    - 失敗したら rule と test のどちらが間違っているかを切り分ける。
 6. snapshot は人間レビュー用に扱う。
    - 初回または rule 挙動を固定したい場合だけ `ast-grep test -U` を提案する。
@@ -125,18 +126,19 @@ ast-grep run --pattern '<code>' --lang <language> --debug-query=ast
 ast-grep run --pattern '<code>' --lang <language> --debug-query=cst
 ```
 
-## retrospective-codify から受け取る場合
+## ガイドからの直接依頼・振り返りからの引き渡し
 
-`retrospective-codify` が「機械検出可能」と分類した知見を受け取ったら、次を確認する。
+規範を検査にする直接依頼は、このskillだけで進められる。
+`retrospective-codify` から受け取る場合は、意図・具体例・適用範囲・既存検査の調査結果と、採用済みの変更範囲を再利用し、不足だけを調べる。
 
-- 対象 repo に ast-grep 基盤があるか。
-- 禁止・許可したい concrete code example があるか。
-- 既存 linter で代替できない理由があるか。
-- rule draft と test draft までで止めるのか、実装・検証まで行うのか。
+意味や設計の判断が必要な部分はガイドとレビューへ残す。たとえば時刻取得の直接呼び出しを検出しても、テストの時刻非依存全体を保証したことにはしない。
 
-基盤がない repo でも導入が採用済みなら `sgconfig.yml` を含む最小構成を実装する。採用されていなければ導入案と最小 diff の提示までに留める。
+基盤がないrepoでも導入が採用済みなら、必要な最小設定とrule・テストを実装する。提案のみなら具体案を示し、配備しない。CI組み込みや既存違反の一括修正は依頼範囲で判断する。
+規範から検査への対応例が必要なら [ガイドの規則を構造lintにする例](references/examples.md#ガイドの規則を構造lintにする) を読む。
 
 ## 完了条件
+
+別の検査手段やレビューへ振り分けた場合は、選んだ理由と依頼範囲での結果を報告する。以下はast-grepを採用した場合に確認する。
 
 - 既存 linter ではなく ast-grep を使う理由が説明されている。
 - draft だけで止める場合は、`rules/*.yml` と `rule-tests/*-test.yml` の案、未実行の検証コマンド、次に確認すべき点を報告している。

@@ -96,8 +96,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`nono-sandbox-maintenance`](./engineering/nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
   - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認
   - Type: `model-invoked`
-- **[`ast-grep-practice`](./engineering/ast-grep-practice/SKILL.md)** — ast-grep を project-local な構造 lint / rewrite として運用する。
-  - Use when: 既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンド、kind 名・rule 例の確認
+- **[`ast-grep-practice`](./engineering/ast-grep-practice/SKILL.md)** — コーディング規範を ast-grep の project-local な構造 lint にし、rule / rewrite を運用する。
+  - Use when: ガイドの規則の機械検査、既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンド、kind 名・rule 例の確認
   - Type: `model-invoked`
 - **[`tdd`](./engineering/tdd/SKILL.md)** — Red → Green → Refactor を public contract 単位で実行する。
   - Use when: 実行コードのロジック・状態遷移・データ変換・API・型・schemaの処理規則の変更、または明示的なTDD依頼

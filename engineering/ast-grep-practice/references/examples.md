@@ -4,6 +4,68 @@
 そのまま catalog として配布するためのものではない。
 対象 repository に移すときは、既存 linter で代替できない理由、`files` / `ignores`、severity、message を調整する。
 
+## ガイドの規則を構造lintにする
+
+以下は仮定したTypeScript projectの例であり、既存projectへの導入指示ではない。
+まず既存linterの制限構文・import規則で表現できるかを調べる。この例も既存機構で十分ならそちらを使う。ここでは対応する検査がなく、ast-grepを採用済みと仮定する。
+
+`docs/coding-guide.md` に置く説明例:
+
+> アプリ層の送信は `sendMessage` を使う。認証とエラー処理を共通化するため、低レベルの `transport.send` はwrapper内部だけで呼ぶ。
+> 対象は `src/app` のTypeScript、例外は `src/app/transport` のwrapper実装。
+> 構文検査は `rules/no-direct-transport-send.yml` を参照する。alias経由の呼び出しやwrapperの処理の正しさはレビューで確認する。
+
+`rules/no-direct-transport-send.yml`:
+
+```yaml
+id: no-direct-transport-send
+language: TypeScript
+severity: error
+files:
+  - src/app/**/*.ts
+ignores:
+  - src/app/transport/**/*.ts
+rule:
+  pattern: transport.send($$$ARGS)
+message: アプリ層の送信は sendMessage を使う。
+note: |
+  docs/coding-guide.md の送信規範を参照。認証とエラー処理を共通化する。
+  transport.send という構文を検出する。aliasや同名の別オブジェクトは識別しない。
+  wrapperへの移行は引数・戻り値の確認が必要なため、自動fixは提供しない。
+```
+
+`rule-tests/no-direct-transport-send-test.yml`:
+
+```yaml
+id: no-direct-transport-send
+valid:
+  - sendMessage(payload)
+  - transport.close()
+  - other.send(payload)
+invalid:
+  - transport.send(payload)
+  - |
+    transport.send(
+      payload,
+      options,
+    )
+```
+
+ここでvalidは「この構文検査が検出しない」の意味であり、規範全体への適合判定ではない。alias経由の送信は見逃し、同名の別オブジェクトは誤検出しうる。実projectではその可能性を確認し、必要なら構造条件を限定するか、名前解決できる既存検査へ委ねる。
+
+パスの適用は上のsnippetテストと別に、次のfixtureをscanして確認する。
+
+| ファイル | 内容 | 検出 |
+| --- | --- | --- |
+| `src/app/send.ts` | `transport.send(payload)` | する |
+| `src/app/nested/send.ts` | `transport.send(payload)` | する |
+| `src/app/send-safe.ts` | `sendMessage(payload)` | しない |
+| `src/app/transport/send.ts` | `transport.send(payload)` | しない（wrapper） |
+| `src/app/transport/nested/send.ts` | `transport.send(payload)` | しない（wrapper） |
+| `src/other/send.ts` | `transport.send(payload)` | しない（対象外） |
+
+ガイドから検査ファイル、ruleのnoteから理由を辿れるようにし、globや検出パターンの詳細はrule側で管理する。規範の意味判断まで自動化したと扱わない。
+
 ## TypeScript: `as any` を検出する
 
 ```yaml

@@ -8,7 +8,7 @@ skill lifecycle は `skill-workbench` に集約し、APM 配布運用は別 skil
 - 新しい skill を作る、構造・routing・lifecycle を改善する、skill diff / 全体レビューを行う、または skill inventory を棚卸しする → [`skill-workbench`](./skill-workbench/SKILL.md)
 - APM の参照方式、install、dotfiles 連携を扱う → [`apm-usage`](./apm-usage/SKILL.md)
 - global / project-local APM dependency を最新化する → [`update-skills`](./update-skills/SKILL.md)
-- 試行錯誤で得た知見を ast-grep rule、skill、AGENTS.md rule へ固定する → [`retrospective-codify`](./retrospective-codify/SKILL.md)
+- 試行錯誤で得た知見やコーディング規範を、既存検査・ast-grep rule・skill・AGENTS.mdへ固定する → [`retrospective-codify`](./retrospective-codify/SKILL.md)
 
 ## 典型フロー
 
