@@ -20,10 +20,8 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
 - diff / branch diff / PR diff を厳しめに見る → [`review-diff-code`](./review-diff-code/SKILL.md)
-- sandbox runtime 起因の ghost dotfiles、mount artifact、workflow scope 不足を診断する → [`sandbox-runtime`](./sandbox-runtime/SKILL.md)
 - nono の拒否を診断し、最小権限の profile patch を作成・検証する → [`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)
 - Apple `container` CLI で OCI image・container・network・volume・machine を操作する → [`apple-container`](./apple-container/SKILL.md)
-- Realtime API の音声対話で観測された症状から system prompt の技法を選び、診断・改善する → [`realtime-prompt-review`](./realtime-prompt-review/SKILL.md)
 
 ## 典型フロー
 
@@ -77,9 +75,6 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - **[`review-diff-code`](./review-diff-code/SKILL.md)** — 現在のdiff / branch diff / PR diffをrisk-based reviewerとblind Adversarialで一度評価する。
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
-- **[`sandbox-runtime`](./sandbox-runtime/SKILL.md)** — Anthropic Sandbox Runtime 起因の ghost dotfiles や mount artifact を診断する。
-  - Use when: sandbox 実行後の想定外 untracked files、read-only filesystem、workflow scope 不足、gh auth refresh 失敗の診断
-  - Type: `model-invoked`
 - **[`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
   - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認
   - Type: `model-invoked`
@@ -92,6 +87,3 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - **[`apple-container`](./apple-container/SKILL.md)** — Apple `container` CLI を実機 version に合わせて安全に操作する。
   - Use when: OCI image の build / run、registry、network・volume・machine 管理、障害調査
   - Type: `model-invoked`
-- **[`realtime-prompt-review`](./realtime-prompt-review/SKILL.md)** — Realtime API の音声対話で観測された症状から system prompt の介入を選び、診断・改善する。
-  - Use when: 意図しない言語切替、冗長・平板な発話、咳・無音・背景音への応答、発音、tool 誤選択、会話 flow・human escalation の逸脱
-  - Type: `user-invoked`
