@@ -90,9 +90,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`review-diff-code`](./engineering/review-diff-code/SKILL.md)** — 現在のdiff / branch diff / PR diffをrisk-based reviewerとblind Adversarialで一度評価する。
   - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
   - Type: `model-invoked`
-- **[`sandbox-runtime`](./engineering/sandbox-runtime/SKILL.md)** — Anthropic Sandbox Runtime 起因の ghost dotfiles や mount artifact を診断する。
-  - Use when: sandbox 実行後の想定外 untracked files、read-only filesystem、workflow scope 不足、gh auth refresh 失敗の診断
-  - Type: `model-invoked`
 - **[`nono-sandbox-maintenance`](./engineering/nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
   - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認
   - Type: `model-invoked`
@@ -105,9 +102,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`apple-container`](./engineering/apple-container/SKILL.md)** — Apple `container` CLI を実機 version に合わせて安全に操作する。
   - Use when: OCI image の build / run、registry、network・volume・machine 管理、障害調査
   - Type: `model-invoked`
-- **[`realtime-prompt-review`](./engineering/realtime-prompt-review/SKILL.md)** — Realtime API の音声対話で観測された症状から system prompt の介入を選び、診断・改善する。
-  - Use when: 意図しない言語切替、冗長・平板な発話、咳・無音・背景音への応答、発音、tool 誤選択、会話 flow・human escalation の逸脱
-  - Type: `user-invoked`
 
 ### Meta
 
@@ -142,17 +136,11 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 ### Productivity
 
 - **[`grilling`](./productivity/grilling/SKILL.md)** — 計画、設計、PRD、Design Doc、issue を一問ずつ詰める reusable discipline。
-  - Use when: 他 skill から曖昧さ、未決定、依存する判断を一つずつ解消する
+  - Use when: 計画や設計の明示的な検討依頼、他 skill からの曖昧さ・未決定・依存する判断の解消
   - Type: `model-invoked`
-- **[`grill-me`](./productivity/grill-me/SKILL.md)** — ユーザーが明示的に grill したい計画や設計を `grilling` session に渡す。
-  - Use when: plan / design の stress-test、実装前の懸念洗い出し、判断分岐の解消
-  - Type: `user-invoked`
 - **[`handoff`](./productivity/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
   - Use when: セッション引き継ぎ、長い会話の圧縮、別 agent への作業移管
   - Type: `user-invoked`
-- **[`host-artifact`](./productivity/host-artifact/SKILL.md)** — 静的成果物を workspace/name の安定 URL で publish し、Tailscale Serve または localhost から確認できるようにする。
-  - Use when: HTML、画像、静的 directory のbrowser確認、他 skill が生成した成果物の配信
-  - Type: `model-invoked`
 - **[`improve-agent-prompt`](./productivity/improve-agent-prompt/SKILL.md)** — GPT-6 Astra を基準に、agent向け指示の不要な停止・過剰手順・競合を診断・改善する。
   - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack、context 配置の改善（skill の作成・構造・振り分け・本文を含むレビューは `skill-workbench`）
   - Type: `model-invoked`
