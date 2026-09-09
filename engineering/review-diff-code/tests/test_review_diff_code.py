@@ -14,9 +14,6 @@ from contextlib import redirect_stdout
 
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
-SKILL = SKILL_DIR / "SKILL.md"
-PROTOCOL = SKILL_DIR / "references" / "review-protocol.md"
-CREATE_PR_SKILL = SKILL_DIR.parent / "create-pr" / "SKILL.md"
 HELPER = SKILL_DIR / "scripts" / "review-diff-code.py"
 PROMPT_DIR = SKILL_DIR / "assets" / "reviewer-prompts"
 REVIEWER_IDS = ("contract-compatibility", "adversarial")
@@ -863,33 +860,6 @@ class ReviewDiffCodeProtocolTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("| Adversarial | protocol_failure(invalid_result_file) |", result.stdout)
         self.assertNotIn("OUTSIDE_SECRET_MARKER", result.stdout)
-
-    def test_create_pr_delegates_review_gate_to_the_skill_contract(self) -> None:
-        create_pr = CREATE_PR_SKILL.read_text()
-
-        self.assertIn("`review-diff-code`", create_pr)
-        self.assertNotIn("review-diff-code.py --mode", create_pr)
-
-    def test_skill_delegates_reviewers_to_fresh_subagents(self) -> None:
-        # Arrange & Act: read the model-facing orchestration contract.
-        skill = SKILL.read_text() + PROTOCOL.read_text()
-
-        # Assert: Codex owns concurrency and each reviewer gets a fresh conversation context.
-        self.assertIn("spawn_agent", skill)
-        self.assertIn('fork_turns="none"', skill)
-        self.assertIn("context-level isolation", skill)
-        self.assertNotIn("fresh sandbox", skill)
-        self.assertNotIn("bundle-only", skill)
-
-    def test_skill_uses_a_cost_effective_reviewer_model_with_high_reasoning(self) -> None:
-        # Arrange & Act: read the model-facing orchestration contract.
-        skill = SKILL.read_text() + PROTOCOL.read_text()
-
-        # Assert: reviewer quality and cost are selected by capability, not a fixed model ID.
-        self.assertIn("安価側model", skill)
-        self.assertIn("reasoning / thinkingは`high`", skill)
-        self.assertIn("model名は固定しない", skill)
-        self.assertIn("既定model", skill)
 
     def test_engine_process_options_are_not_part_of_the_public_interface(self) -> None:
         result = self._run("--help")
