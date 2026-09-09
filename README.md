@@ -96,9 +96,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`nono-sandbox-maintenance`](./engineering/nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
   - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認
   - Type: `model-invoked`
-- **[`ast-grep-practice`](./engineering/ast-grep-practice/SKILL.md)** — ast-grep を project-local な構造 lint / rewrite として運用する。
-  - Use when: 既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンド、kind 名・rule 例の確認
-  - Type: `model-invoked`
 - **[`tdd`](./engineering/tdd/SKILL.md)** — Red → Green → Refactor を public contract 単位で実行する。
   - Use when: 実行コードのロジック・状態遷移・データ変換・API・型・schemaの処理規則の変更、または明示的なTDD依頼
   - Type: `model-invoked`
@@ -121,7 +118,7 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Use when: 改善案の提示、新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
   - Type: `model-invoked`
 - **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 再利用可能な知見を、既存規則の削除・限定・更新や適切な設定へ固定する。
-  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / ast-grep rule への知見固定
+  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / lint rule への知見固定
   - Type: `user-invoked`
 - **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新化する。
   - Use when: apm.yml の pin drift、local 参照先の同期漏れ、複数 skill の一括更新、source-of-truth と展開先の同期確認

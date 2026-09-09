@@ -22,7 +22,6 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - diff / branch diff / PR diff を厳しめに見る → [`review-diff-code`](./review-diff-code/SKILL.md)
 - sandbox runtime 起因の ghost dotfiles、mount artifact、workflow scope 不足を診断する → [`sandbox-runtime`](./sandbox-runtime/SKILL.md)
 - nono の拒否を診断し、最小権限の profile patch を作成・検証する → [`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)
-- ast-grep を project-local な構造 lint / rewrite として運用する → [`ast-grep-practice`](./ast-grep-practice/SKILL.md)
 - Apple `container` CLI で OCI image・container・network・volume・machine を操作する → [`apple-container`](./apple-container/SKILL.md)
 - Realtime API の音声対話で観測された症状から system prompt の技法を選び、診断・改善する → [`realtime-prompt-review`](./realtime-prompt-review/SKILL.md)
 
@@ -83,9 +82,6 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
   - Type: `model-invoked`
 - **[`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
   - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認
-  - Type: `model-invoked`
-- **[`ast-grep-practice`](./ast-grep-practice/SKILL.md)** — ast-grep を project-local な構造 lint / rewrite として運用する。
-  - Use when: 既存 linter で表現しにくい AST パターンの rule draft、rule-tests、sgconfig.yml、検証コマンド、kind 名・rule 例の確認
   - Type: `model-invoked`
 - **[`tdd`](./tdd/SKILL.md)** — Red → Green → Refactor を public contract 単位で実行する。
   - Use when: 実行コードのロジック・状態遷移・データ変換・API・型・schemaの処理規則の変更、または明示的なTDD依頼
