@@ -15,6 +15,7 @@ target: claude,agent-skills
 dependencies:
   apm:
     - nananaman/skills/meta/apm-usage#<full-sha>
+    - nananaman/skills/engineering/implement#<full-sha>
     - nananaman/skills/engineering/review-diff-code#<full-sha>
 ```
 
@@ -23,6 +24,8 @@ dependencies:
 ```sh
 apm install -g
 ```
+
+review-diff-codeはimplementの簡潔性基準も使うため、両方を導入します。
 
 個別に試す場合は、full SHA を指定して install します。
 
@@ -54,9 +57,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`prototype`](./engineering/prototype/SKILL.md)** — throwaway artifact や最小の単一 spike で設計上の問いを検証する。
   - Use when: UI・logic・HTML report・文書・diagram・可視化の比較、技術的成立性の実験
   - Type: `model-invoked`
-- **[`setup-engineering-flow`](./engineering/setup-engineering-flow/SKILL.md)** — リポジトリごとの engineering flow を初期設定する。
-  - Use when: issue tracker、PRD / Design Doc / ADR、一時 plan 配置、local markdown issue 採番、AGENTS.md / CLAUDE.md 参照 block の設定
-  - Type: `user-invoked`
 - **[`draft-prd`](./engineering/draft-prd/SKILL.md)** — 新機能・仕様変更の PRD draft を作成する。
   - Use when: 一言アイデア、メモ、会話ログ、既存 issue から PRD の仮説と TODO(polish) を置く
   - Type: `model-invoked`
@@ -78,17 +78,14 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`review-plan`](./engineering/review-plan/SKILL.md)** — 作成済みの一時実装planをリスクに応じた独立担当が評価し、局所的な修正は影響範囲を確認する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
   - Type: `model-invoked`
-- **[`implement`](./engineering/implement/SKILL.md)** — 実装を必要な検証と完成差分のレビューまで完了させる。
-  - Use when: コード、設定、テスト、schema、依存関係、agent 指示の作成または変更
-  - Type: `model-invoked`
-- **[`simplify-code`](./engineering/simplify-code/SKILL.md)** — 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する。
-  - Use when: 実装後に簡素化の必要性を判断するとき、明示的な簡素化や振る舞いを変えないリファクタリング
+- **[`implement`](./engineering/implement/SKILL.md)** — 実装・簡素化を、必要な検証と完成差分のレビューまで完了させる。
+  - Use when: コード、設定、テスト、schema、依存関係、agent指示の作成・変更、振る舞いを保つリファクタリング
   - Type: `model-invoked`
 - **[`create-pr`](./engineering/create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`
-- **[`review-diff-code`](./engineering/review-diff-code/SKILL.md)** — 現在のdiff / branch diff / PR diffをrisk-based reviewerとblind Adversarialで一度評価する。
-  - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
+- **[`review-diff-code`](./engineering/review-diff-code/SKILL.md)** — コード差分の契約・簡潔性を専門担当が評価し、blind担当が敵対的に検証する。
+  - Use when: PRレビュー、実装後の独立した不具合・過剰設計・敵対的レビュー
   - Type: `model-invoked`
 - **[`nono-sandbox-maintenance`](./engineering/nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
   - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認
@@ -125,9 +122,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
   - Type: `model-invoked`
 - **[`chouge-git`](./personal/chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
   - Use when: commit、branch、push、PR 作成・更新
-  - Type: `model-invoked`
-- **[`chouge-git-wt`](./personal/chouge-git-wt/SKILL.md)** — branch/working tree の安全確認と、必要な場合の git worktree 分離を適用する。
-  - Use when: ファイルを変更する前
   - Type: `model-invoked`
 - **[`merge-closeout`](./personal/merge-closeout/SKILL.md)** — PR マージ後の default branch 同期と retrospective を一度に行う。
   - Use when: PR マージ後の local 同期と知見の棚卸し

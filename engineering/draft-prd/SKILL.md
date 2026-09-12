@@ -1,6 +1,6 @@
 ---
 name: draft-prd
-description: 新機能・仕様変更の一言アイデア、メモ、会話ログ、既存 issue から PRD draft を作る。問題・対象ユーザー・要求と既存の判断を整理し、未決定のプロダクト案を比較できる形にする。技術設計、Design Doc 作成、issue 作成、PRD polish、実装、レビューだけの依頼では使わない。
+description: 新機能・仕様変更の問題、対象ユーザー、要求を整理し、比較・判断できるPRD草案を作る。技術設計は扱わない。
 ---
 
 # PRD 草案の作成
@@ -10,7 +10,7 @@ description: 新機能・仕様変更の一言アイデア、メモ、会話ロ�
 
 ## 入力と保存先
 
-依頼と関連文書を読み、repo-local の `docs/agents/engineering-flow.md`・`domain.md` があれば使う。
+依頼と関連文書を読み、対象repoのAGENTS.mdと関連する要求・ドメイン文書を必要に応じて使う。
 保存先は repo の規則に従い、指定がなければ `docs/prd/<short-slug>.md` とする。
 
 ## 草案の契約

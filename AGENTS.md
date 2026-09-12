@@ -6,7 +6,6 @@
 
 - `SKILL.md` は日本語で書いてよい。
 - 各 skill は APM から `nananaman/skills/<path>#<full-sha>` で参照できる形にする。
-- skill ディレクトリ名は `SKILL.md` frontmatter の `name:` と一致させる。
 - セキュリティ上公開できない内容はこのリポジトリに置かない。
 
 ## ディレクトリ分類
@@ -22,6 +21,7 @@
 
 ## skill 名
 
+命名とREADME導線は下記のinventory validatorで検査する。
 通常は skill ディレクトリ名と `SKILL.md` frontmatter の `name:` を一致させる。
 provider や product で namespace を切る場合、leaf directory は短いサービス名にしてよい。
 その場合でも `name:` は衝突を避けるため `provider-service` 形式にする。

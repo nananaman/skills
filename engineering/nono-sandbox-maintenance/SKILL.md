@@ -1,6 +1,6 @@
 ---
 name: nono-sandbox-maintenance
-description: nono sandbox 内で filesystem・network・command・子 process が拒否されて agent や開発ツールが失敗するときに、audit・denial report・why・profile diff から原因を特定し、最小権限の profile patch を作成・検証する。nono の初回導入、通常の agent 操作、SRT 固有の ghost artifact、拒否と無関係な CLI 障害には使わない。
+description: nono sandboxのアクセス拒否を診断し、必要最小限のprofile修正と検証を行う。拒否と無関係なCLI障害には使わない。
 ---
 
 # nono sandbox maintenance
@@ -16,8 +16,6 @@ nono の拒否を再現し、必要性を判定したうえで、最小 profile 
 2. 同じ profile と最小 command で再現する。
 3. sandbox 外では成功し、nono 内だけで失敗するか確認する。sandbox 外の実行が destructive、外部状態変更、credential 利用を伴う場合は実行せず、既存ログかユーザー確認を根拠にする。
 4. command が途中まで成功した場合は、外部状態を読み取り確認してから再実行・cleanup を判断する。
-
-完了条件: nono 起因である根拠、または別原因として終了する根拠が得られた。
 
 ### 2. 拒否を分類する
 
@@ -47,8 +45,6 @@ nono why --profile <profile> --host <host> --port <port>
 nono why --profile <profile> --command <command> -- <args...>
 ```
 
-完了条件: denial の対象、操作種別、根拠となったrule、または未特定理由が記録された。
-
 ### 3. 不足する権限を見つける
 
 通常は現行 profile のまま `nono run` で再現し、終了時のdenial reportを読む。
@@ -58,20 +54,11 @@ nono run --profile <profile> -- <command> <args...>
 ```
 
 対話的な denial-review では候補を保存せず終了し、Step 4で個別に判定する。
-`nono learn` は0.68.0でdeprecatedなので通常 pathでは使わない。auditやdenial reportで観測できず、legacy traceが必要な場合だけ、ユーザー承認後に限定commandへ使う。
-
-```sh
-nono learn --trace --timeout <seconds> -- <command> <args...>
-```
-
-macOSで `fs_usage` などのために `sudo` が必要なら、実行前にユーザーへ確認する。
-credential読取、公開操作、破壊的操作をdiscovery目的で追加実行しない。
-
-完了条件: 不足候補が列挙された、または再現範囲では不足なしと確認された。
+auditやdenial reportで観測できずlegacy traceが必要な場合だけ、[限定traceの手順](references/legacy-trace.md)を読む。
 
 ### 4. 候補を判定する
 
-各候補を次の順で判定する。
+各候補について次の必要性と境界を判断する。
 
 1. 依頼された正常系に必要か。
 2. より狭いpath、access mode、host、exact executable、argv ruleで表現できるか。
@@ -87,11 +74,10 @@ credential読取、公開操作、破壊的操作をdiscovery目的で追加実�
 - `profile`: 反復利用する最小権限
 - `unknown`: 根拠不足。永続変更しない
 
-完了条件: すべての候補に分類と理由が付いた。
-
 ### 5. source of truth を修正する
 
-ユーザーがprofile修正を明示している場合だけ、`profile` 候補をsource-of-truthへ反映する。`~/.config/nono/profiles` が展開先やsymlink先なら直接編集しない。修正が未承認ならpatch案を提示して停止する。
+依頼・会話内の許可が対象profileと必要な権限変更を含む場合は、`profile` 候補を正本へ反映し、検証まで進める。「直して」が権限拡大の一括許可とは限らない。追加する権限が許可範囲外なら具体的なpatch案を示し、その反映だけを保留する。
+`~/.config/nono/profiles` が展開先やsymlink先なら正本を編集する。
 
 filesystemはdirectory全体のread-writeより、read-only、単一file、製品専用state directoryを優先する。credential実値をprofile、log、reportへ書かない。
 
@@ -107,25 +93,9 @@ credentialをstdoutへ出す限定subcommandがあるなら、親networkのTLS i
 
 未分類commandを `deny` と `approve` のどちらにするかは、ユーザーの運用方針と失敗時の影響で決める。常にdefault denyとは限らない。`nono why --command` で各branchを実行せず検証できる形にする。
 
-完了条件: patchが候補と一対一に対応し、無関係な権限を含まない。
+### 6. 子プロセス固有の失敗
 
-### 6. macOS の子プロセスを扱う
-
-このbranchは、親commandが内部でFoundation `Process`、shell、absolute pathなどから子processを起動して失敗した場合だけ使う。
-
-1. 公式source、実行ログ、実機helpのいずれかで子executableとargvを確認する。
-2. PATH shimで制御できる呼出しか、absolute pathのdirect execかを分ける。
-3. `command -v`の結果が`$NONO_TOOL_SANDBOX_SHIM_DIR`配下なら、それを実体として追跡せず、source profileまたは`nono profile show`からcommand policyの`executable`を確認する。
-4. sandbox外の`command -v`、`realpath`、`file`、起動scriptの内容から、command policyの`executable`がwrapperか実binaryかを確認する。Nix packageでは`bin/<command>`が同じdirectoryの`.<command>-wrapped`などを起動する場合があるため、名前を推測せず生成物を調べる。
-5. wrapperが必須environmentを設定していなければ実binaryをpinし、設定しているなら`environment.set_vars`で再現できるか確認する。nonoが生成する標準PATH shimで到達できるcommandに同名wrapperを追加せず、追加が必要ならPATH順序の再現とpackage集合内の`bin/<command>`衝突がないことを先に確認する。
-6. package managerなどのshimがversioned実体へ解決される場合は、versioned pathをprofileへ直書きせず、pinした実体から呼出設定とsandbox許可を同時に生成できるか確認する。
-7. `allow_direct_exec_bypass` はpinしたpolicy-controlled command本体のdirect invocation用であり、親commandが起動する任意の子executableを許可するfieldではない。子processの許可へ流用しない。
-8. `unsafe_macos_seatbelt_rules` が必要なら、対象commandのchild sandbox内でexact executableだけを許可する。directory prefixや任意process execへ広げない。
-9. OS tool自身がsandbox実行を拒否する場合は権限追加を止め、sandbox外の人間向け診断へ分離する。
-
-raw Seatbelt ruleはvalidator warningを残す設計上の例外である。警告を消すためにscopeを広げない。
-
-完了条件: child execの経路、pinした実体、追加rule、またはsandbox内で対応不能な理由が明示された。
+macOSで親commandが子processを起動して失敗する場合だけ、[子プロセスの診断](references/child-processes.md)を使う。
 
 ### 7. 検証する
 
@@ -149,19 +119,10 @@ nono profile diff <base-profile> <profile>
 
 CLI versionとprofile schemaが合わない、またはhelpにないfieldを使う必要がある場合は、`nono profile schema` と実機versionを確認し、validationが通るまで永続変更を完了扱いしない。
 
-完了条件: validate、正常系、近接境界、diff check、残る制約が揃った。
+## 報告
 
-## 出力
-
-- 症状と最小再現
-- denial分類、対象、根拠
-- 候補ごとの `reject` / `temporary` / `profile` / `unknown`
-- source-of-truthのprofile diff
-- validate、正常系、allow / approve / deny境界
-- cleanup結果
-- 残るrisk、OS制約、未解決事項
-
-patchしない場合は理由と根拠を報告する。patch案だけなら `proposed / unapplied`、検証は `not run: profile修正未承認` とする。
+原因と根拠、採用した最小権限、正本の差分、実施した検証と未解決事項を報告する。
+外部状態を変えた場合は結果とcleanupも示す。patch案だけの場合は未適用と明記し、未実施の検証を成功扱いにしない。
 
 ## 安全ルール
 
@@ -174,7 +135,7 @@ patchしない場合は理由と根拠を報告する。patch案だけなら `pr
 ## 失敗時
 
 - auditにeventがなければdenial reportを使い、それでも観測不能なら限定したlegacy traceを検討する。
-- audit ledgerが `trailing characters` でparse不能なら、対象行を読み取り、複数の完全なJSON objectが改行なしで連結された場合だけ修復候補にする。対象ledgerと操作を示してユーザー承認を得た後、同じdirectoryへ既存fileを上書きしない名前でbackupし、object境界へ改行だけを戻して、境界前後のsessionを `nono audit verify <session-id>` で検証する。object欠損、曖昧な境界、chain不整合、backup失敗のいずれかがあれば自動修復せず停止する。
+- audit ledgerがparse不能なら [限定した修復条件](references/audit-repair.md) を確認する。
 - shell、wrapper、absolute path、外部daemonを別経路として扱い、単一prefix ruleで解決したと判断しない。
 - incidental denialを追加しても症状が変わらなければ撤回し、原因候補へ戻る。
 - source-of-truthが不明なら編集せず、候補pathと発見根拠を示す。

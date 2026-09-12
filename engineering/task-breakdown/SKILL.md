@@ -1,6 +1,6 @@
 ---
 name: task-breakdown
-description: Design Doc、ADR、PRD、会話上の合意、ユーザー説明を独立実行可能な task 群へ分解する。repo-local 設定がなくても分解案を作り、作成先と内容の許可がある場合に tracker へ作成する。実装 plan、コード変更、既存 issue の詳細化だけの依頼では使わない。
+description: 合意済みの要求・設計を独立実行可能なタスクへ分割し、依頼に応じてtrackerへ作成する。個別の実装計画は扱わない。
 disable-model-invocation: true
 ---
 
@@ -17,7 +17,7 @@ disable-model-invocation: true
 
 ## 作成先と成果
 
-repo-local の `docs/agents/engineering-flow.md`・`issue-tracker.md`・`domain.md` があれば使う。
+ユーザー指定、対象repoのAGENTS.md、関連する要求・設計文書から前提を確認する。
 設定がなくても分解案は作れる。tracker と命名・採番規則は依頼や既存運用から特定する。
 
 提案の依頼では task 一覧と依存関係を返す。

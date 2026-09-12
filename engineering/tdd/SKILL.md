@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: 実行コードのロジック、状態遷移、データ変換、API・型・schemaの処理規則を変更するとき、公開契約単位でRed→Green→Refactorを行う。宣言的な設定値、skill、agent指示、文書だけの変更は、ユーザーがTDDを明示した場合を除き対象外。テスト実行やCI失敗調査だけでは使わない。
+description: 実行コードの振る舞い・API・型・schemaの処理規則の変更を、公開契約単位のTDDで進める。宣言的設定・文書・skillは明示的なTDD指定時に扱う。
 ---
 
 # TDD

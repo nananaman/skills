@@ -6,7 +6,6 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 ## どの Skill を使うか
 
 - UI・logic・文書・可視化などを比較する、または単一 spike で成立性を確かめる → [`prototype`](./prototype/SKILL.md)
-- リポジトリごとの engineering flow を初期設定する → [`setup-engineering-flow`](./setup-engineering-flow/SKILL.md)
 - 新機能・仕様変更の PRD draft を作る → [`draft-prd`](./draft-prd/SKILL.md)
 - PRD を作る価値・範囲・成功条件を判断できる文書に磨く → [`polish-prd`](./polish-prd/SKILL.md)
 - 技術改善・設計変更の Design Doc draft を作る → [`draft-design-doc`](./draft-design-doc/SKILL.md)
@@ -14,8 +13,8 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - 合意済みの要求・設計を独立実行可能な task 群へ分解する → [`task-breakdown`](./task-breakdown/SKILL.md)
 - issue、task、またはユーザーの実装依頼から、grill 後に一時的な実装 plan を作る → [`create-plan`](./create-plan/SKILL.md)
 - 作成済みの実装 plan を検討漏れと不要な複雑性の観点で独立評価する → [`review-plan`](./review-plan/SKILL.md)
+- コードを簡素化する → [`implement`](./implement/SKILL.md)
 - コードや設定などの実装を、必要な検証と完成差分のレビューまで完了する → [`implement`](./implement/SKILL.md)
-- 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する → [`simplify-code`](./simplify-code/SKILL.md)
 - 実行コードのロジック・状態遷移・データ変換・処理規則の変更を TDD で進める → [`tdd`](./tdd/SKILL.md)
 - テストの命名・構造・assertion・mock/fake を整える → [`test-writing-style`](./test-writing-style/SKILL.md)
 - 現在の branch から draft PR を作る → [`create-pr`](./create-pr/SKILL.md)
@@ -23,25 +22,20 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - nono の拒否を診断し、最小権限の profile patch を作成・検証する → [`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)
 - Apple `container` CLI で OCI image・container・network・volume・machine を操作する → [`apple-container`](./apple-container/SKILL.md)
 
-## 典型フロー
+## 作業の進め方
 
-1. 継続運用の規則が必要なら `setup-engineering-flow` で issue tracker、PRD、Design Doc / ADR、一時 plan の配置を記録する。`task-breakdown` の分解案と `create-plan` は設定なしでも作成できる。tracker への書き込みには作成先と方法を確定する。
-2. 新機能・仕様変更は `draft-prd` → `polish-prd` で要求を固める。
-3. 技術改善・設計変更、または PRD 実現に設計判断が必要な変更は `draft-design-doc` → `polish-design-doc` で設計を固める。
-4. 合意済みの要求・設計は `task-breakdown` で独立実行可能な issue 群へ分ける。
-5. issue、task、またはユーザーの実装依頼を受けたら `create-plan` で grill と調査を行い、untracked の一時 plan を作る。`create-plan`は完了前に`review-plan`を自動実行し、検討漏れと不要な複雑性のblockerを解消する。
-6. コード、設定、テスト、schema、依存関係、agent 指示の実装には`implement`を使い、必要な専門 skill を使い、検証と完成差分のレビューまで完了する。
-7. レビュー後、plan 原文を commit body に保存して plan file を削除する。
-8. `create-pr` で diff・commit・テスト状況と折りたたんだ plan を含む draft PR を作る。
+依頼された成果に応じてskillを選ぶ。通常の実装・簡素化は `implement` が探索、変更、検証、レビュー、指摘修正まで進める。
+意味のあるコード差分は `review-diff-code` の専門担当が契約と簡潔性を確認し、blind担当が敵対的に検証する。
+
+要求・設計を文書化する依頼ではdraft/polish、タスク分割ではtask-breakdown、個別の計画作成ではcreate-planを使う。
+これらをすべての実装に前置しない。計画作成を依頼された場合は独立したreview-planまで完了する。
+PR作成の依頼ではcreate-prを使い、完成差分と検証結果に基づくdraft PRを作る。
 
 ## Skill 一覧
 
 - **[`prototype`](./prototype/SKILL.md)** — throwaway artifact や最小の単一 spike で設計上の問いを検証する。
   - Use when: UI・logic・HTML report・文書・diagram・可視化の比較、技術的成立性の実験
   - Type: `model-invoked`
-- **[`setup-engineering-flow`](./setup-engineering-flow/SKILL.md)** — リポジトリごとの engineering flow を初期設定する。
-  - Use when: issue tracker、PRD / Design Doc / ADR、一時 plan 配置、local markdown issue 採番、AGENTS.md / CLAUDE.md 参照 block の設定
-  - Type: `user-invoked`
 - **[`draft-prd`](./draft-prd/SKILL.md)** — 新機能・仕様変更の PRD draft を作成する。
   - Use when: 一言アイデア、メモ、会話ログ、既存 issue から PRD の仮説と TODO(polish) を置く
   - Type: `model-invoked`
@@ -63,17 +57,14 @@ PRD、Design Doc、独立実行可能な task、実装用 plan、実装、TDD、
 - **[`review-plan`](./review-plan/SKILL.md)** — 作成済みの一時実装planをリスクに応じた独立担当が評価し、局所的な修正は影響範囲を確認する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
   - Type: `model-invoked`
-- **[`implement`](./implement/SKILL.md)** — 実装を必要な検証と完成差分のレビューまで完了させる。
-  - Use when: コード、設定、テスト、schema、依存関係、agent 指示の作成または変更
-  - Type: `model-invoked`
-- **[`simplify-code`](./simplify-code/SKILL.md)** — 今回の作業に属し、検証に成功したコード差分を、必要な場合だけ振る舞いを保ったまま簡素化する。
-  - Use when: 実装後に簡素化の必要性を判断するとき、明示的な簡素化や振る舞いを変えないリファクタリング
+- **[`implement`](./implement/SKILL.md)** — 実装・簡素化を、必要な検証と完成差分のレビューまで完了させる。
+  - Use when: コード、設定、テスト、schema、依存関係、agent指示の作成・変更、振る舞いを保つリファクタリング
   - Type: `model-invoked`
 - **[`create-pr`](./create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`
-- **[`review-diff-code`](./review-diff-code/SKILL.md)** — 現在のdiff / branch diff / PR diffをrisk-based reviewerとblind Adversarialで一度評価する。
-  - Use when: PR 前レビュー、実装後セルフレビュー、別モデルレビュー、adversarial review
+- **[`review-diff-code`](./review-diff-code/SKILL.md)** — コード差分の契約・簡潔性を専門担当が評価し、blind担当が敵対的に検証する。
+  - Use when: PRレビュー、実装後の独立した不具合・過剰設計・敵対的レビュー
   - Type: `model-invoked`
 - **[`nono-sandbox-maintenance`](./nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
   - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認

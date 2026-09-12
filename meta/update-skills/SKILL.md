@@ -1,6 +1,6 @@
 ---
 name: update-skills
-description: グローバルまたはプロジェクト単位の APM skill 依存関係を最新化し、必要に応じて apm install を実行する。apm.yml の pin のずれ、ローカル参照先の同期漏れ、複数 skill の一括更新、正本のリポジトリと展開先の同期確認で使う。単一 skill の作成、本文編集、品質レビュー、通常の npm / Nix 依存更新では使わない。
+description: APMのskill依存を最新化し、manifest・正本・展開先を同期する。本文の改善や通常のpackage更新には使わない。
 disable-model-invocation: true
 ---
 

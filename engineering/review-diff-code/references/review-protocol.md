@@ -29,12 +29,20 @@ helperが固定Adversarialを追加するため、`reviewers`へAdversarialを�
 ```
 
 `expertise`は再利用可能な専門領域、`mission`は所有するfailure class、`focus`は今回優先するhotspot、`reason`は選定根拠とする。
-主要failure domainが一つなら1人、独立した主要domainがあるなら2人を選ぶ。
+主要failure domainが一つなら1人、独立した主要domainがあるなら2人を選ぶ。全専門担当は領域別のmissionに加えて簡潔性を評価する。
 万能roleや単一のyes/no質問は避ける。
 
 `excluded_context_paths`にはplan、issue、Design Docなど実装意図を含むrepository-relative pathだけを指定する。
 helperはAdversarialのGit commandと変更path inventoryの両方からこれらを除外し、reviewerもこれらを読まない。
 これはcontext-level isolationであり、filesystem access controlではない。
+
+## 共通の簡潔性基準
+
+専門担当にはimplementの `references/simplicity.md` を渡す。
+利用可能なskill一覧にあるimplementの実体から解決する。一覧にない場合は、展開先の兄弟 `implement/references/simplicity.md` または正本の同じengineering category内を調べる。
+存在を確認した絶対パスを専門担当へのtask入力に添える。生成prompt自体は編集しない。
+この資料は一般的な判断基準のみを含む。個別の期待回答や実装者の説明は追加しない。
+取得できなければ必要な簡潔性評価は未実施として報告し、cleanにしない。
 
 ## 実行手順
 
@@ -47,7 +55,7 @@ helperはAdversarialのGit commandと変更path inventoryの両方からこれ�
 5. 各reviewerを`spawn_agent`の`fork_turns="none"`で並列起動する。
    専門担当とAdversarialの双方で、`model="gpt-5.6-luna"`、`reasoning_effort="max"`を既定とする。ユーザーがmodelや推論強度を指定した場合は、その指定を優先する。明示指定が非対応なら、別設定への変更が許可されていない限り未評価として理由を報告する。
    ユーザー指定がなく、実行環境で既定のLuna maxを選択できない場合は、環境の既定model・推論強度でreviewを続け、leadがfallbackを最終ledgerに記載する。非対応のmodel IDや強度は推測して渡さない。会話履歴を分離できなければ、自己reviewで独立評価を代替せず未評価として報告する。
-   自分のprompt fileだけをtask inputにし、helperが安全にquoteした`git -C <fixed-repository>` commandで固定targetとrepositoryをread-onlyで調査して、指定result fileへ結果だけを書く。
+   自分のprompt fileと、専門担当には上記の簡潔性基準をtask inputにし、helperが安全にquoteした`git -C <fixed-repository>` commandで固定targetとrepositoryをread-onlyで調査して、指定result fileへ結果だけを書く。
    必要な外部contractは公式一次資料を参照できる。
    file変更、Git状態変更、build、lint、test、nested agent、他reviewerとの通信は禁止する。
 6. `collect`を実行する。

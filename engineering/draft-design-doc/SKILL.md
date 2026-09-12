@@ -1,6 +1,6 @@
 ---
 name: draft-design-doc
-description: 技術改善・設計変更、または PRD 後に必要な大きい変更について Design Doc draft を作る。問題・制約と既存の設計判断を整理し、未決定の案を比較できる形にする。PRD 作成、Design Doc polish、issue 作成、実装、レビューだけの依頼では使わない。
+description: 技術改善・設計変更の問題と制約、候補を整理し、Design Doc草案を作る。PRD作成や実装計画は扱わない。
 ---
 
 # Design Doc 草案の作成
@@ -10,7 +10,7 @@ PRD の要求を実現する設計ではその PRD を読み、技術改善か�
 
 ## 入力と保存先
 
-依頼、関連コード・設計文書を読み、repo-local の `docs/agents/engineering-flow.md`・`domain.md` があれば使う。
+依頼、関連コード・設計文書を読み、対象repoのAGENTS.mdと関連する要求・ドメイン文書を必要に応じて使う。
 保存先は repo の規則に従い、指定がなければ `docs/design/<short-slug>.md` とする。
 
 ## 草案の契約

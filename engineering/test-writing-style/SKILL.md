@@ -1,6 +1,6 @@
 ---
 name: test-writing-style
-description: テストを追加・修正・レビューするとき、命名、Arrange / Act / Assert、ケースの分離、fixtureやmockの使い方を既存スタイルへ揃える。テスト追加の要否や検証範囲の決定、単なるテスト実行、CI失敗調査、runner導入だけの依頼では使わない。
+description: テストの追加・修正・レビューで、命名、Arrange/Act/Assert、fixtureやmockを既存スタイルと公開契約に合わせる。単なるテスト実行には使わない。
 ---
 
 # テストの記述規範
