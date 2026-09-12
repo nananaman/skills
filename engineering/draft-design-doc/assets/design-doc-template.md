@@ -38,21 +38,23 @@
 
 <!-- TODO(polish): 採用案の欠点、誤用しやすい箇所、境界条件、拡張上の限界を書く。 -->
 
+<!-- 以下の影響項目は関係するものを残す。非該当の判断が重要な場合だけ理由を書く。それ以外の空の節は除く。 -->
+
 ## セキュリティ
 
-<!-- TODO(polish): 採用案の trust boundary、認証・認可、入力、secret への影響と対策を書く。該当しなければ理由を書く。 -->
+<!-- TODO(polish): 採用案の trust boundary、認証・認可、入力、secret への影響と対策を書く。 -->
 
 ## プライバシー
 
-<!-- TODO(polish): 採用案の個人情報、識別子、log、外部送信への影響を書く。該当しなければ理由を書く。 -->
+<!-- TODO(polish): 採用案の個人情報、識別子、log、外部送信への影響を書く。 -->
 
 ## 負荷・コスト
 
-<!-- TODO(polish): 採用案の request、query、外部 API、storage、計算量、infra cost への影響を書く。該当しなければ理由を書く。 -->
+<!-- TODO(polish): 採用案の request、query、外部 API、storage、計算量、infra cost への影響を書く。 -->
 
 ## 信頼性
 
-<!-- TODO(polish): 採用案の failure、retry、idempotency、rollback、data loss、監視への影響を書く。該当しなければ理由を書く。 -->
+<!-- TODO(polish): 採用案の failure、retry、idempotency、rollback、data loss、監視への影響を書く。 -->
 
 ## 開発・運用への影響
 

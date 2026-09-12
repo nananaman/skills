@@ -1,6 +1,6 @@
 ---
 name: polish-prd
-description: PRD draft を、作る価値・範囲・成功条件を人間が判断できる PRD に磨く。未決定の要求と TODO(polish) を解消する。技術設計、Design Doc 作成、issue 作成、実装、レビューだけの依頼では使わない。
+description: PRD草案の未決定要求を解消し、価値・範囲・成功条件を判断できる文書に仕上げる。
 ---
 
 # PRD の仕上げ

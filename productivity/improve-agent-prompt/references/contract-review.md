@@ -1,7 +1,8 @@
 # Astra 向けの指示レビュー
 
 GPT-6 Astra の [公式ガイド](https://developers.openai.com/api/docs/guides/latest-model#prompting-best-practices) を根拠にした判断材料（2026-09-08確認）。
-公式ガイドが述べるモデル傾向と、以下のローカルな改善方針を区別する。対象固有の効果は変更前後の評価で確かめる。
+[skillsとpromptの見直しに関する記事](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)（2026-09-12確認）は、起動条件の精度、条件付きの参照、固定手順と停止条件の見直しを勧める。
+公式資料が述べるモデル傾向と、以下のローカルな改善方針を区別する。対象固有の効果は変更前後の評価で確かめる。
 
 ## モデル傾向と見直す指示
 

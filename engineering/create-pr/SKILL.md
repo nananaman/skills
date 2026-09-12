@@ -23,24 +23,9 @@ repository の PR template を優先し、なければ概要・変更内容・�
 UI 変更には、対象画面の変更後を撮影して目視確認した screenshot または video を添付する。
 repository 内の成果物を参照する場合は base または今回の差分に存在するものを使う。
 
-### 実装計画の転記
-
-commit 本文に `Implementation-Plan:` と `End-Implementation-Plan` がある場合、その間の原文を次の形式で転記する。
-
-```html
-<details>
-<summary>Implementation plan</summary>
-
-<plan 原文>
-
-</details>
-```
-
-marker が不完全・空・曖昧なら、plan を推測せず公開を保留する。
-
 ## 作成と確認
 
 本文を一時ファイルに保存し、必要な push 後に `gh pr create --draft --base <base> --head <branch> --title <title> --body-file <file>` で作成する。
 ready の明示依頼がある場合だけ `--draft` を外す。既存 PR は `gh pr edit` で更新する。
-GitHub 上の本文と draft 状態を取得して確かめ、plan がある場合は原文と折りたたみの保存も確認する。
+GitHub 上の本文と draft 状態を取得して確かめる。
 PR URL、主要な変更、検証結果を報告する。

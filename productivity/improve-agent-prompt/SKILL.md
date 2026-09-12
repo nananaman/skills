@@ -1,6 +1,6 @@
 ---
 name: improve-agent-prompt
-description: system prompt、AGENTS.md、tool の説明、skill 本文などの agent 向け指示を診断・改善する。GPT-6 Astra を基準に、不要な停止、過剰な手順・検証、重複、指示の競合を直す。skill の構造・振り分け・横断レビューは skill-workbench、API や model ID の移行、実行型評価だけの依頼は対象外。
+description: AGENTS.mdやsystem prompt、tool・skillの指示を診断・改善する。不要な停止・手順・競合を扱い、skillの構造や横断監査はskill-workbenchと分担する。
 ---
 
 # Agent 向け指示の改善

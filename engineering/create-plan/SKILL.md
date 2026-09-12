@@ -1,6 +1,6 @@
 ---
 name: create-plan
-description: issue、タスク、またはユーザーの実装依頼から、要求とコードに基づく一時計画を作成し、独立レビューで実装可能かを確認する。リポジトリ固有の engineering-flow 設定の有無を問わず使える。通常実装、永続 Design Doc、タスク分解、実装済み差分のレビューだけの依頼では使わない。
+description: 依頼・issueから、調査と独立レビューを伴う一時的な実装計画を作る。計画作成の依頼に使い、通常実装や永続Design Docには使わない。
 disable-model-invocation: true
 ---
 
@@ -11,7 +11,7 @@ issue・task・ユーザー説明から、別セッションの担当が実装�
 ## 判断と根拠
 
 関連する要求・設計文書・コードを調べ、目標、制約、変更境界、検証方法を確定する。
-repo-local の `docs/agents/engineering-flow.md`・`issue-tracker.md`・`domain.md` があれば使う。
+ユーザー指定、対象repoのAGENTS.md、関連する設計・issueから前提と保存先を確認する。専用のフロー設定は前提にしない。
 調査で解けない判断は `grilling` で一問ずつ確認する。
 技術的成立性の判断に必要なら試作し、下記のライフサイクルに従う。
 
@@ -54,18 +54,8 @@ repo-local の `docs/agents/engineering-flow.md`・`issue-tracker.md`・`domain.
 計画の場所、重要な判断、実装に進めるかを報告する。満たせない条件は未完了として示す。
 計画作成の依頼だけでは正式な実装・tracker 更新・commit・push に進まない。
 
-## 計画のライフサイクル
+## 計画の保持
 
-- 計画ファイルは作業中だけ存在する未追跡ファイルであり、一度も commit しない。
-- 実装、検証、レビュー、修正が終わるまでは計画を保持する。
-- 通常は完成した変更を最初の実装 commit としてまとめる。
-- commit 時は計画の原文を commit body の固定 marker 内へ取り込み、その後に計画ファイルを削除する。
-- 途中 commit が必要な場合は、最初の commit body に計画を取り込むが、ファイルは実装完了まで保持し、最後の commit 前に削除する。
-
-```text
-Implementation-Plan:
-
-<plan 原文>
-
-End-Implementation-Plan
-```
+計画は実装・検証・指摘修正が終わるまで保持する。
+ユーザーが追跡を依頼しない限り commit せず、自動削除もしない。
+永続的に残す判断が必要なら、依頼された成果物へ必要な内容を記録する。

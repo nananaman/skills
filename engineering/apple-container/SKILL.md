@@ -1,6 +1,6 @@
 ---
 name: apple-container
-description: Apple の container CLI 1.1.x で OCI image、container、network、volume、machine、system を操作・診断するときに使う。Docker / Podman 固有の Compose、第三者製 container-compose、Kubernetes、Swift Containerization API、container 本体の開発には使わない。
+description: Appleのcontainer CLIでコンテナ・image・network等を操作・診断する。Docker/PodmanやComposeの操作には使わない。
 ---
 
 Apple 公式 `container` CLI 1.1.x の操作マニュアル。依頼内容に対応する reference を読んで、具体的なコマンドと option を選ぶ。

@@ -1,6 +1,6 @@
 ---
 name: skill-workbench
-description: agent skill の作成・改善、差分・全体レビュー、一覧の監査を扱う。構造や振り分けに加え、本文の不要な停止・承認・検証、重複、過剰な手順を評価する。system prompt や AGENTS.md などを含むprompt改善は improve-agent-prompt を使う。
+description: skillを作成・改善し、起動条件・参照構造・本文の制約をレビューする。複数skillの連鎖も監査し、AGENTS.md等の改善はimprove-agent-promptと分担する。
 ---
 
 # Skill の作成・改善とレビュー
