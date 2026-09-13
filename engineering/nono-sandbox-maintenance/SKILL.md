@@ -19,7 +19,7 @@ nono の拒否を再現し、必要性を判定したうえで、最小 profile 
 
 ### 2. 拒否を分類する
 
-直近 session と解決後 profile を確認する。
+直近 session と再現に使用した profile を確認する。
 
 ```sh
 nono audit list
