@@ -1,0 +1,5 @@
+{
+  "parents": [],
+  "hypothesis": "固定のレビュー手順を外すと、小変更を必要な検証だけで完了できる",
+  "strategy": "minimal-procedure"
+}

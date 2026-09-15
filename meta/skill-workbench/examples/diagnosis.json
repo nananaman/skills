@@ -1,0 +1,10 @@
+{
+  "hypothesis": "単発の成功からの一般化が過剰な固定手順を作る",
+  "scope": "根拠が一回の実行に限られる振り返り",
+  "status": "active",
+  "support": ["REPLACE_WITH_GRADED_TRAIN_RUN_ID"],
+  "counterevidence": [],
+  "directions": [
+    {"operation": "replace", "layer": "body", "path": "SKILL.md", "reason": "規則への即時固定を、事例と仮説の抽出・検証へ変更する"}
+  ]
+}

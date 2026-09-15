@@ -105,11 +105,11 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`
-- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — agent skill の作成・改善と、本文の過剰制約・振り分け・参照連鎖のレビュー・監査を扱う。
-  - Use when: 改善案の提示、新規 skill 作成、構造・routing・lifecycle 改善、skill diff / 全体レビュー、skill inventory audit
+- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — skill・AGENTS.md・tool 指示を、実行結果に基づく更新と候補比較・構造探索で改善する。
+  - Use when: skill 作成・改善、評価・診断・候補比較、統合・廃止、指示のレビュー・監査
   - Type: `model-invoked`
-- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 再利用可能な知見を、既存規則の削除・限定・更新や適切な設定へ固定する。
-  - Use when: 明示的な retrospective / codify 依頼、skill / AGENTS.md / lint rule への知見固定
+- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 実務の経験を事例・証拠・更新仮説へ整理し、評価改善へ渡す。
+  - Use when: 明示的な retrospective / codify 依頼、事例・仮説の抽出、採用済み要求の反映
   - Type: `user-invoked`
 - **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新化する。
   - Use when: apm.yml の pin drift、local 参照先の同期漏れ、複数 skill の一括更新、source-of-truth と展開先の同期確認
@@ -135,9 +135,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`handoff`](./productivity/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
   - Use when: セッション引き継ぎ、長い会話の圧縮、別 agent への作業移管
   - Type: `user-invoked`
-- **[`improve-agent-prompt`](./productivity/improve-agent-prompt/SKILL.md)** — GPT-6 Astra を基準に、agent向け指示の不要な停止・過剰手順・競合を診断・改善する。
-  - Use when: system prompt、agent instructions、tool description、AGENTS.md、skill 本文の agent-facing contract、prompt stack、context 配置の改善（skill の作成・構造・振り分け・本文を含むレビューは `skill-workbench`）
-  - Type: `model-invoked`
 
 ### Sakura Cloud
 

@@ -45,4 +45,5 @@ skill inventory、frontmatter、README 導線、relative link は次で検証す
 ```sh
 python3 scripts/check-skill-inventory.py
 python3 -m unittest tests/test_check_skill_inventory.py
+python3 -m unittest tests.test_skill_workbench
 ```
