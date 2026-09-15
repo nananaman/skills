@@ -3,9 +3,9 @@
 実行結果から更新方向を作る内側のループと、候補アーカイブから構造を探索する外側のループを扱う。
 入口は [SKILL.md](SKILL.md)、実行方法は[実験データと CLI](references/experiment-contract.md)。
 
-## 設計上の判断
+## 設計方針
 
-- SkillOpt の編集予算・検証による採否と、SkillGrad の診断蓄積・層別編集を採用する。実際の微分や論文と同一の学習率スケジュールは実装しない。
+- 実行結果から原因仮説を作り、編集範囲を絞って候補を比較する。関連する過去の診断と反証を参照し、同じ追記を繰り返さない。
 - agent が診断・編集を行い、Python が候補保存、Codex 実行、採点保存、比較、診断の根拠検査を行う。モデル呼出しを内包した自動 optimizer ではない。
 - 改善を主張する前に実行比較する。比較基盤のテスト成功は、skill の有効性の証明ではない。
 - 探索用アーカイブと採用版を分ける。現行 skill の廃止・統合・コード化も探索できる。
@@ -16,9 +16,8 @@
 
 - [SkillOpt](https://arxiv.org/abs/2605.23904)：実行結果からの編集、編集量の制御、検証による更新の採否。
 - [SkillGrad](https://arxiv.org/abs/2605.27760)：診断の蓄積と、skill の層に応じた更新。
-- [DGM](https://arxiv.org/abs/2505.22954)：候補アーカイブから別の枝を探索する考え方。
-- [Anthropic skill-creator（参照版 34040c9）](https://github.com/anthropics/skills/tree/34040c9c568585f6929bedeaad110ad08f079624/skills/skill-creator)：成果物・実行記録の評価、独立した比較、評価項目への批評、人のフィードバック。実装は独自で、コードのコピーはしていない。
-- [局所最適とハーネス](https://zenn.dev/layerx/articles/b36ceffe6b5e20)、[Agent Skills 自動最適化](https://zenn.dev/layerx/articles/9f25ec86a31730)：今回の設計議論の出発点。
+- [DGM](https://arxiv.org/abs/2505.22954)：過去の候補を保存し、別の候補から探索を再開する考え方。
+- [Anthropic skill-creator](https://github.com/anthropics/skills/tree/34040c9c568585f6929bedeaad110ad08f079624/skills/skill-creator)：成果物・実行記録の評価、独立した比較、評価項目への批評、人のフィードバック。
 
 ## リポジトリでの検証
 
