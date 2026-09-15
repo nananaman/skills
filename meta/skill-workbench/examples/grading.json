@@ -1,0 +1,7 @@
+{
+  "grader": "independent evaluator; replace with model/version or human identity",
+  "checks": {
+    "evidence": {"verdict": "unknown", "evidence": "未採点。実際の成果物と記録を確認して置き換える"},
+    "scope": {"verdict": "unknown", "evidence": "未採点。実際の成果物と記録を確認して置き換える"}
+  }
+}

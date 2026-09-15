@@ -1,0 +1,6 @@
+{
+  "model": "REPLACE_WITH_MODEL_ID",
+  "reasoning": "low",
+  "context": "REPLACE_WITH_INSTRUCTION_CATALOGUE_AND_TOOL_VERSIONS",
+  "disabled_skills": []
+}

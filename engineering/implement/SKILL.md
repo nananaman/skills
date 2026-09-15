@@ -18,8 +18,7 @@ description: コード・設定・agent指示の変更や、振る舞いを保�
 
 - 実行可能な振る舞いの変更：`tdd`
 - テストの追加・変更：`test-writing-style`
-- agent skill の作成・改善：`skill-workbench`
-- agent 向け prompt の改善：`improve-agent-prompt`
+- agent skill・AGENTS.md・tool 指示の作成・改善：`skill-workbench`
 
 ## 簡素化
 
