@@ -1,6 +1,8 @@
 # 成果物のプロトタイプ
 
 HTML report、文書、diagram、可視化の構成や表現を、正式成果物を作る前に観察する。
+文書や report の読者、目的、構成、論証を検証する場合は [`chouge-writing`](../../../writing/chouge-writing/SKILL.md) の文書設計を使う。
+prototype の成果物自体は正式文書ではないため、正式成果物の完成条件や公開用の仕上げを持ち込まない。
 
 ## 作成手順
 

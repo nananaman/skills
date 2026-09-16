@@ -6,7 +6,7 @@ description: Design Doc草案の採用案・詳細設計・リスク評価を完
 # Design Doc の仕上げ
 
 Design Doc draft を、設計の採否を判断でき、task 分割に進める文書に仕上げる。
-対象は `TODO(draft)` が解消された draft とし、構造は [Design Doc template](../draft-design-doc/assets/design-doc-template.md)、文章は `japanese-tech-writing` に従う。
+対象は `TODO(draft)` が解消された draft とし、構造は [Design Doc template](../draft-design-doc/assets/design-doc-template.md)、文書設計とレビューは [`chouge-writing`](../../writing/chouge-writing/SKILL.md) に従う。
 
 ## 設計の確定
 
@@ -20,8 +20,10 @@ Design Doc draft を、設計の採否を判断でき、task 分割に進める�
 ## 完了条件
 
 - 目的、対象外、背景・制約、用語が明確である。
+- 文書の読者、用途、読者に求める判断・行動が明確である。
 - 採用案と根拠、実装判断に十分な詳細設計がある。状態を持つ設計では状態遷移を示す。
 - 既知の限界と、今回関係するセキュリティ・プライバシー・負荷やコスト・信頼性・開発運用への影響を評価している。非該当の判断が誤解や重大な見落としにつながる場合だけ理由を残す。
 - 設計の未決定事項と TODO がなく、task に分割できる。
+- `chouge-writing` の内容、構造、表現のレビューを終え、見つけた問題を修正している。
 
 条件を満たした文書を `状態: Polished` として保存し、場所・重要な判断・検証結果を報告する。未解決ならその内容を示す。
