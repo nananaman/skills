@@ -36,7 +36,7 @@ issue・task・ユーザー説明から、別セッションの担当が実装�
 
 保存先は repo の設定に従い、なければ `plans/<task-id>-<short-slug>.md` とする。task ID がなければ省く。
 既存の同一 task の計画は再開・置換の意図を確認する。
-計画は Git に無視・追跡されない未追跡ファイルとして保持し、`git check-ignore --no-index`、`git ls-files`、`git status --short` で確かめる。
+計画は Git に無視されず、追跡もされない一時ファイルとして保持する。`git check-ignore --no-index` と `git ls-files` がパスを返さず、`git status --short` だけが `??` として示すことを確かめる。
 
 ## プロトタイプのライフサイクル
 
