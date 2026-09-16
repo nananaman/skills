@@ -6,7 +6,7 @@ description: PRD draft を、作る価値・範囲・成功条件を人間が判
 # PRD の仕上げ
 
 PRD draft を、作る価値・範囲・成功条件を判断できる文書に仕上げる。
-対象は `TODO(draft)` が解消された draft とし、構造は [PRD template](../draft-prd/assets/prd-template.md)、文章は `japanese-tech-writing` に従う。
+対象は `TODO(draft)` が解消された draft とし、構造は [PRD template](../draft-prd/assets/prd-template.md)、文書設計とレビューは [`chouge-writing`](../../writing/chouge-writing/SKILL.md) に従う。
 
 ## 要求の確定
 
@@ -18,7 +18,9 @@ PRD draft を、作る価値・範囲・成功条件を判断できる文書に�
 ## 完了条件
 
 - 対象ユーザー、問題、提供価値、作るもの、やらないことが具体的である。
+- 文書の読者、用途、読者に求める判断・行動が明確である。
 - 成功条件と受け入れ条件が観測・判断できる。
 - 採用判断と根拠が本文に反映され、要求の未決定事項と TODO が残っていない。
+- `chouge-writing` の内容、構造、表現のレビューを終え、見つけた問題を修正している。
 
 条件を満たした文書を `状態: Polished` として保存し、場所と重要な判断を報告する。未解決ならその内容を示す。

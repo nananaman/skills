@@ -159,8 +159,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Writing
 
-- **[`japanese-tech-writing`](./writing/japanese-tech-writing/SKILL.md)** — 日本語の技術文書・PRD・Design Doc・書籍の共通文章規範。書籍の構成・演出は必要時だけ参照する。
-  - Use when: 技術書・記事の執筆、草稿の推敲、日本語技術文書の構成レビュー
+- **[`chouge-writing`](./writing/chouge-writing/SKILL.md)** — 文書の読者・目的・構成を設計し、根拠と不確実性を保って執筆・レビューする個人用 writing skill。日本語の文章規範と長文の構成も含む。
+  - Use when: 文書、記事、実験・検証報告、解説、設計・判断資料の作成・推敲・レビュー
   - Type: `model-invoked`
 
 ## 運用
