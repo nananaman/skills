@@ -150,8 +150,8 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Writing
 
-- **[`chouge-writing`](./writing/chouge-writing/SKILL.md)** — 文書の読者・目的・構成を設計し、根拠と不確実性を保って執筆・レビューする個人用 writing skill。日本語の文章規範と長文の構成も含む。
-  - Use when: 文書、記事、実験・検証報告、解説、設計・判断資料の作成・推敲・レビュー
+- **[`chouge-writing`](./writing/chouge-writing/SKILL.md)** — 文書の読者、目的、構成を設計し、根拠と不確実性を保って執筆とレビューを行う個人用 writing skill。日本語の文章規範と長文の構成も含む。
+  - Use when: 文書、記事、実験や検証の報告、解説、設計資料や判断資料の作成、推敲、レビュー
   - Type: `model-invoked`
 
 ## 運用
