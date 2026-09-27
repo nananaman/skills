@@ -25,7 +25,7 @@ description: さくらのクラウド EventBus の実行設定、スケジュー
 
 1. 既存の `ProcessConfiguration` / `Schedule` / `Trigger` を一覧取得する。
    - 再利用できる設定がないか確認する。
-2. `ProcessConfiguration` を作る。
+2. 再利用できる `ProcessConfiguration` がなければ作る。
    - 何を呼び出すかを定義する。
 3. `Schedule` または `Trigger` を作る。
    - いつ呼び出すかを定義する。
