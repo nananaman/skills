@@ -22,4 +22,4 @@ disable-model-invocation: true
 
 提案の依頼では task 一覧と依存関係を返す。
 作成の依頼では許可された tracker に作成して URL / path を報告する。内容や作成先の判断が不足する部分は案として示す。
-各 task の実装計画は `create-plan <issue>` で扱う。
+各 task の実装計画は `create-plan <issue-or-task>` で扱う。
