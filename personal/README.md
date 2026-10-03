@@ -6,14 +6,14 @@ project の明文化された規則を優先しつつ、個人のデフォルト
 ## どの Skill を使うか
 
 - commit、branch、push、PR を扱う → [`chouge-git`](./chouge-git/SKILL.md)
-- PR マージ後に default branch の同期と retrospective をまとめて行う → [`merge-closeout`](./merge-closeout/SKILL.md)
+- PR マージ後に default branch を安全に同期する → [`chouge-git`](./chouge-git/SKILL.md) の [PR完了後の手順](./chouge-git/references/pull-requests.md)
 - `CHANGES.md` がある repository で変更履歴を書く → [`chouge-changelog`](./chouge-changelog/SKILL.md)
 - release / PR / commit 内容を変更履歴向けにまとめる → [`chouge-changelog`](./chouge-changelog/SKILL.md)
 
 ## 作業の進め方
 
 Git操作・PR作成ではchouge-gitを使う。既存差分を守り、対象projectの明文化された規則を優先する。
-PRマージ後の同期と振り返りを明示依頼された場合はmerge-closeout、変更履歴の更新にはchouge-changelogを使う。
+PRマージ後のローカル同期はchouge-gitのPR完了後の手順に従う。振り返りはmetaのskill-maintenanceへ分ける。変更履歴の更新にはchouge-changelogを使う。
 
 ## Skill 一覧
 
@@ -23,6 +23,3 @@ PRマージ後の同期と振り返りを明示依頼された場合はmerge-clo
 - **[`chouge-git`](./chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
   - Use when: commit、branch、push、PR 作成・更新
   - Type: `model-invoked`
-- **[`merge-closeout`](./merge-closeout/SKILL.md)** — PR マージ後の default branch 同期と retrospective を一度に行う。
-  - Use when: PR マージ後の local 同期と知見の棚卸し
-  - Type: `user-invoked`

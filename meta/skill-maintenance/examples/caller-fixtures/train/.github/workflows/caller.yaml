@@ -1,0 +1,6 @@
+name: Synthetic caller
+on: workflow_dispatch
+jobs:
+  deploy:
+    permissions: {contents: read}
+    uses: ./.github/workflows/deploy.yaml

@@ -1,0 +1,31 @@
+{
+  "initialize": {
+    "userAgent": "synthetic-synthetic/0.160.0 (synthetic synthetic synthetic.synthetic.synthetic; synthetic) synthetic/synthetic.synthetic.synthetic (synthetic-synthetic; synthetic)",
+    "codexHome": "/synthetic/codex",
+    "platformFamily": "unix",
+    "platformOs": "macos"
+  },
+  "params": {
+    "threadId": "synthetic-task",
+    "includeTurns": false
+  },
+  "result": {
+    "thread": {
+      "id": "synthetic-task",
+      "cliVersion": "0.159.3",
+      "createdAt": 1767312000,
+      "updatedAt": 1767398400,
+      "cwd": "/synthetic/app",
+      "ephemeral": false,
+      "modelProvider": "openai",
+      "preview": "Synthetic request",
+      "projectId": null,
+      "sessionId": "synthetic-task",
+      "source": "cli",
+      "status": {
+        "type": "notLoaded"
+      },
+      "turns": []
+    }
+  }
+}

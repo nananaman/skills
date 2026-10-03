@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "example/skills",
+  "manager": "user",
+  "owner": "example",
+  "management_verified": true,
+  "information_scope": "personal:example",
+  "source_repos": ["example/app"],
+  "budget": {"max_cases": 1, "max_runs": 12}
+}

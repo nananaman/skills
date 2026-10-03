@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "protocol_version": "0.159.3",
+  "transport": "fixture",
+  "source_id": "fixture-codex-index-device",
+  "path_flavour": "posix",
+  "repos": [
+    {
+      "id": "example/app",
+      "cwd": "/fixture/app",
+      "information_scope": "personal:example"
+    }
+  ],
+  "exclude_roots": [],
+  "max_threads": 10,
+  "max_turns": 50,
+  "max_content_turns": 3,
+  "max_items": 50,
+  "fixture": "codex-protocol.json"
+}

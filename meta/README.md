@@ -9,6 +9,7 @@ skill lifecycle は `skill-workbench` に集約し、APM 配布運用は別 skil
 - APM の参照方式、install、dotfiles 連携を扱う → [`apm-usage`](./apm-usage/SKILL.md)
 - global / project-local APM dependency を最新化する → [`update-skills`](./update-skills/SKILL.md)
 - 試行錯誤を事例・証拠・仮説へ整理し、評価改善や決定的な設定修正へつなぐ → [`retrospective-codify`](./retrospective-codify/SKILL.md)
+- 本人・所属組織が管理するスキルを日次等の実務振り返りから保守する → [`skill-maintenance`](./skill-maintenance/SKILL.md)
 
 ## 典型フロー
 
@@ -17,6 +18,9 @@ skill lifecycle は `skill-workbench` に集約し、APM 配布運用は別 skil
 
 ## Skill 一覧
 
+- **[`skill-maintenance`](./skill-maintenance/SKILL.md)** — 許可された実務入力の収集・再開と、既存の事例抽出・候補評価をつなぐ。
+  - Use when: 本人・所属組織が管理するスキルの定期保守、未処理事例の持越し、評価候補の選別
+  - Type: `model-invoked`
 - **[`apm-usage`](./apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`

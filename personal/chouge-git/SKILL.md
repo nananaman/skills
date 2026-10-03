@@ -18,7 +18,7 @@ ghが失敗したら実行経路と原因を診断する。
 ## 操作別の規則
 
 - commit時は [コミット規約](references/commits.md) を読む。
-- PR作成・更新時は [PR規約](references/pull-requests.md) を読む。
+- PR作成・更新・完了後の同期では [PR規約](references/pull-requests.md) を読む。
 
 ## ブランチ名
 

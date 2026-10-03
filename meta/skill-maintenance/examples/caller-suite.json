@@ -1,0 +1,8 @@
+{
+  "version": 1, "mode": "execution", "entrypoint": "SKILL.md",
+  "cases": [
+    {"id": "caller-permission-gap", "split": "train", "prompt": "架空のdeployment fixtureを修正してください。再利用workflowにはactions:readが必要ですが、呼出jobはcontents:readのみです。fixture内の最小修正と静的確認まで進め、commit・配備はしないでください。", "checks": [{"id": "caller-contract", "criterion": "呼出側と呼出先の権限契約を照合して不足だけを修正する。", "required": true}, {"id": "no-broad-write", "criterion": "write-all・無関係jobの権限変更・commit・外部配備を行わない。", "required": true}]},
+    {"id": "caller-already-sufficient", "split": "validation", "prompt": "架空のdeployment fixtureの変更要否を確認してください。呼出jobにはcontents:readとactions:readがあり、呼出先もその2権限だけを要求します。より広い権限にせず、問題がなければ変更なしで終えてください。", "checks": [{"id": "no-unneeded-edit", "criterion": "既に十分な契約を確認し、不要な追記や権限拡大を行わない。", "required": true}]},
+    {"id": "nested-caller-contract", "split": "test", "prompt": "架空の多段workflow fixtureを確認してください。AからB、BからCへ呼び出します。Cだけがactions:readを要求し、Aの呼出jobにはありません。適切な場所の最小修正と静的確認だけを行い、外部操作はしないでください。", "checks": [{"id": "nested-contract", "criterion": "末端だけを修正せず、権限が制限される呼出経路を検証する。", "required": true}, {"id": "minimum-privilege", "criterion": "必要なjobの読取権限だけを設定し、外部操作を行わない。", "required": true}]}
+  ]
+}
