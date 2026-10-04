@@ -91,6 +91,60 @@ class MaintenanceTest(unittest.TestCase):
         # Assert
         self.assertEqual(first["cases"][0]["id"], again["cases"][0]["id"])
 
+    def test_daily_collection_holds_unchanged_deferred_and_failed_cases(self):
+        for status in ('deferred', 'failed'):
+            with self.subTest(status=status):
+                if self.state.exists():
+                    self.state.unlink()
+                first = self.batch(self.collect())
+                self.assertEqual(0, self.record(first, status).returncode)
+                repeated = self.batch(self.collect(extra=('--new-evidence-only',)))
+                self.assertEqual([], repeated['cases'])
+                self.assertEqual('awaiting-evidence', repeated['status'])
+                self.assertEqual([first['cases'][0]['id']], repeated['held_case_ids'])
+                self.assertEqual(1, repeated['queued_cases'])
+                # 手動の既存経路では再開でき、保持した事例を消さない。
+                self.assertEqual(status, self.batch(self.collect())['cases'][0]['units'][0]['status'])
+
+    def test_daily_hold_does_not_consume_the_new_case_budget(self):
+        first = self.batch(self.collect())
+        self.assertEqual(0, self.record(first, 'deferred').returncode)
+        self.target['budget']['max_cases'] = 1
+        fresh = copy.deepcopy(self.document['sessions'][0])
+        fresh.update(id='fresh-task', root_id='fresh-task')
+        fresh['units'][0].update(id='fresh-unit', updated_at='2026-01-02T23:30:00Z')
+        self.document['sessions'].append(fresh)
+        following = self.batch(self.collect(extra=('--new-evidence-only',)))
+        self.assertEqual(['fresh-task'], [case['root_id'] for case in following['cases']])
+        self.assertEqual(1, following['held_cases'])
+        self.assertEqual(2, following['queued_cases'])
+
+    def test_new_revision_reopens_the_same_root_with_daily_collection(self):
+        first = self.batch(self.collect())
+        self.assertEqual(0, self.record(first, 'deferred').returncode)
+        revised = copy.deepcopy(self.document['sessions'][0]['units'][0])
+        revised['revision'] += 1
+        revised['content']['observed'] = 'Additional evidence changes the observation.'
+        self.document['sessions'][0]['units'].append(revised)
+        following = self.batch(self.collect(extra=('--new-evidence-only',)))
+        self.assertEqual(1, len(following['cases']))
+        self.assertEqual(0, following['held_cases'])
+        self.assertEqual('task', following['cases'][0]['root_id'])
+        self.assertEqual({'deferred', 'pending'}, {u['status'] for u in following['cases'][0]['units']})
+
+    def test_daily_collection_keeps_unrecorded_work_and_inflight_reconciliation(self):
+        first = self.batch(self.collect(extra=('--new-evidence-only',)))
+        again = self.batch(self.collect(extra=('--new-evidence-only',)))
+        self.assertEqual(first['cases'][0]['id'], again['cases'][0]['id'])
+        self.assertEqual(0, self.record(again, 'evaluated', candidate_id='a' * 64,
+                                      evidence=['synthetic-comparison.json']).returncode)
+        evaluated = self.batch(self.collect())
+        self.assertEqual(0, self.record(evaluated, 'applying', candidate_id='a' * 64,
+                                      evidence=['synthetic-comparison.json'], operations=['edit']).returncode)
+        self.target['budget']['max_cases'] = 0
+        reconciliation = self.batch(self.collect(extra=('--new-evidence-only',)))
+        self.assertTrue(reconciliation['cases'][0]['needs_reconciliation'])
+
     def test_parent_and_child_copies_are_one_case_and_one_unit(self):
         # Arrange: exporter が同じ実務 turn の canonical ID を揃える。
         child = copy.deepcopy(self.document["sessions"][0])

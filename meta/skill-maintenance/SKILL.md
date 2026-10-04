@@ -17,6 +17,8 @@ description: 利用者本人または所属組織が管理するスキルを、�
 
 ## 収集と再開
 
+[日次の最小起動手順](references/daily-run.md)で、最初の取得・振り返り・未評価候補までの起動を組み立てる。評価予算0なら評価・反映は起動しない。日次の`collect --new-evidence-only`では同じ保留caseを毎日分析せず、新規turn・証拠revisionで再開する。未記録の中断と反映途中の照合は維持する。
+
 [入力・状態契約](references/contract.md)と[readerからの入力手順](references/reader-input.md)を読む。許可された履歴readerの出力を、短い証拠を持つ非公開の共通JSONへ変換して`collect`へ渡す。履歴の取得と振り返りを分離し、独自通信・特定CLI版・readerのインストールを前提にしない。改善先skill repoと、入力となる許可済み開発repoは同じでなくてよい。
 既存の保存済みCodexアプリcaptureは[互換手順](references/codex-app.md)で再利用できる。`capture-app / import-app`は保存済みJSONの変換・検査であり、CLIからライブ接続しない。新規取得は現在利用でき、今回許可されたreaderでだけ行う。特定IDだけの許可を一覧取得へ拡張せず、アクセス拒否をDB・生ログ・権限拡大・他端末・別readerで迂回しない。必要な入力を許可されたreaderで取得できない場合は未取得として報告する。完全な取得範囲に新規記録がない場合は`no-new-input`であり、取得失敗とは区別する。
 依頼と最終回答だけでは、途中の失敗・修正・toolの成否を確定しない。必要なtool call・結果・エラー・修正を順序と元ID付きの短い証拠として残す。保存前に秘密を除き、生args・大量出力・patch・reasoningは保存しない。証拠がない旧入力はreport-onlyとして扱い、不足する因果関係は仮説・保留にする。

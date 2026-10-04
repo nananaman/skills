@@ -5,8 +5,8 @@
 Python 3.11+の標準ライブラリだけで[maintenance.py](../scripts/maintenance.py)を動かす。collect/recordはreader非依存のJSON exportの検査・収集・非公開台帳の更新を行う。履歴の新規取得は行わない。モデルの実行・採点、対象repoの編集、Git/GitHub/APM操作は行わない。
 モデルによる事例整理と評価はretrospective-codifyとskill-workbenchが担当する。CLIの判断記録は評価器でも権限管理機構でもない。
 
-[readerからの入力手順](reader-input.md)で、今回許可されたreaderの出力を共通JSONへ変換する。`common.py`が共通の入力・証拠検査を持ち、collectorと保存済みcapture変換は互いをimportしない。独自proxy/WebSocket通信・版固定・`prepare`は提供しない。接続拒否の解決は振り返りから切り離す。
-既存Codexアプリcaptureは[互換手順](codex-app.md)の`capture-app / import-app`で検査できる。保存済みデータのreplayは現在のライブ接続を証明しない。新しいreaderの実データ取得・tool証拠の品質は未検証。
+[readerからの入力手順](reader-input.md)で、今回許可されたreaderの出力を共通JSONへ変換する。`common.py`が共通の入力・証拠検査を持ち、collectorと保存済みcapture変換は互いをimportしない。[任意のCodex入口](../scripts/codex_reader.py)は既存成功コードで公式CLI proxyを読む別入口であり、collectorの依存・daemon起動・fallback・`prepare`にはしない。接続拒否の解決は振り返りから切り離す。
+既存Codexアプリcaptureは[互換手順](codex-app.md)の`capture-app / import-app`で検査できる。保存済みデータのreplayは現在のライブ接続を証明しない。[日次手順](daily-run.md)の公式CLI経路でMacの一覧メタデータと承認済み完了turnの取得・証拠入力を確認した。他PCや無人実行への権限引継ぎは未確認。
 
 ## 対象設定
 
@@ -59,7 +59,8 @@ contentとevidenceは既知の秘密形式を検査する。regexは秘密が皆
 同じsource/root/unit/revisionは一件にまとめる。親子記録と近似例は独立証拠数にしない。case IDはrootと含まれるunit集合から決まり、batch IDは実行ごとに変わる。
 
 `collect`のbatchには選択case、予算、queue数、未完了数、除外数を保存する。
-`ready`は分析可能、`awaiting-input`は進行中待ち、`budget-exhausted`は未処理持越し、`no-new-input`は分析対象入力なし。どれも採否のno-change判断ではない。
+`ready`は分析可能、`awaiting-input`は進行中待ち、`awaiting-evidence`は新証拠待ち、`budget-exhausted`は未処理持越し、`no-new-input`は分析対象入力なし。どれも採否のno-change判断ではない。
+日次の`--new-evidence-only`では全unitがdeferred/failedのcaseを選択枠から外し、`held_cases / held_case_ids`へ残す。新規unit・証拠revisionがあれば再開する。未記録の中断とapplyingの照合は抑制しない。既存の通常collectは保留caseも返すため、評価環境や許可等が新しく整ったときの意図した再開に使える。同じ入力を日次で再分析するために使わない。
 不明owner・外部OSS target・取得失敗・coverage不足はexit 2の`blocked`。既存checkpointを進めない。
 
 ## 判断と中断復旧
@@ -82,7 +83,7 @@ contentとevidenceは既知の秘密形式を検査する。regexは秘密が皆
 除外rootはexport・前回state・今回CLI引数・rootのkind由来の集合をunionし、同じ集合を適用・保存する。空のexportで既存除外を消さない。新たに明示除外したrootの未完了持越しは本文を読まず解除し、除外対象外の持越し欠落だけを停止する。
 
 台帳更新はlock directoryと一時ファイルの置換を使う。`collect`は保存済み入力の検査から状態保存まで、`import-app`は保存済みcapture変換から状態保存まで一つのlockを保持する。同時実行は拒否し、中断時の古いlockは自動削除しない。稼働中processがないことと台帳を確認して手動復旧する。batchは台帳より先に保存するため、途中停止で孤立batchが残ってもcheckpointを進めない。台帳の決定前に外部反映を行わない。
-新しい評価runはworkbenchの別run IDに保存する。台帳・実験結果をGitへ送らず、他端末へ移す場合も情報scopeと許可を確認する。標準ライブラリの保存済みcapture検査は別PCでも利用できる。アプリ新規取得はそのPCのツール公開と成功した能力確認が必要。Windows実機・ネットワークfilesystem・他PCのライブ取得・新しいreaderの実データ取得は未検証。
+新しい評価runはworkbenchの別run IDに保存する。台帳・実験結果をGitへ送らず、他端末へ移す場合も情報scopeと許可を確認する。標準ライブラリの保存済みcapture検査は別PCでも利用できる。アプリ新規取得はそのPCのツール公開と成功した能力確認が必要。Windows実機・ネットワークfilesystem・他PCのライブ取得は未検証。
 
 ## fixtureでの利用例
 

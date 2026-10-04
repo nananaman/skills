@@ -227,15 +227,22 @@ def collect(args, _locked=False):
                            "needs_reconciliation": any(u["status"] == "applying" for u in units)})
         groups.sort(key=lambda g: (g["units"][0]["updated_at"], g["id"]))
         reconciliation = [g for g in groups if g['needs_reconciliation']]
-        pending = [g for g in groups if not g['needs_reconciliation']]
+        held = [g for g in groups if getattr(args, 'new_evidence_only', False)
+                and all(u['status'] in {'deferred', 'failed'} for u in g['units'])]
+        held_ids = {g['id'] for g in held}
+        pending = [g for g in groups if not g['needs_reconciliation'] and g['id'] not in held_ids]
         selected = reconciliation + pending[:max(0, target['budget']['max_cases'] - len(reconciliation))]
         unfinished = len(deferred) + sum(len(saved["deferred"]) for ident, saved in state["sources"].items() if ident != source)
         batch = {"version": 1, "id": uuid.uuid4().hex, "target": identity,
                  "window": {"since": stamp(since), "cutoff": stamp(cutoff)}, "budget": target["budget"],
-                 "status": "ready" if selected else "budget-exhausted" if groups else
+                 "status": "ready" if selected else "budget-exhausted" if pending else
+                           "awaiting-evidence" if held else
                            "awaiting-input" if unfinished else "no-new-input",
                  "cases": selected, "queued_cases": len(groups), "unfinished_units": unfinished,
                  "excluded_sessions": excluded}
+        if getattr(args, 'new_evidence_only', False):
+            batch['held_cases'] = len(held)
+            batch['held_case_ids'] = sorted(held_ids)
         selected_units = [u for case in selected for u in case["units"]]
         batch["evidence_quality"] = {"with_trace": sum("evidence" in u for u in selected_units),
                                      "report_only": sum("evidence" not in u for u in selected_units),
@@ -369,6 +376,8 @@ def main():
     collect_parser.add_argument("--cutoff")
     collect_parser.add_argument("--since")
     collect_parser.add_argument("--hours", type=int, default=24)
+    collect_parser.add_argument("--new-evidence-only", action="store_true",
+                                help="hold unchanged deferred/failed cases; keep unrecorded work and reconciliation")
     collect_parser.add_argument("--exclude-root", action="append", default=[])
     app_parser = commands.add_parser('import-app', help='import a private app-tool capture; no live RPC')
     for name in ('snapshot', 'source', 'target', 'repo', 'state', 'output'):

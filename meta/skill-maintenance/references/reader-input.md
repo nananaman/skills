@@ -1,6 +1,6 @@
 # 履歴readerと振り返りを分ける
 
-許可されたreader → 薄い変換 → 非公開の共通JSON → `collect / record` → retrospective-codify / skill-workbenchの順で使う。共通JSONはこのrepoの入力契約であり、特定製品のexport規格ではない。履歴reader・DB・通信基盤をこのskillに組み込まない。
+許可されたreader → 薄い変換 → 非公開の共通JSON → `collect / record` → retrospective-codify / skill-workbenchの順で使う。共通JSONはこのrepoの入力契約であり、特定製品のexport規格ではない。collectorはreaderやDBに依存しない。任意のCodex readerは[日次手順](daily-run.md)の別入口として使う。
 
 ## 取得側で確認すること
 
@@ -37,7 +37,7 @@ callと結果の対応、失敗・修正・再検証の順序を保持する。c
 ## 振り返り側の起動
 
 `collect --input <private/export.json> --target <private/target.json> --repo <skill-checkout> --state <private/state.json> --output <private/batches> --since <authorized-start> --cutoff <authorized-end>`を実行する。以後は既存の事例整理・評価・判断記録へ渡す。readerの導入・通信・認証と振り返りは独立して検証する。
-証拠なしの旧v1はreplayできるが、batchの`evidence_quality.report_only`を確認して成否・原因を確定しない。証拠付きも独立検証済みとは扱わず、再現・評価へ進む。今回の固定窓captureに途中経過はないため、新しいtool証拠形式は合成fixtureでだけ確認している。
+証拠なしの旧v1はreplayできるが、batchの`evidence_quality.report_only`を確認して成否・原因を確定しない。証拠付きも独立検証済みとは扱わず、再現・評価へ進む。旧native captureは途中経過を持たないが、[日次手順](daily-run.md)のMac経路では承認済み完了turnのtool証拠を共通exportへ変換し、collect/recordと再実行を確認した。診断不足は保留し、この確認を改善評価の成功としない。
 `capture-app`は旧native応答をreport-onlyへ最小化する互換入口で、native turnへ付けた`evidence`は明示拒否する。証拠付きreaderの出力は共通exportへ変換して`collect`へ渡す。既に正規化したアプリcaptureのoptional evidenceは`import-app`で検査・保持する。
 
 ## 公開資料から参考にした範囲
