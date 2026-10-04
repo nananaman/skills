@@ -50,4 +50,4 @@ python3 meta/skill-maintenance/scripts/maintenance.py import-app --snapshot <pri
 
 ## 成立範囲
 
-実際の取得結果と端末ごとの能力確認は非公開の観測記録へ残し、生データ・識別子・端末固有情報を公開fixtureへ移さない。既存app-server exportは別途確認する。保存済みcaptureの検査はPython 3.11+で再現できるが、各PCのアプリ公開・接続・履歴範囲、Windows実機、ネットワークfilesystemは利用環境で検証する。CLIのみの環境で新規取得成功を報告しない。
+実際の取得結果と端末ごとの能力確認は非公開の観測記録へ残し、生データ・識別子・端末固有情報を公開fixtureへ移さない。独自app-server exportは提供しない。保存済みcaptureの検査はPython 3.11+で再現できるが、各PCのアプリ公開・接続・履歴範囲、Windows実機、ネットワークfilesystemは利用環境で検証する。CLIのみの環境で新規取得成功を報告しない。保存済みcaptureには依頼と最終報告だけがあり、tool出力は保持しないためreport-onlyとして扱う。tool証拠を捏造して補完しない。新しいreaderは[共通入力手順](reader-input.md)を使える。

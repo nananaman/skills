@@ -4,6 +4,7 @@
 import argparse
 from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
+from common import require, instant, stamp, text_id, validate_content, validate_evidence
 import hashlib
 import json
 import os
@@ -18,11 +19,6 @@ TERMINAL = {"no-change", "applied"}
 EXCLUDED_KINDS = {"skill-maintenance", "evaluation"}
 
 
-def require(condition, message):
-    if not condition:
-        raise ValueError(message)
-
-
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
                                      allow_nan=False).encode()).hexdigest()
@@ -33,17 +29,6 @@ def read(path, limit=None):
     if limit is not None:
         require(path.stat().st_size <= limit, "input exceeds 8 MiB; export a smaller scope")
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def instant(value):
-    require(isinstance(value, str), "timestamp must be a string")
-    result = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    require(result.tzinfo is not None, "timestamp requires a timezone")
-    return result.astimezone(timezone.utc)
-
-
-def stamp(value):
-    return value.isoformat().replace("+00:00", "Z")
 
 
 def atomic_write(path, value, indent=2):
@@ -79,11 +64,6 @@ def private_path(path, repo):
     require(not path.resolve().is_relative_to(repo.resolve()), "state/output must be outside target repository")
 
 
-def text_id(value):
-    require(isinstance(value, str) and value.strip() and len(value) <= 256, "invalid identifier")
-    return value
-
-
 def profile(target):
     require(target["version"] == 1, "unsupported target version")
     require(target["manager"] in {"user", "organization"}, "excluded target: third-party or unknown manager")
@@ -111,11 +91,14 @@ def load_state(path, identity):
 
 def completed_facts(source, session, unit, updated):
     content = unit["content"]
-    require(set(content) == {"request", "expected", "observed"}, "invalid fact content")
-    require(all(isinstance(v, str) and v.strip() for v in content.values()), "empty fact content")
+    validate_content(content)
+    evidence = {}
+    if "evidence" in unit:
+        validate_evidence(unit["evidence"])
+        evidence["evidence"] = unit["evidence"]
     return {"source_id": source, "root_id": session["root_id"], "id": unit["id"],
             "source_repo": session["source_repo"], "information_scope": session["information_scope"],
-            "revision": unit["revision"], "updated_at": stamp(updated), "content": content}
+            "revision": unit["revision"], "updated_at": stamp(updated), "content": content, **evidence}
 
 
 def check_selection(state, source, selection):
@@ -157,6 +140,7 @@ def collect(args, _locked=False):
         coverage = document["coverage"]
         require(coverage["complete"] is True and instant(coverage["start"]) <= since
                 and instant(coverage["end"]) >= cutoff, "incomplete export coverage; not no-change")
+        require(coverage.get("truncated", False) is False, "truncated export coverage; not no-change")
         sessions = document["sessions"]
         require(isinstance(sessions, list), "sessions must be a list")
         if selection and selection['mode'] == 'thread-ids':
@@ -252,6 +236,10 @@ def collect(args, _locked=False):
                            "awaiting-input" if unfinished else "no-new-input",
                  "cases": selected, "queued_cases": len(groups), "unfinished_units": unfinished,
                  "excluded_sessions": excluded}
+        selected_units = [u for case in selected for u in case["units"]]
+        batch["evidence_quality"] = {"with_trace": sum("evidence" in u for u in selected_units),
+                                     "report_only": sum("evidence" not in u for u in selected_units),
+                                     "outcomes_independently_verified": False}
         batch_path = args.output / (batch["id"] + ".json")
         if 'coverage_notes' in document:
             batch['coverage_notes'] = document['coverage_notes']
@@ -324,14 +312,6 @@ def record(args):
         return {"decision_id": decision_id, "status": status}
 
 
-def prepare(args):
-    """Generate a scoped export, then collect; failures never advance state."""
-    private_path(args.state, args.repo)
-    private_path(args.output, args.repo)
-    with locked(args.state):
-        return _prepare_locked(args)
-
-
 def import_app(args):
     """Import a minimized app capture, preserving collection/decision idempotency."""
     import codex_app
@@ -380,63 +360,6 @@ def capture_app(args):
             'live_acquisition': False}
 
 
-def _prepare_locked(args):
-    import codex_export
-    private_path(args.state, args.repo)
-    private_path(args.output, args.repo)
-    target, config = read(args.target), read(args.source)
-    identity = profile(target)
-    state = load_state(args.state, identity)
-    previous = state['sources'].get(config['source_id'], {})
-    selection = codex_export.selection(config, args.source.parent)
-    check_selection(state, config['source_id'], selection)
-    # Freeze the same effective input used in the state boundary before any read.
-    config.update(selection['input'])
-    if 'thread_ids' in config:
-        ids = config['thread_ids']
-        require(isinstance(ids, list) and ids and all(isinstance(x, str) and x.strip() for x in ids)
-                and len(ids) == len(set(ids)), 'invalid thread ID allowlist')
-        allowed = set(ids)
-        require(set(state['sources']) <= {config['source_id']} and
-                all(u['facts']['root_id'] in allowed and u['facts']['source_id'] == config['source_id']
-                    for u in state['units'].values()) and
-                all(d['session_id'] in allowed and d['root_id'] in allowed
-                    for d in previous.get('deferred', {}).values()),
-                'use a dedicated ID-scoped state; other input must not be included')
-    cutoff = instant(args.cutoff) if args.cutoff else datetime.now(timezone.utc)
-    require(args.hours > 0, 'hours must be positive')
-    since = instant(args.since) if args.since else cutoff - timedelta(hours=args.hours)
-    if previous:
-        require(args.since is None or instant(previous['through']) >= since,
-                'checkpoint gap precedes authorized start; authorize a wider --since')
-        since = min(since, instant(previous['through']))
-    config['exclude_roots'] = sorted(set(config['exclude_roots']) |
-                                    set(previous.get('excluded_roots', [])) |
-                                    set(args.exclude_root) | {args.current_root})
-    transport = None
-    try:
-        if config['transport'] == 'fixture':
-            fixture = args.source.parent / config['fixture']
-            transport = codex_export.Fixture(read(fixture, limit=8 * 1024 * 1024))
-        else:
-            require(config['transport'] == 'proxy', 'unsupported transport')
-            transport = codex_export.Proxy(config)
-        document = codex_export.export(transport, config, target, stamp(since), stamp(cutoff),
-                                      list(previous.get('deferred', {}).values()))
-    finally:
-        if transport: transport.close()
-    document['excluded_roots'] = config['exclude_roots']
-    document['adapter_selection'] = selection
-    args.input = args.output / ('export-' + uuid.uuid4().hex + '.json')
-    require(len(json.dumps(document, ensure_ascii=False, allow_nan=False).encode()) <= 8 * 1024 * 1024,
-            'generated export exceeds 8 MiB')
-    atomic_write(args.input, document, indent=None)
-    args.cutoff, args.since = stamp(cutoff), stamp(since)
-    args.exclude_root = config['exclude_roots']
-    return {**collect(args, _locked=True), 'export': str(args.input), 'source': config['transport'],
-            'coverage_notes': document['coverage_notes']}
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -447,14 +370,6 @@ def main():
     collect_parser.add_argument("--since")
     collect_parser.add_argument("--hours", type=int, default=24)
     collect_parser.add_argument("--exclude-root", action="append", default=[])
-    prepare_parser = commands.add_parser('prepare')
-    for name in ('source', 'target', 'repo', 'state', 'output'):
-        prepare_parser.add_argument('--' + name, type=Path, required=True)
-    prepare_parser.add_argument('--current-root', required=True)
-    prepare_parser.add_argument('--cutoff')
-    prepare_parser.add_argument('--since')
-    prepare_parser.add_argument('--hours', type=int, default=24)
-    prepare_parser.add_argument('--exclude-root', action='append', default=[])
     app_parser = commands.add_parser('import-app', help='import a private app-tool capture; no live RPC')
     for name in ('snapshot', 'source', 'target', 'repo', 'state', 'output'):
         app_parser.add_argument('--' + name, type=Path, required=True)
@@ -472,7 +387,7 @@ def main():
         record_parser.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args()
     try:
-        result = {'collect': collect, 'record': record, 'prepare': prepare,
+        result = {'collect': collect, 'record': record,
                   'import-app': import_app, 'capture-app': capture_app}[args.command](args)
         print(json.dumps(result))
     except (OSError, ValueError, KeyError, TypeError) as error:

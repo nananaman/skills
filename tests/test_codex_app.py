@@ -368,6 +368,12 @@ class NativeCompletenessTest(unittest.TestCase):
                          'turnLimit':10,'maxOutputCharsPerItem':4000},'result':{'thread':native,
                          'page':snapshot['threads'][0]['pages'][0]['page'],'turns':[self.turn]}}]}]}
 
+    def test_native_trace_evidence_is_rejected_instead_of_silently_discarded(self):
+        self.bundle['reads'][0]['pages'][0]['result']['turns'][0]['evidence'] = {
+            'version': 1, 'complete': True, 'truncated': False, 'events': []}
+        with self.assertRaisesRegex(ValueError, 'report-only'):
+            codex_app.minimize_native(self.bundle, self.source, START, END)
+
     def test_native_blank_final_is_rejected(self):
         self.turn['items'][1]['text'] = '  '
         with self.assertRaisesRegex(ValueError, 'empty request/final'):

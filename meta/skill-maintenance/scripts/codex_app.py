@@ -3,8 +3,7 @@
 from datetime import datetime, timezone
 import math
 
-from maintenance import instant, require, stamp, text_id
-from codex_export import path_key, SENSITIVE
+from common import instant, require, stamp, text_id, path_key, SENSITIVE, validate_evidence
 
 
 LIMIT = 50
@@ -86,6 +85,8 @@ def minimize_native(bundle, config, since, cutoff):
             require(allowed_row(row, config), 'native read outside source scope')
             turns = []
             for turn in data['turns']:
+                require('evidence' not in turn,
+                        'native report-only capture cannot import trace evidence; use a normalized export')
                 unit = {k: turn[k] for k in ('id', 'status', 'startedAt', 'completedAt')}
                 done = epoch(unit['completedAt']) if unit['completedAt'] is not None else None
                 known = unit['id'] in entry.get('known_unfinished_ids', [])
@@ -308,6 +309,11 @@ def export(snapshot, config, target, since, cutoff, previous, state_units):
                 facts = {'source_id': config['source_id'], 'root_id': row['id'], 'id': ident,
                          'source_repo': repo['id'], 'information_scope': repo['information_scope'],
                          'revision': 1, 'updated_at': stamp(completed), 'content': content}
+                evidence = {}
+                if 'evidence' in turn:
+                    validate_evidence(turn['evidence'])
+                    evidence['evidence'] = turn['evidence']
+                    facts.update(evidence)
                 saved = canonical.get((ident, 1))
                 if saved and saved['root_id'] != row['id']:
                     require({k: v for k, v in saved.items() if k != 'root_id'} ==
@@ -320,7 +326,7 @@ def export(snapshot, config, target, since, cutoff, previous, state_units):
                     continue
                 canonical[(ident, 1)] = facts
                 session['units'].append({'id': ident, 'revision': 1, 'updated_at': stamp(completed),
-                                         'status': 'completed', 'content': content})
+                                         'status': 'completed', 'content': content, **evidence})
             prior_cursor = info['nextCursor']
             require(prior_cursor is None or prior_cursor not in cursors, 'repeated app pagination cursor')
             cursors.add(prior_cursor)
