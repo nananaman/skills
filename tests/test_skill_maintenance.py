@@ -49,6 +49,263 @@ class MaintenanceTest(unittest.TestCase):
                                "--result", str(result), "--state", str(self.state),
                                "--repo", str(self.repo)], capture_output=True, text=True)
 
+    def source_report(self, entries, expected=None, output=None):
+        acquisitions = self.home / "acquisitions.json"
+        acquisitions.write_text(json.dumps({"version": 1, "sources": entries}))
+        self.report_path = output or self.home / "private/source-report.json"
+        return subprocess.run([sys.executable, str(SCRIPT), "report", "--acquisitions", str(acquisitions),
+                               "--repo", str(self.repo), "--target", str(self.target_file),
+                               "--state", str(self.state), "--output", str(self.report_path),
+                               "--since", "2026-01-02T00:00:00Z", "--cutoff", "2026-01-03T00:00:00Z",
+                               *[part for source in (expected if expected is not None else [e["source_id"] for e in entries])
+                                 for part in ("--expected-source-id", source)]],
+                              capture_output=True, text=True)
+
+    def test_report_rejects_missing_requested_source(self):
+        # Arrange: 依頼したWorkの行だけがmanifestから欠落した。
+        self.document["sessions"] = []
+        self.batch(self.collect())
+        source = self.document["source_id"]
+        before = self.state.read_bytes()
+        # Act
+        result = self.source_report([{"source_id": source, "kind": "codex-cli", "status": "collected",
+                                     "batch": str(self.batch_path)}], expected=[source, "work"])
+        # Assert: 列挙済みsourceだけで全体成功にしない。
+        self.assertEqual(2, result.returncode)
+        self.assertIn("source outcomes do not match requested sources", result.stderr)
+        self.assertFalse(self.report_path.exists())
+        self.assertEqual(before, self.state.read_bytes())
+
+    def test_report_rejects_output_overwriting_its_inputs(self):
+        # Arrange: 検証済みbatchと、reportが保護する入力ファイル。
+        self.batch(self.collect())
+        entry = {"source_id": self.document["source_id"], "kind": "codex-cli", "status": "collected",
+                 "batch": str(self.batch_path)}
+        for path in (self.state, self.target_file, self.batch_path):
+            with self.subTest(path=path.name):
+                before = path.read_bytes()
+                # Act
+                result = self.source_report([entry], output=path)
+                # Assert: reportは台帳と取得証拠を破壊しない。
+                self.assertEqual(2, result.returncode)
+                self.assertIn("report output must not overwrite", result.stderr)
+                self.assertEqual(before, path.read_bytes())
+
+    def register_current(self, source, root):
+        self.target_file.write_text(json.dumps(self.target), encoding="utf-8")
+        result = subprocess.run([sys.executable, str(SCRIPT), "register-run", "--target", str(self.target_file),
+                                 "--repo", str(self.repo), "--state", str(self.state),
+                                 "--source-id", source, "--root-id", root], capture_output=True, text=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_current_registered_run_does_not_exclude_same_root_input_from_other_source(self):
+        # Arrange: 現在runはsource A、入力は同名rootを持つ別source B。
+        import os
+        from unittest.mock import patch
+        root = self.document["sessions"][0]["root_id"]
+        with patch.dict(os.environ, {"CODEX_THREAD_ID": root}):
+            self.register_current(self.document["source_id"], root)
+            self.document["source_id"] = "other-device"
+            # Act
+            batch = self.batch(self.collect())
+        # Assert: Bの実務入力をAの現在runとして捨てない。
+        self.assertEqual(1, batch["queued_cases"])
+        self.assertEqual("other-device", batch["cases"][0]["source_id"])
+        self.assertEqual(0, batch["excluded_sessions"])
+
+    def test_matching_current_root_without_source_registration_blocks(self):
+        # Arrange: 同名rootはあるが現在runのsourceを確認できない。
+        import os
+        from unittest.mock import patch
+        self.batch(self.collect())
+        before = self.state.read_bytes()
+        root = self.document["sessions"][0]["root_id"]
+        # Act
+        with patch.dict(os.environ, {"CODEX_THREAD_ID": root}):
+            result = self.collect()
+        # Assert: sourceを推測せず、台帳も変更しない。
+        self.assertEqual(2, result.returncode)
+        self.assertIn("current maintenance source is not registered", result.stderr)
+        self.assertEqual(before, self.state.read_bytes())
+
+    def test_report_rejects_case_alias_of_state_on_insensitive_filesystem(self):
+        # Arrange: Mac既定filesystemでは大小文字違いも同じ台帳を指す。
+        self.batch(self.collect())
+        alias = self.state.with_name(self.state.name.swapcase())
+        if not alias.exists():
+            self.skipTest("case-sensitive filesystem")
+        self.assertTrue(alias.samefile(self.state))
+        before = self.state.read_bytes()
+        # Act
+        result = self.source_report([{"source_id": self.document["source_id"], "kind": "codex-cli",
+                                     "status": "collected", "batch": str(self.batch_path)}], output=alias)
+        # Assert: resolve文字列が異なる場合も台帳を上書きしない。
+        self.assertEqual(2, result.returncode)
+        self.assertIn("report output must not overwrite", result.stderr)
+        self.assertEqual(before, self.state.read_bytes())
+
+    def test_current_root_hold_is_limited_to_current_source(self):
+        # Arrange: source Aの事例と同名rootを持つsource Bの現在run。
+        import os
+        from unittest.mock import patch
+        origin = self.document["source_id"]
+        root = self.document["sessions"][0]["root_id"]
+        self.batch(self.collect())
+        self.document["source_id"] = "other-device"
+        # Act
+        with patch.dict(os.environ, {"CODEX_THREAD_ID": root}):
+            self.register_current("other-device", root)
+            batch = self.batch(self.collect())
+        # Assert: Aの事例は現在Bのrootではなく、分析対象に残る。
+        self.assertEqual(1, batch["queued_cases"])
+        self.assertEqual(origin, batch["cases"][0]["source_id"])
+        self.assertNotIn("current_root_held_units", batch)
+
+    def test_reports_verified_empty_codex_separately_from_unsupported_work(self):
+        # Arrange: 完全取得の空exportと、reader未対応の別sourceを区別する。
+        self.document["sessions"] = []
+        self.batch(self.collect())
+        before = self.state.read_bytes()
+        # Act
+        result = self.source_report([
+            {"source_id": self.document["source_id"], "kind": "codex-cli", "status": "collected",
+             "batch": str(self.batch_path)},
+            {"source_id": "work", "kind": "work", "status": "unsupported", "reason_code": "reader-not-supported"}])
+        # Assert: Codexの0件は成立し、全体未取得と分析結果は別に表す。
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = json.loads(self.report_path.read_text())
+        self.assertEqual("partial", report["status"])
+        self.assertFalse(report["coverage_complete"])
+        self.assertEqual(["empty", "unsupported"], [r["status"] for r in report["sources"]])
+        self.assertTrue(report["sources"][0]["coverage_complete"])
+        self.assertEqual("no-new-input", report["analysis_batches"][0]["status"])
+        self.assertEqual(before, self.state.read_bytes())
+
+    def test_excluding_a_root_in_one_source_keeps_same_id_from_other_source(self):
+        # Arrange: source_idだけ異なる事例は別単位として保持する。
+        original_source = self.document["source_id"]
+        root = self.document["sessions"][0]["root_id"]
+        first = self.batch(self.collect())
+        original_case = first["cases"][0]["id"]
+        self.document["source_id"] = "other-device"
+        # Act: 他sourceの同名rootだけを除外する。
+        batch = self.batch(self.collect(extra=("--exclude-root", root)))
+        # Assert: 元sourceの未処理事例を誤って除外しない。
+        self.assertEqual(1, batch["queued_cases"])
+        self.assertEqual(original_source, batch["cases"][0]["source_id"])
+        self.assertEqual(original_case, batch["cases"][0]["id"])
+
+    def test_acquired_source_remains_ready_when_another_source_failed(self):
+        # Arrange: 完全なCodex入力は既存の共通形式で分析可能。
+        batch = self.batch(self.collect())
+        before = self.state.read_bytes()
+        # Act
+        result = self.source_report([
+            {"source_id": self.document["source_id"], "kind": "codex-cli", "status": "collected",
+             "batch": str(self.batch_path)},
+            {"source_id": "work", "kind": "work", "status": "failed", "reason_code": "acquisition-failed"}])
+        # Assert: Workの取得失敗でCodexの分析queueを失わない。
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = json.loads(self.report_path.read_text())
+        self.assertEqual(["acquired", "failed"], [r["status"] for r in report["sources"]])
+        self.assertEqual("ready", report["analysis_batches"][0]["status"])
+        self.assertEqual(len(batch["cases"]), report["analysis_batches"][0]["cases"])
+        self.assertFalse(report["coverage_complete"])
+        self.assertEqual(before, self.state.read_bytes())
+
+    def test_all_verified_empty_sources_complete_coverage_without_analysis_claim(self):
+        # Arrange: 別sourceの成功batchをそれぞれ保持する。
+        self.document["sessions"] = []
+        entries = []
+        for source, kind in (("codex-fixture", "codex-cli"), ("work-fixture", "work")):
+            self.document["source_id"] = source
+            self.batch(self.collect())
+            entries.append({"source_id": source, "kind": kind, "status": "collected", "batch": str(self.batch_path)})
+        # Act
+        result = self.source_report(entries)
+        # Assert: 全取得元の0件が検証済みなら、coverageだけがcomplete。
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = json.loads(self.report_path.read_text())
+        self.assertTrue(report["coverage_complete"])
+        self.assertEqual("complete", report["status"])
+        self.assertEqual(["empty", "empty"], [r["status"] for r in report["sources"]])
+        self.assertEqual({"no-new-input"}, {r["status"] for r in report["analysis_batches"]})
+
+    def test_unfinished_source_is_acquired_instead_of_empty(self):
+        # Arrange
+        self.document["sessions"][0]["units"][0]["status"] = "in-progress"
+        self.batch(self.collect())
+        # Act
+        result = self.source_report([{"source_id": self.document["source_id"], "kind": "codex-cli",
+                                      "status": "collected", "batch": str(self.batch_path)}])
+        # Assert: 完了入力0件と取得入力0件を混同しない。
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = json.loads(self.report_path.read_text())
+        self.assertEqual("acquired", report["sources"][0]["status"])
+        self.assertEqual(1, report["sources"][0]["unfinished_units"])
+        self.assertEqual("awaiting-input", report["analysis_batches"][0]["status"])
+
+    def test_report_rejects_tampered_success_batch_without_changing_state(self):
+        # Arrange
+        batch = self.batch(self.collect())
+        batch["source_collection"]["status"] = "empty"
+        self.batch_path.write_text(json.dumps(batch))
+        before = self.state.read_bytes()
+        # Act
+        result = self.source_report([{"source_id": self.document["source_id"], "kind": "codex-cli",
+                                      "status": "collected", "batch": str(self.batch_path)}])
+        # Assert
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("unverified collection batch", result.stderr)
+        self.assertFalse(self.report_path.exists())
+        self.assertEqual(before, self.state.read_bytes())
+
+    def test_report_rejects_success_when_checkpoint_was_retracted(self):
+        # Arrange: coverage再確認のためcheckpointを戻した成功batchは使わない。
+        self.batch(self.collect())
+        state = json.loads(self.state.read_text())
+        state["sources"][self.document["source_id"]]["through"] = "2026-01-02T00:00:00Z"
+        self.state.write_text(json.dumps(state))
+        before = self.state.read_bytes()
+        # Act
+        result = self.source_report([{"source_id": self.document["source_id"], "kind": "codex-cli",
+                                      "status": "collected", "batch": str(self.batch_path)}])
+        # Assert
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("does not cover report window", result.stderr)
+        self.assertFalse(self.report_path.exists())
+        self.assertEqual(before, self.state.read_bytes())
+
+    def test_unsupported_work_retains_text_only_evidence_limitations(self):
+        # Arrange: 親限定の部分テキストは共通exportの完全tool証拠ではない。
+        self.batch(self.collect())
+        limits = ["parent-only-text", "timestamps-unavailable", "native-tool-evidence-unavailable",
+                  "original-trace-unverified"]
+        before = self.state.read_bytes()
+        # Act
+        result = self.source_report([{"source_id": "work", "kind": "work", "status": "unsupported",
+                                      "reason_code": "standalone-reader-unverified", "limitations": limits}])
+        # Assert
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = json.loads(self.report_path.read_text())
+        self.assertEqual("unavailable", report["status"])
+        self.assertFalse(report["coverage_complete"])
+        self.assertEqual(limits, report["sources"][0]["limitations"])
+        self.assertEqual([], report["analysis_batches"])
+        self.assertEqual(before, self.state.read_bytes())
+
+    def test_stored_source_exclusion_is_preserved_when_collecting_other_source(self):
+        # Arrange: 最初のsourceだけを恒久除外する。
+        root = self.document["sessions"][0]["root_id"]
+        self.batch(self.collect())
+        self.batch(self.collect(extra=("--exclude-root", root)))
+        self.document["source_id"] = "other-device"
+        # Act
+        batch = self.batch(self.collect())
+        # Assert: 古いsourceの除外を復活させず、同名rootの新sourceだけを分析する。
+        self.assertEqual(1, batch["queued_cases"])
+        self.assertEqual(["other-device"], [c["source_id"] for c in batch["cases"]])
+
     def test_collects_a_completed_unit_without_changing_target_repository(self):
         # Arrange: Git 管理しない出力先を指定する。
         before = list(self.repo.iterdir())

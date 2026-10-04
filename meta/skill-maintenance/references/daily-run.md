@@ -18,6 +18,8 @@ skill-maintenanceを実行する。
 
 [入力・状態契約](contract.md)に従い、端末、許可reader・入力repo、改善先と管理主体、scope、非公開のsource/target・state・出力先、予算・操作範囲を確かめる。改善先だけを入力repoにしない。個人と各組織は分離し、今回の保守rootは下記で登録し、評価rootはsourceの`exclude_roots`に登録して除外する。
 
+依頼された入力元を列挙し、source別の許可readerと取得結果を記録する。CodexとWorkの履歴を同じ一覧だと仮定しない。未対応sourceは明示して接続・実装を自動追加せず、取得できたsourceを共通exportで分析する。全体coverageと分析できる入力範囲を分ける。
+
 初回は直近24時間の開始〜cutoffを固定する。以後はcheckpoint・未完了turn・未取得期間・反映claimを照合する。取得下限より古いcheckpointなら、許可された再開期間を確認し、自動で巻き戻さない。source/root/unit/revisionとbindingを保持し、別readerや新stateで同じ事例を増やさない。
 
 一晩の既定予算は`budget: {max_cases: 1, max_runs: 12}`。1件の診断に絞り、現行版と最小変更1候補を、開発・候補選択・最終確認それぞれ2ケース（失敗条件と成功・制約を守る反例）で比較する計12実行に使う。単発の観測差として報告し、反復なしで統計的な改善を主張しない。両側・失敗・中断も数え、未評価の反復や追加候補を際限なく実行しない。既存の契約・利用枠だけを使い、実行不可・予算切れ・退行・差が不確実なら保留する。決定的な誤字・リンク修正はworkbenchの軽量経路でよい。複数targetでは全体で1件・12実行を配分し、個人・組織のケースや結果を混ぜない。
@@ -69,7 +71,7 @@ python3 <skill-root>/scripts/codex_reader.py read --read-completed \
 
 過去24時間の対象を件数で打ち切らず、期間の古い境界またはcursor終端まで必要なページを取得する。APIの1ページのlimitは分割単位であり、取得総数の上限ではない。各段階の既定予算はWebSocketの受信payload 64 MiB・経過300秒、3段階を各1回なら最大192 MiB・15分（owned proxyの終了処理を除く）。予算にはinitialize・通知・捨てるreasoning等のpayloadも含め、フレーム本文を読む前に残量と照合する。改善評価の12実行とは別の予算である。
 
-`incomplete`・exit 2・`output_written:false`なら次段階とcollectへ進まない。同名の古いoutputを成功結果と誤認しない。結果JSONの`resume`に失敗段階と固定window、非公開の`*.progress.json`を残し、checkpointは変えず、その夜は停止する。次回は同じwindow・入力・state・出力先で失敗段階を再実行する。保存済みの最小化ページを再利用し、最初の未取得cursorから通信を再開するので、同じ有限予算でも前進できる。未取得cursorを成功したcheckpointにしない。
+`incomplete`・exit 2・`output_written:false`なら次段階とcollectへ進まない。同名の古いoutputを成功結果と誤認しない。結果JSONの`resume`に失敗段階と固定window、非公開の`*.progress.json`を残し、当該sourceのcheckpointは変えず、そのsourceの取得を停止する。検証済みの別sourceは進められる。次回は同じwindow・入力・state・出力先で失敗段階を再実行する。保存済みの最小化ページを再利用し、最初の未取得cursorから通信を再開するので、同じ有限予算でも前進できる。未取得cursorを成功したcheckpointにしない。
 
 windowごとに別の非公開出力ディレクトリを使い、未取得windowの再試行ではそのディレクトリを維持する。新windowは成功exportのcollect後に始める。progressはscope・window・入力・state・元CODEX_HOME・protocolに結び付け、整合性digestとlockを検査する。reasoning・preview・title・生引数を保存せず、indexは正規化した出所・時刻、turnsは本文なしの時刻・状態、readは最小化済みの本文・証拠だけを保持する。再開時も本文取得前にthreadの出所とidle状態を読み直し、現在rootを除外する。再開indexの各一覧の先頭ページを毎回取得して関連行を照合するが、daemonの履歴一覧のtransaction snapshotを保証するものではない。
 
@@ -87,6 +89,19 @@ python3 <skill-root>/scripts/maintenance.py collect \
   --repo <skill-checkout> --state <private/state.json> --output <private/batches> \
   --since <authorized-start> --cutoff <fixed-cutoff> --new-evidence-only
 ```
+
+`--expected-source-id`には依頼時に列挙した全sourceを指定する（以下はCodexとWorkの例）。sourceごとの取得終了後、成功したbatchと未対応・失敗の分類codeを[契約](contract.md)の非公開manifestへ記録し、集計する。reader失敗時の古いbatchを成功行へ入れない。
+
+```sh
+python3 <skill-root>/scripts/maintenance.py report \
+  --acquisitions <private/acquisitions.json> --target <private/target.json> \
+  --repo <skill-checkout> --state <private/state.json> \
+  --since <authorized-start> --cutoff <fixed-cutoff> \
+  --expected-source-id <registered-codex-source-id> --expected-source-id work \
+  --output <private/source-report.json>
+```
+
+未対応・失敗があっても成功sourceのbatchを振り返れる。ただし未取得sourceの証拠を必要とする事例は保留し、部分取得を全体成功にしない。共通exportの不完全coverageをcollectへ通すことは引き続き禁止する。reportはcheckpointを更新せず、取得成功したsourceのcollectだけがそのsourceを進める。
 
 返されたbatchのcaseと予算を確認し、選ばれた事例だけを[振り返り手順](retrospective.md)で分析する。必要な候補をskill-workbenchへ渡し、固定した条件で親子比較・独立採点・holdoutを行う。単発のtool障害から万能な規則を作らず、再現・反例と照合して最小変更を選ぶ。変更不要は正常な判断だが、取得不足・保留・評価不能をno-changeにしない。
 
@@ -112,8 +127,8 @@ python3 <skill-root>/scripts/maintenance.py record \
 
 ## 結果と再開
 
-期間、取得範囲・coverage_notes・除外・持越し、処理件数・対象repo、採否と理由、未評価候補、未取得・保留・次回再開条件を短く返す。`awaiting-evidence / held_cases / held_case_ids`は新証拠待ち、`no-new-input`は対象入力なしとして報告する。私的な会話・秘密・ID・証拠を公開repoやPRへ転記しない。
+期間、取得範囲・coverage_notes・除外・持越し、処理件数・対象repo、採否と理由、未評価候補、未取得・保留・次回再開条件を短く返す。`awaiting-evidence / held_cases / held_case_ids`は新証拠待ち、`no-new-input`はその成功sourceの対象入力なしとして報告する。source別の`acquired / empty / unsupported / failed`と全体coverageを併記し、未対応・失敗を対象0件へ変換しない。私的な会話・秘密・ID・証拠を公開repoやPRへ転記しない。
 
 定期実行では初回結果、PR作成/更新、取得・実行失敗、権限不足や重要な採用判断など対応が必要な問題を通知する。初回は起動時に該当sourceのcheckpointがない場合とし、以後の変更なし・変化のない既知保留は通知せず、状態と再開に必要な結果を非公開に保持する。単独依頼の結果報告や明示された通知指定には従う。
 
-取得・変換・coverage失敗ではcheckpointを進めず、許可範囲内の同じ対象から再開する。反映途中は実際の外部状態を照合してから記録し、再反映を先に実行しない。
+取得・変換・coverage失敗では当該sourceのcheckpointを進めず、許可範囲内の同じ対象から再開する。反映途中は実際の外部状態を照合してから記録し、再反映を先に実行しない。

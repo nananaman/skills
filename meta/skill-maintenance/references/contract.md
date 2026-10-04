@@ -2,7 +2,7 @@
 
 ## 担当と取得範囲
 
-Python 3.11+の標準ライブラリで[maintenance.py](../scripts/maintenance.py)を動かす。`register-run / collect / record`は共通JSONの検査・収集・非公開台帳の更新を行い、履歴通信、モデル実行・採点、対象repoの編集、Git/GitHub/APM操作は行わない。事例整理は[振り返り手順](retrospective.md)、候補評価はskill-workbenchが担当する。判断記録は評価や権限の証明ではない。
+Python 3.11+の標準ライブラリで[maintenance.py](../scripts/maintenance.py)を動かす。`register-run / collect / report / record`は共通JSONの検査・収集・非公開台帳の更新を行い、履歴通信、モデル実行・採点、対象repoの編集、Git/GitHub/APM操作は行わない。事例整理は[振り返り手順](retrospective.md)、候補評価はskill-workbenchが担当する。判断記録は評価や権限の証明ではない。
 
 履歴取得は許可されたreaderだけで行う。Codexは[日次手順](daily-run.md)の公式CLI入口を使い、接続・アクセス拒否後にDB・生ログ・別reader・他端末へ切り替えない。新規ソフトの導入、daemon起動、認証・恒久権限の変更は含めない。保存済み共通exportの再処理と新規取得を区別する。
 
@@ -31,6 +31,29 @@ exclude_roots: 保守・評価root IDの配列
 ```
 
 現入口はMacの登録済み個人scopeに限定する。CLI/serverは`0.159.3 / 0.160.0`、元のCODEX_HOMEと端末を確認する。各RPC30秒、ページサイズは最大50件の分割単位で、ページ・thread・turnの取得総数では打ち切らない。各段階は`--max-bytes`（既定64 MiBの受信payload）と`--max-seconds`（既定300秒の経過）で制限する。値は正の整数。RPCの待ち期限も残り時間に収め、受信フレーム本文を読む前に残量を検査する。readerはstateを更新しない。保守runの事前登録はstateを作れるが、source checkpointは成功したexportをcollectした時点で作る。継続時はsource bindingとcheckpointを照合し、scope変更・未知schema・取得拒否では停止する。byte/time・export容量の予算切れは`incomplete`・exit 2・coverage不成立とし、export・checkpointを成功扱いにしない。他PC・無人実行の権限引継ぎを推測しない。
+
+## 複数sourceの取得結果
+
+Codex CLI・Work・将来の別coding agentは個別に取得し、共通exportへ正規化する。既存のCodex readerはCodexのscopeだけを証明し、Workの履歴がないことをCodexの取得失敗へ読み替えない。Workを含む新sourceの接続・reader実装は別途許可と取得契約が必要で、自動追加しない。
+
+現時点のWorkは単独PCでの公式取得契約が未検証のため`unsupported`とする。親側で会話textの一部を取得できても、時刻・native tool引数と結果・対応ID・元traceの完全性がなければ完全な共通exportにしない。assistantの成功報告はtool実行の証拠にしない。将来Claude等のreaderを追加する場合もsource・出所・root/unit/revision・既知未完了・scopeとcoverageを保持する。この契約だけから接続権限や新readerを作る権限を推測しない。
+
+成功したcollectのbatchは`source_collection`に今回sourceの`source_id / status / exported_sessions / unfinished_units / coverage`を残す。`status`は入力sessionまたは既知未完了があれば`acquired`、双方0なら`empty`。`empty`は許可されたsource・期間・選択条件での検証済み対象0件であり、全coding agentの実務が0件という意味ではない。取得完全性と事例の分析完了・改善実証は別である。
+
+`report`は非公開manifestのsource結果を集約し、台帳を変更しない。依頼時に固定した全source IDを繰り返し指定する`--expected-source-id`とmanifestの集合が一致することを確認し、成功batchのdigest・target・source・期間と現在checkpointを照合して`acquired / empty`を証明する。`unsupported / failed`は取得できなかった理由を記録するだけで、当該sourceのcheckpointを作成・更新しない。取得に成功したsourceは独立してcollect・分析を進められる。未対応・失敗が残れば全体coverageは`partial`、成功sourceがなければ`unavailable`。全sourceの取得が成立した場合だけ`complete`となる。依頼したsource集合の確定は呼出側が担い、成功行だけに狭めて指定しない。保存先が台帳・target・manifest・成功batchやstate lockに衝突する場合は停止する。reportのexit 0は集計保存の成功で、全体取得・分析・評価の合格ではない。
+
+manifestは8 MiB以下の次の形とする。source IDは重複不可。`kind`は小文字英字から始まる英小文字・数字・ハイフンの40文字以内の分類名。`reason_code / limitations`は同形式64文字以内の分類codeで、原文・秘密・自由記述を入れない。
+
+```json
+{"version": 1, "sources": [
+  {"source_id": "registered-codex", "kind": "codex-cli", "status": "collected", "batch": "<private/successful-batch.json>"},
+  {"source_id": "work", "kind": "work", "status": "unsupported", "reason_code": "standalone-reader-unverified", "limitations": ["native-tool-evidence-unavailable"]}
+]}
+```
+
+成功行は上記4項目、未取得行は`source_id / kind / status / reason_code`と任意の`limitations`だけを許す。取得失敗は`status: failed`で記録する。`report.sources`がsource別の取得状態、`analysis_batches`が成功collect時の事例snapshotを示す。複数batchに同じ台帳の未処理caseが含まれうるため合算せず、実際の分析・recordでは最新のcollectを使う。古いsnapshotを現在の分析完了証拠にしない。
+
+source間で同名rootを自動同一視せず、除外と重複防止はsource境界を維持する。collectは現在のCODEX_THREAD_IDのsourceを既存のsource別保守run登録から確認し、入力session・保存facts・未完了に同じ組の判定を使う。同名rootが入力・factsにあるのに登録がない場合や登録sourceが複数の場合は、収集中のsourceだと推測せず停止する。同一元タスクを複数sourceが提供した場合も独立証拠へ水増ししない。組織境界を越えて台帳をまとめない。
 
 ## Codex readerの選択条件
 

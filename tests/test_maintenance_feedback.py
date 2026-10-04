@@ -139,6 +139,23 @@ class FeedbackTest(unittest.TestCase):
         self.assertNotIn('root',self.ledger['sources']['synthetic']['feedback_excluded_roots'])
         self.assertEqual(1,len(self.collect(self.export())['cases']))
 
+    def test_collecting_other_source_keeps_current_registered_feedback_held(self):
+        # Arrange: Aの保存feedbackがある現在runで、Bの取得結果を処理する。
+        export = self.export()
+        self.collect(export)
+        before = copy.deepcopy(self.ledger['units'])
+        other = copy.deepcopy(export)
+        other['source_id'] = 'other-source'
+        other['sessions'] = []
+        # Act
+        with patch.dict(os.environ, {'CODEX_THREAD_ID': 'root'}, clear=True):
+            batch = self.collect(other)
+        # Assert: 取得中source Bを現在runのsource Aと取り違えない。
+        self.assertEqual([], batch['cases'])
+        self.assertEqual(2, batch['current_root_held_units'])
+        self.assertEqual(before, self.ledger['units'])
+        self.assertEqual(1, len(self.collect(export)['cases']))
+
     def test_current_root_preserves_unfinished_feedback_during_empty_export(self):
         self.turns = [dict(id='initial',status='inProgress',startedAt=self.start,completedAt=None,items=[],itemsView='notLoaded')]
         self.collect(self.export())
