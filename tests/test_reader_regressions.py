@@ -88,6 +88,44 @@ class ReaderRegressions(unittest.TestCase):
                 READER.read_completed(body,selection,ledger)
             self.assertEqual(original,args.state.read_bytes())
 
+    def test_failed_or_interrupted_before_assistant_response_exports_native_failure(self):
+        # Arrange: 応答前に終了したturnも、取得済みの要求とnative終了状態を残す。
+        selection=self.selection();start=int(READER.instant(selection['window']['since']).timestamp())
+        selection['turn_selection_complete']=True
+        class Body:
+            with_tool=False
+            def call(self,method,params):
+                if method == 'thread/read':
+                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                items=[dict(id='u',type='userMessage',content=[dict(type='text',text='Check fixture.')])]
+                if self.with_tool:
+                    items.append(dict(id='e',type='dynamicToolCall',tool='check',status='completed',success=False,
+                        contentItems=[dict(type='inputText',text='HTTP 403 permission denied')]))
+                return dict(data=[dict(turnId=params['turnId'],item=i) for i in items],nextCursor=None)
+        body=Body()
+        for status in ('failed','interrupted'):
+            for with_tool in (False,True):
+                with self.subTest(status=status,with_tool=with_tool):
+                    body.with_tool=with_tool
+                    selection['threads'][0]['turns']=[self.turn(status,start+10,status,started=start)]
+                    # Act
+                    export,_=READER.read_completed(body,selection,dict(sources={},units={}))
+                    # Assert: 作業成功や未記録のassistant応答を補わない。
+                    unit=export['sessions'][0]['units'][0]
+                    self.assertEqual('completed',unit['status'])
+                    self.assertEqual('Check fixture.',unit['content']['request'])
+                    self.assertIn('Recorded turn status: '+status,unit['content']['observed'])
+                    self.assertTrue(unit['evidence']['complete'])
+                    if with_tool:
+                        self.assertEqual('error',unit['evidence']['events'][1]['status'])
+                        self.assertIn('403',unit['evidence']['events'][1]['summary'])
+                    else:
+                        self.assertEqual([],unit['evidence']['events'])
+        # 正常完了の応答欠落は、失敗turnの例外で許容しない。
+        selection['threads'][0]['turns']=[self.turn('missing-response',start+10,started=start)]
+        with self.assertRaisesRegex(ValueError,'request/response missing'):
+            READER.read_completed(body,selection,dict(sources={},units={}))
+
     def test_old_history_and_failure_do_not_consume_today_budget(self):
         start = int(READER.instant(self.selection()['window']['since']).timestamp())
         for old_status in ('completed', 'failed', 'interrupted'):
@@ -168,6 +206,28 @@ class ReaderRegressions(unittest.TestCase):
             result=MINIMIZE.read_turn(self.body(turn,missing),'root',turn,start,start+86400)
             self.assertFalse(result['trace_complete'])
             self.assertTrue(json.loads(result['events'][1]['summary'])['diagnostic_not_available'])
+
+    def test_truncated_command_failure_diagnostic_blocks_verified_export(self):
+        # Arrange: 先頭12行は安全な容量内でも、13行目以降の診断を失う。
+        selection=self.selection();start=int(READER.instant(selection['window']['since']).timestamp())
+        selection['turn_selection_complete']=True
+        turn=self.turn('long-failure',start+10,started=start)
+        selection['threads'][0]['turns']=[turn]
+        output='\n'.join('error '+('detail '*25)+str(i) for i in range(20))
+        item=dict(id='c',type='commandExecution',command='check fixture',status='failed',exitCode=1,
+            aggregatedOutput=output)
+        body=self.body(turn,item)
+        class Body:
+            def call(self,method,params):
+                if method == 'thread/read':
+                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                return body.call(method,params)
+        # Act / Assert: 要約の保存成功を完全な失敗証拠としない。
+        result=MINIMIZE.read_turn(body,'root',turn,start,start+86400)
+        self.assertFalse(result['trace_complete'])
+        self.assertTrue(json.loads(result['events'][1]['summary'])['diagnostic_truncated'])
+        with self.assertRaisesRegex(ValueError,'incomplete item evidence'):
+            READER.read_completed(Body(),selection,dict(sources={},units={}))
 
     def test_current_root_exclusion_survives_export_collect_and_next_day(self):
         window=self.selection()['window'];start=int(READER.instant(window['since']).timestamp())

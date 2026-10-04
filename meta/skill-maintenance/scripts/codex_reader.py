@@ -228,7 +228,7 @@ def main():
             ledger = json.loads(args.state.read_text()) if args.state.exists() else dict(sources={}, units={})
         window = dict(since=args.since, cutoff=args.cutoff) if args.action == 'index' else selection['window']
         binding = dict(stage=args.action, window=window, codex_home=str(Path(args.codex_home).resolve()),
-                       protocol='0.159.3/0.160.0', normalizer_version=2,
+                       protocol='0.159.3/0.160.0', normalizer_version=3,
                        input_digest=digest(config if args.action == 'index' else selection),
                        state_digest=digest({k: ledger.get(k) for k in ('target', 'sources', 'units')})
                        if args.action in {'index', 'read'} else None)

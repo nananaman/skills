@@ -50,6 +50,7 @@ def command_facts(item):
             'exit_code':item.get('exitCode'),'execution_status':item.get('status'),
             'output_bytes':len(output.encode()),'diagnostic_excerpt':excerpt or '[no selected diagnostic/verification output]',
             'diagnostic_has_omission':not bounded or cr>0 or redactions>0 or diff_omitted,
+            'diagnostic_truncated':not bounded,
             'diagnostic_not_available':failed and (not output or not excerpt or excerpt=='[diagnostic exceeds safe summary budget]')}
 
 def tool(item):
@@ -143,7 +144,7 @@ def item_page(page, t, feedback_only, user_feedback):
             if not feedback_only or recorded[-1]['status']!='success':
                 events.extend(recorded)
             if recorded[-1]['status']=='error' and (
-                    diagnostic.get('diagnostic_not_available') or
+                    diagnostic.get('diagnostic_not_available') or diagnostic.get('diagnostic_truncated') or
                     kind in {'dynamicToolCall','mcpToolCall'} and diagnostic.get('diagnostic_has_omission')):
                 missing.append({'id':ident,'kind':kind,'reason':'failure diagnostic missing or minimized; review before advancing coverage'})
         elif kind=='webSearch':
@@ -190,7 +191,9 @@ def read_turn(proxy,thread_id,t,start,end,*,feedback_only=False,user_feedback=Fa
         if t['status'] in {'failed','interrupted'}:
             events.append(dict(id=t['id']+':status',kind='error',summary='Recorded native turn status: '+t['status']+'; cause unverified.'))
     else:
-        require(counts['userMessage']>=1 and counts['agentMessage']>=1,'request/response missing')
+        require(counts['userMessage']>=1 and
+                (counts['agentMessage']>=1 or t['status'] in {'failed','interrupted'}),
+                'request/response missing')
     return {'thread_id':thread_id,'turn_id':t['id'],'completed_at':t['completedAt'],'messages':messages,'events':events,
             'missing_tool_results':missing,'orphan_results':orphan_results,'excluded_nonessential':dict(excluded_nonessential),'pages':pages,'item_types':dict(counts),'retained_items':len(ids),'excluded_reasoning_count':excluded_reasoning,
             'pagination_complete':True,'trace_complete':not missing,'scope':'only this approved completed turn'}

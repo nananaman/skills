@@ -91,13 +91,19 @@ class ResumeTest(unittest.TestCase):
         self.assertFalse(result['checkpoint_written'])
 
     def test_fixed_window_and_scope_mismatch_block_before_rpc(self):
-        for alteration in ('window','scope'):
+        for alteration in ('window','scope','normalizer'):
             with self.subTest(alteration=alteration):
                 self.output=self.private/(alteration+'.json')
                 fake=self.index_proxy();args=self.argv('index',self.index_limit())
                 self.assertEqual(2,self.run_reader(fake,args)[0])
                 attempts=len(fake.attempts)
                 if alteration=='window': args[args.index('--cutoff')+1]='2026-10-05T00:00:00Z'
+                elif alteration=='normalizer':
+                    progress=self.output.with_suffix('.progress.json')
+                    document=json.loads(progress.read_text())
+                    document['binding']['normalizer_version']-=1
+                    document['digest']=R.digest({k:v for k,v in document.items() if k!='digest'})
+                    progress.write_text(json.dumps(document))
                 else:
                     config=json.loads(self.source.read_text());config['repos'][0]['id']='other/project'
                     self.source.write_text(json.dumps(config))
