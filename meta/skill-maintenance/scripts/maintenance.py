@@ -4,7 +4,7 @@
 import argparse
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from common import require, instant, stamp, text_id, validate_content, validate_evidence
+from common import require, instant, stamp, text_id, validate_content, validate_evidence, validate_feedback
 import hashlib
 import json
 import os
@@ -89,11 +89,32 @@ def load_state(path, identity):
     return state
 
 
+def register_run(args):
+    require(args.repo.is_dir(), "target repository directory is missing")
+    private_path(args.state, args.repo)
+    identity = profile(read(args.target))
+    source, root = text_id(args.source_id), text_id(args.root_id)
+    require(not os.environ.get('CODEX_THREAD_ID') or os.environ['CODEX_THREAD_ID'] == root,
+            'registration must identify this maintenance run')
+    with locked(args.state):
+        state = load_state(args.state, identity)
+        roots = state.setdefault('maintenance_roots', {}).setdefault(source, [])
+        if root not in roots:
+            roots.append(root)
+            roots.sort()
+        atomic_write(args.state, state)
+    return dict(status='maintenance-run-registered', checkpoint_written=False)
+
+
 def completed_facts(source, session, unit, updated):
     content = unit["content"]
     validate_content(content)
     validate_evidence(unit["evidence"])
-    return {"source_id": source, "root_id": session["root_id"], "id": unit["id"],
+    feedback = session['kind'] == 'maintenance-feedback'
+    if feedback:
+        validate_feedback(unit['evidence'])
+    return {**({'maintenance_feedback': True} if feedback else {}),
+            "source_id": source, "root_id": session["root_id"], "id": unit["id"],
             "source_repo": session["source_repo"], "information_scope": session["information_scope"],
             "revision": unit["revision"], "updated_at": stamp(updated), "content": content,
             "evidence": unit["evidence"]}
@@ -124,6 +145,7 @@ def collect(args):
     with locked(args.state):
         state = load_state(args.state, identity)
         previous = state["sources"].get(source, {})
+        feedback_roots = set(state.get('maintenance_roots', {}).get(source, []))
         selection = document.get('adapter_selection')
         check_selection(state, source, selection)
         if previous:
@@ -153,17 +175,31 @@ def collect(args):
             require(node["id"] == root["id"], "inconsistent root")
             require(session["source_repo"] == root["source_repo"] and
                     session["information_scope"] == root["information_scope"], "parent/child scope mismatch")
-            require(session["kind"] in {"work", *EXCLUDED_KINDS}, "unknown session kind")
+            require(session["kind"] in {"work", "maintenance-feedback", *EXCLUDED_KINDS}, "unknown session kind")
+            if session['kind'] == 'maintenance-feedback':
+                require(session['id'] == session['root_id'] and session['parent_id'] is None and
+                        session['root_id'] in feedback_roots, 'unregistered maintenance feedback')
+                require(session['root_id'] != os.environ.get('CODEX_THREAD_ID'), 'current maintenance run held')
         excluded_roots = {s["id"] for s in sessions if s["id"] == s["root_id"] and s["kind"] in EXCLUDED_KINDS}
         for exclusions in (document.get('excluded_roots', []), previous.get('excluded_roots', []), args.exclude_root):
             require(isinstance(exclusions, list) and all(isinstance(x, str) and x for x in exclusions),
                     'invalid persistent exclusions')
             excluded_roots.update(exclusions)
+        excluded_roots.update(feedback_roots)
+        hard_excluded = set(args.exclude_root) | {s['root_id'] for s in sessions if s['kind'] in EXCLUDED_KINDS}
+        for exclusions in (document.get('feedback_excluded_roots', []), previous.get('feedback_excluded_roots', [])):
+            require(isinstance(exclusions, list) and all(isinstance(x, str) and x for x in exclusions),
+                    'invalid feedback exclusions')
+            hard_excluded.update(exclusions)
+        allowed_feedback = {s['root_id'] for s in sessions if s['kind'] == 'maintenance-feedback'} - hard_excluded
+        current_root = os.environ.get('CODEX_THREAD_ID')
         observed = set()
         deferred = {}
         excluded = 0
         for session in sessions:
-            if (session["root_id"] in excluded_roots or session["kind"] in EXCLUDED_KINDS
+            root_excluded = session['root_id'] in excluded_roots
+            feedback_allowed = session['kind'] == 'maintenance-feedback' and session['root_id'] in allowed_feedback
+            if (session["root_id"] == current_root or root_excluded and not feedback_allowed or session["kind"] in EXCLUDED_KINDS
                     or session["source_repo"] not in target["source_repos"]
                     or session["information_scope"] not in {"public", identity["information_scope"]}):
                 excluded += 1
@@ -190,17 +226,29 @@ def collect(args):
                     continue
                 if updated < since and key not in previous.get("deferred", {}):
                     continue
-                state["units"][key] = {"facts": completed_facts(source, session, unit, updated),
+                facts = completed_facts(source, session, unit, updated)
+                if facts.get('maintenance_feedback') and not facts['evidence']['events']:
+                    continue  # A finished run without feedback also resolves its pending observation.
+                state["units"][key] = {"facts": facts,
                                        "status": "pending", "candidate_id": None}
+        # A resumed current root is a temporary hold; do not consume its pending observations.
+        deferred.update({k: value for k, value in previous.get('deferred', {}).items()
+                         if value['root_id'] == current_root and value['root_id'] not in hard_excluded})
         required_deferred = {k for k, value in previous.get('deferred', {}).items()
-                             if value['root_id'] not in excluded_roots}
+                             if value['root_id'] != current_root and
+                             (value['root_id'] not in excluded_roots or value['root_id'] in allowed_feedback)}
         require(required_deferred <= observed, "export omitted an unfinished unit")
         grouped = {}
+        current_held = 0
         for key, unit in state["units"].items():
             facts = unit["facts"]
+            if facts['root_id'] == current_root:
+                current_held += unit['status'] not in TERMINAL
+                continue
             if (unit["status"] not in TERMINAL and facts["source_repo"] in target["source_repos"]
                     and facts["information_scope"] in {"public", identity["information_scope"]}
-                    and facts["root_id"] not in excluded_roots):
+                    and (facts["root_id"] not in excluded_roots or
+                         facts.get('maintenance_feedback') and facts['root_id'] not in hard_excluded)):
                 phase = (unit["status"], unit["candidate_id"]) if unit["status"] in {"evaluated", "applying"} else ("pending", None)
                 grouped.setdefault((facts["source_id"], facts["root_id"], phase), []).append({"key": key, **unit})
         groups = []
@@ -223,15 +271,20 @@ def collect(args):
                  "window": {"since": stamp(since), "cutoff": stamp(cutoff)}, "budget": target["budget"],
                  "status": "ready" if selected else "budget-exhausted" if pending else
                            "awaiting-evidence" if held else
-                           "awaiting-input" if unfinished else "no-new-input",
+                           "awaiting-input" if unfinished or current_held else "no-new-input",
                  "cases": selected, "queued_cases": len(groups), "unfinished_units": unfinished,
                  "excluded_sessions": excluded}
+        if current_held:
+            batch['current_root_held_units'] = current_held
         if getattr(args, 'new_evidence_only', False):
             batch['held_cases'] = len(held)
             batch['held_case_ids'] = sorted(held_ids)
         selected_units = [u for case in selected for u in case["units"]]
         batch["evidence_quality"] = {"with_trace": len(selected_units),
                                      "outcomes_independently_verified": False}
+        feedback_count = sum(bool(u.get("maintenance_feedback")) for u in selected_units)
+        if feedback_count:
+            batch["evidence_quality"]["maintenance_feedback_units"] = feedback_count
         batch_path = args.output / (batch["id"] + ".json")
         if 'coverage_notes' in document:
             batch['coverage_notes'] = document['coverage_notes']
@@ -239,7 +292,8 @@ def collect(args):
         state.setdefault('batches', {})[batch['id']] = digest(batch)
         state['latest_batch'] = batch['id']
         state["sources"][source] = {"through": stamp(cutoff), "deferred": deferred,
-                                   "excluded_roots": sorted(excluded_roots), 'adapter_selection': selection}
+                                   "excluded_roots": sorted(excluded_roots), 'adapter_selection': selection,
+                                   'feedback_excluded_roots': sorted(hard_excluded)}
         atomic_write(args.state, state)
         return {"batch": str(batch_path), "status": batch["status"]}
 
@@ -307,6 +361,11 @@ def record(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    register_parser = commands.add_parser("register-run")
+    for name in ('target', 'repo', 'state'):
+        register_parser.add_argument('--' + name, type=Path, required=True)
+    for name in ('source-id', 'root-id'):
+        register_parser.add_argument('--' + name, required=True)
     collect_parser = commands.add_parser("collect")
     for name in ("input", "target", "repo", "state", "output"):
         collect_parser.add_argument("--" + name, type=Path, required=True)
@@ -321,7 +380,7 @@ def main():
         record_parser.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args()
     try:
-        result = {'collect': collect, 'record': record}[args.command](args)
+        result = {'collect': collect, 'record': record, 'register-run': register_run}[args.command](args)
         print(json.dumps(result))
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(json.dumps({"status": "blocked", "error": str(error)}), file=sys.stderr)

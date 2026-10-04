@@ -32,7 +32,7 @@ class ReaderTest(unittest.TestCase):
                     dict(id='later', status='completed', startedAt=start,
                     completedAt=start+86401, items=[], itemsView='notLoaded')], nextCursor=None)
         fake = Fake()
-        result, counts = READER.select_turns(fake, self.selection(), 1, 10)
+        result, counts = READER.select_turns(fake, self.selection())
         self.assertEqual('thread/turns/list', fake.method)
         self.assertEqual('notLoaded', fake.params['itemsView'])
         self.assertEqual(['inside'], [t['id'] for t in result['threads'][0]['turns']])

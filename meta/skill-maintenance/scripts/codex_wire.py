@@ -57,12 +57,14 @@ def frame(payload,opcode=1):
     return header+mask+bytes(value^mask[index%4] for index,value in enumerate(payload))
 
 
-def receive(stream):
+def receive(stream, *, remaining_budget=None):
     first,second=exact(stream,2);final=bool(first&0x80);opcode=first&0xf
     require(not first&0x70 and not second&0x80 and opcode in {0,1,8,9,10},'unsupported WebSocket frame')
     size=second&0x7f
     if size==126:size=int.from_bytes(exact(stream,2),'big')
     elif size==127:size=int.from_bytes(exact(stream,8),'big')
     require(size<=LIMIT,'WebSocket frame budget exhausted')
+    if remaining_budget is not None:
+        require(size<=remaining_budget,'acquisition byte budget exhausted; coverage incomplete')
     require(opcode<8 or final and size<=125,'invalid WebSocket control frame')
     return final,opcode,exact(stream,size)

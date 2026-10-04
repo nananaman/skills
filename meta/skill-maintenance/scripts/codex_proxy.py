@@ -39,22 +39,68 @@ def validate_read_params(method, params):
             'invalid bounded page parameters')
 
 
-def iter_pages(proxy, method, params, max_pages=20):
-    """Yield bounded index, turn or item pages with cursor checks."""
+class AcquisitionIncomplete(ValueError):
+    """Resource exhaustion is incomplete acquisition, never successful coverage."""
+
+
+class AcquisitionBudget:
+    def __init__(self, max_bytes=64 * 1024 * 1024, max_seconds=300):
+        require(type(max_bytes) is int and max_bytes > 0 and
+                type(max_seconds) is int and max_seconds > 0, 'invalid acquisition budget')
+        self.max_bytes, self.max_seconds = max_bytes, max_seconds
+        self.started = time.monotonic()
+        self.deadline = self.started + max_seconds
+        self.received_bytes = 0
+
+    def check(self):
+        if time.monotonic() >= self.deadline:
+            raise AcquisitionIncomplete('acquisition time budget exhausted; coverage incomplete')
+
+    def check_request(self):
+        self.check()
+        if self.received_bytes >= self.max_bytes:
+            raise AcquisitionIncomplete('acquisition byte budget exhausted; coverage incomplete')
+
+    def consume(self, size):
+        require(type(size) is int and size >= 0, 'invalid received byte count')
+        self.received_bytes += size
+        if self.received_bytes > self.max_bytes:
+            raise AcquisitionIncomplete('acquisition byte budget exhausted; coverage incomplete')
+        self.check()
+
+    def usage(self):
+        return dict(max_bytes=self.max_bytes, received_bytes=self.received_bytes,
+                    max_seconds=self.max_seconds, elapsed_seconds=round(time.monotonic() - self.started, 3))
+
+
+def iter_pages(proxy, method, params, *, normalize=None, context=None):
+    """Replay normalized saved pages, then acquire and persist the next cursor page."""
     cursor = None
     seen = set()
-    for _ in range(max_pages):
-        response = proxy.call(method, {**params, **({'cursor': cursor} if cursor else {})})
-        require(isinstance(response.get('data'), list) and len(response['data']) <= params['limit'],
-                'invalid page size')
-        yield response['data']
-        cursor = response.get('nextCursor')
-        require(cursor is None or isinstance(cursor, str) and cursor, 'invalid cursor')
-        if cursor is None:
+    progress = getattr(proxy, 'progress', None)
+    require(progress is None or normalize is not None, 'raw pages must not be persisted')
+    while True:
+        request = {**params, **({'cursor': cursor} if cursor else {})}
+        cached = progress.get(method, request, context) if progress else None
+        if cached is None:
+            response = proxy.call(method, request)
+            require(isinstance(response.get('data'), list) and len(response['data']) <= params['limit'],
+                    'invalid page size')
+            next_cursor = response.get('nextCursor')
+            require(next_cursor is None or isinstance(next_cursor, str) and next_cursor, 'invalid cursor')
+            require(next_cursor is None or next_cursor not in seen, 'cursor loop')
+            data = normalize(response['data']) if normalize else response['data']
+            if progress:
+                progress.save(method, request, context, data, next_cursor)
+        else:
+            data, next_cursor = cached['data'], cached['nextCursor']
+            require(next_cursor is None or isinstance(next_cursor, str) and next_cursor, 'invalid cached cursor')
+            require(next_cursor is None or next_cursor not in seen, 'cached cursor loop')
+        yield data
+        if next_cursor is None:
             return
-        require(cursor not in seen, 'cursor loop')
-        seen.add(cursor)
-    raise ValueError('page budget exhausted; coverage incomplete')
+        seen.add(next_cursor)
+        cursor = next_cursor
 
 
 def verify_server_version(agent):
@@ -107,6 +153,7 @@ class Proxy:
     def __init__(self, config):
         self.process = None
         self.server_version = None
+        self.budget = config.get('acquisition_budget') or AcquisitionBudget()
         self.close_lock = threading.Lock()
         env = dict(os.environ)
         inputs = proxy_input(config)
@@ -114,7 +161,7 @@ class Proxy:
         executable = inputs['codex_executable']
         try:
             result = subprocess.run([executable, '--version'], env=env, capture_output=True,
-                                    text=True, timeout=15, check=True)
+                                    text=True, timeout=min(15, max(0.001, self.budget.deadline - time.monotonic())), check=True)
             require(result.stdout.strip() == 'codex-cli ' + PROTOCOL, 'unsupported Codex CLI version')
             self.process = subprocess.Popen([executable, 'app-server', 'proxy'], env=env,
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -125,7 +172,7 @@ class Proxy:
             self.handshake_key = key
             self.reader = threading.Thread(target=self._read, daemon=True)
             self.reader.start()
-            deadline=time.monotonic()+RPC_TIMEOUT
+            deadline=min(time.monotonic()+RPC_TIMEOUT, self.budget.deadline)
             self._write(request,deadline)
             ready=self.messages.get(timeout=max(0,deadline-time.monotonic()))
             require(isinstance(ready,dict) and ready.get('transport_ready'),
@@ -141,11 +188,16 @@ class Proxy:
                     str(Path(initialized['codexHome']).resolve()) == inputs['codex_home'],
                     'app-server CODEX_HOME mismatch; no thread read attempted')
             self._send(json.dumps({'method': 'initialized','params':{}}).encode())
+        except AcquisitionIncomplete:
+            self.close()
+            raise
         except ValueError as error:
             self.close()
+            self.budget.check()
             raise ValueError('Codex read-only proxy initialization failed: ' + str(error)) from None
         except (OSError, subprocess.SubprocessError, queue.Empty):
             self.close()
+            self.budget.check()
             raise ValueError('Codex read-only proxy unavailable; no fallback attempted') from None
 
     def _read(self):
@@ -154,7 +206,10 @@ class Proxy:
             self.messages.put({'transport_ready':True},timeout=1)
             fragmented=None
             while True:
-                final,opcode,payload=codex_wire.receive(self.process.stdout)
+                self.budget.check()
+                final,opcode,payload=codex_wire.receive(self.process.stdout,
+                    remaining_budget=self.budget.max_bytes - self.budget.received_bytes)
+                self.budget.consume(len(payload))
                 if opcode==8:break
                 if opcode==9:self._send(payload,10);continue
                 if opcode==10:continue
@@ -171,7 +226,8 @@ class Proxy:
                     self.messages.put(message, timeout=RPC_TIMEOUT)
                     fragmented=None
         except (OSError, ValueError, queue.Full) as error:
-            try:self.messages.put({'transport_error':str(error)},timeout=1)
+            try:self.messages.put({'transport_error':str(error), 'budget_exhausted':
+                isinstance(error, AcquisitionIncomplete) or str(error).startswith('acquisition byte budget exhausted')},timeout=1)
             except queue.Full:pass
         finally:
             try: self.messages.put(None, timeout=1)
@@ -182,6 +238,7 @@ class Proxy:
         # on timeout; the existing daemon is never terminated or restarted.
         if not self.send_lock.acquire(timeout=max(0,deadline-time.monotonic())):
             self.close()
+            self.budget.check()
             raise ValueError('Codex proxy send deadline exceeded')
         errors=[]
         def write():
@@ -199,16 +256,19 @@ class Proxy:
         if writer.is_alive():
             self.close()
             writer.join(timeout=1)
+            self.budget.check()
             raise ValueError('Codex proxy send deadline exceeded')
         if errors:
             self.close()
+            self.budget.check()
             raise ValueError('Codex proxy send failed') from None
 
     def _send(self,payload,opcode=1,deadline=None):
         self._write(codex_wire.frame(payload,opcode),
-                    deadline if deadline is not None else time.monotonic()+RPC_TIMEOUT)
+                    min(deadline if deadline is not None else time.monotonic()+RPC_TIMEOUT, self.budget.deadline))
 
     def call(self, method, params):
+        self.budget.check_request()
         require(method in {'initialize', *READ_METHODS},
                 'unsupported read method')
         if method!='initialize':
@@ -218,13 +278,16 @@ class Proxy:
         self.sequence += 1
         ident = self.sequence
         try:
-            deadline = time.monotonic() + RPC_TIMEOUT
+            deadline = min(time.monotonic() + RPC_TIMEOUT, self.budget.deadline)
             self._send(json.dumps({'id': ident, 'method': method, 'params': params}).encode('utf-8'),deadline=deadline)
             while True:
+                self.budget.check()
                 remaining=deadline-time.monotonic()
                 require(remaining>0,'Codex RPC response deadline exceeded')
                 message = self.messages.get(timeout=remaining)
                 require(isinstance(message,dict), 'Codex proxy disconnected or unknown RPC message schema')
+                if message.get('budget_exhausted'):
+                    raise AcquisitionIncomplete('acquisition resource budget exhausted; coverage incomplete')
                 require('transport_error' not in message,'Codex WebSocket transport failed')
                 require(not ('method' in message and 'id' in message),'unsupported server-initiated request')
                 if message.get('id') == ident:
@@ -240,6 +303,7 @@ class Proxy:
                         validate_metadata_0160(params,message['result'])
                     return message['result']
         except (OSError, queue.Empty):
+            self.budget.check()
             raise ValueError('Codex read RPC unavailable; no fallback attempted') from None
 
     def close(self):

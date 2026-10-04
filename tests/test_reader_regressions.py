@@ -47,8 +47,8 @@ class ReaderRegressions(unittest.TestCase):
                 return dict(data=[ReaderRegressions().turn('inside',start+1)],nextCursor=None)
         with patch.object(INDEX.sys,'platform','darwin'):
             selected,_=INDEX.index(Pages(),self.source(),dict(sources={}),**window,
-                codex_home=str(Path.home()/'.codex'),max_pages=1,max_threads=10)
-        selected,_=READER.select_turns(Pages(),selected,1,10)
+                codex_home=str(Path.home()/'.codex'))
+        selected,_=READER.select_turns(Pages(),selected)
         self.assertEqual(['inside'],[t['id'] for t in selected['threads'][0]['turns']])
 
     def test_finished_failures_keep_evidence_and_missing_body_never_advances_checkpoint(self):
@@ -99,12 +99,12 @@ class ReaderRegressions(unittest.TestCase):
                     offset = int(params.get('cursor', '0'))
                     return dict(data=turns[offset:offset+20], nextCursor=str(offset+20))
             proxy = Pages()
-            selected, counts = READER.select_turns(proxy, self.selection(), 1, 1)
+            selected, counts = READER.select_turns(proxy, self.selection())
             self.assertEqual(['today'], [t['id'] for t in selected['threads'][0]['turns']])
             self.assertEqual(1, counts['selected_turns'])
             self.assertEqual(1, proxy.calls)
 
-    def test_known_unfinished_requires_more_pages_and_selected_budget_still_blocks(self):
+    def test_known_unfinished_requires_all_needed_pages_and_missing_turn_still_blocks(self):
         start = int(READER.instant(self.selection()['window']['since']).timestamp())
         selection = self.selection()
         selection['unfinished_by_root'] = {'root': ['known']}
@@ -115,12 +115,13 @@ class ReaderRegressions(unittest.TestCase):
                         ReaderRegressions().turn('old',start-10)],nextCursor='more')
                 return dict(data=[dict(id='known',status='inProgress',startedAt=start-100,
                     completedAt=None,items=[],itemsView='notLoaded')],nextCursor=None)
-        result,_ = READER.select_turns(Pages(), selection, 2, 2)
+        result,_ = READER.select_turns(Pages(), selection)
         self.assertEqual(['today','known'], [t['id'] for t in result['threads'][0]['turns']])
-        with self.assertRaisesRegex(ValueError,'page budget'):
-            READER.select_turns(Pages(), selection, 1, 2)
-        with self.assertRaisesRegex(ValueError,'selected turn budget'):
-            READER.select_turns(Pages(), selection, 2, 1)
+        class Missing:
+            def call(self, method, params):
+                return dict(data=[ReaderRegressions().turn('today',start+1)],nextCursor=None)
+        with self.assertRaisesRegex(ValueError,'omitted a known unfinished'):
+            READER.select_turns(Missing(), selection)
 
     def body(self, turn, dynamic=None, item_started=None):
         class Body:
@@ -182,7 +183,7 @@ class ReaderRegressions(unittest.TestCase):
             def call(self,method,params):
                 return dict(data=[] if params['archived'] else [row],nextCursor=None)
         with patch.dict(os.environ,{'CODEX_THREAD_ID':row['id']}), patch.object(INDEX.sys,'platform','darwin'):
-            selection,_=INDEX.index(Index(),source,ledger,**window,codex_home=str(Path.home()/'.codex'),max_pages=1,max_threads=10)
+            selection,_=INDEX.index(Index(),source,ledger,**window,codex_home=str(Path.home()/'.codex'))
         selection['turn_selection_complete']=True
         export,_=READER.read_completed(None,selection,ledger)
         with tempfile.TemporaryDirectory() as tmp:
@@ -194,7 +195,7 @@ class ReaderRegressions(unittest.TestCase):
             saved=json.loads(args.state.read_text())
             self.assertIn(row['id'],saved['sources']['synthetic']['excluded_roots'])
             with patch.dict(os.environ,{'CODEX_THREAD_ID':'maintenance-two'}), patch.object(INDEX.sys,'platform','darwin'):
-                next_day,_=INDEX.index(Index(),source,saved,window['cutoff'],'2026-10-05T00:00:00Z',str(Path.home()/'.codex'),1,10)
+                next_day,_=INDEX.index(Index(),source,saved,window['cutoff'],'2026-10-05T00:00:00Z',str(Path.home()/'.codex'))
             self.assertEqual([],next_day['threads'])
 
 

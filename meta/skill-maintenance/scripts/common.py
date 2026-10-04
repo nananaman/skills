@@ -56,14 +56,14 @@ def validate_evidence(evidence):
     require(evidence['complete'] is True and evidence['truncated'] is False,
             'incomplete or truncated evidence; not no-change')
     events = evidence['events']
-    require(isinstance(events, list) and len(events) <= 256, 'evidence event budget exceeded')
+    require(isinstance(events, list), 'evidence events must be a list')
     seen, calls, results = set(), set(), set()
     for event in events:
         require(isinstance(event, dict) and {'id', 'kind', 'summary'} <= event.keys(), 'invalid evidence event')
         ident = text_id(event['id'])
         require(ident not in seen, 'duplicate evidence event ID')
         kind = event['kind']
-        require(isinstance(kind, str) and kind in {'tool-call', 'tool-result', 'error', 'correction'},
+        require(isinstance(kind, str) and kind in {'tool-call', 'tool-result', 'error', 'correction', 'user-input'},
                 'unknown evidence event kind')
         fields = {'id', 'kind', 'summary'}
         if kind == 'tool-call':
@@ -90,3 +90,17 @@ def validate_evidence(evidence):
         require(not any(SENSITIVE.search(value) for value in strings), 'sensitive evidence blocked')
         seen.add(ident)
     require(calls <= results, 'complete evidence omitted a tool result')
+
+
+def validate_feedback(evidence):
+    """Only observed failures and recorded user input; never self scoring/success."""
+    validate_evidence(evidence)
+    for event in evidence['events']:
+        require(event['kind'] in {'tool-call', 'tool-result', 'error', 'user-input'},
+                'self-generated feedback evidence blocked')
+        if event['kind'] == 'tool-result':
+            require(event['status'] in {'error', 'cancelled'}, 'success is not maintenance feedback')
+        elif event['kind'] == 'tool-call':
+            require(event['tool'] in {'commandExecution', 'fileChange'} or
+                    event['tool'].startswith(('mcpToolCall:', 'dynamicToolCall:')),
+                    'self evaluation/collaboration feedback blocked')
