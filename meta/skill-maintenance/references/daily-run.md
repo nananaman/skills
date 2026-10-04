@@ -34,8 +34,8 @@ codex app-server proxy
 
    接続がローカルであることに加え、source種別、端末のcwd・ディスクpathのメタデータ、remote環境の有無、Git repository情報を照合する。pathは出所確認の文字列として扱い、参照先の生ログを開かない。cwd完全一致だけで選ばず、食い違いは保存する。Macローカルやrepositoryを確認できないもの、組織scope未登録のものは本文取得前に保留する。
 
-2. 本文取得が許可された実行だけで、[thread/turns/list](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/app-server-protocol/schema/json/v2/ThreadTurnsListParams.json)に対象IDと`itemsView:"notLoaded"`を指定し、turnの時刻・完了状態を列挙する。既知の未完了turnも照合し、その本文は取らず持ち越す。sessionの更新時刻をturnの完了時刻の代わりにしない。
-3. 完了turnだけを[thread/items/list](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/app-server-protocol/schema/json/v2/ThreadItemsListParams.json)の明示的な`threadId / turnId`でページ取得する。user/assistantメッセージと必要なtool結果を最小化する。reasoningが応答に混在した場合は種類判定直後に本文未参照で破棄する。秘密、生args、大量出力、patch、外部本文は保存しない。
+2. [thread/turns/list](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/app-server-protocol/schema/json/v2/ThreadTurnsListParams.json)に対象IDと`itemsView:"notLoaded"`を指定し、turnの時刻・終了状態を列挙する。selectedの予算は期間内の終了turnと持越しに使い、古い履歴は消費しない。newest-firstを確認し、古い完了境界に達して既知持越しが揃ったら止める。古いfailed/interruptedだけで当日の取得を止めない。古いページに隠れた未知の未完了は保証しない。session更新時刻をturn完了時刻の代わりにしない。
+3. 本文取得の許可がある場合だけ、期間内のcompleted/failed/interruptedを終了した観測として[thread/items/list](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/app-server-protocol/schema/json/v2/ThreadItemsListParams.json)の明示的な`threadId / turnId`で読む。turnは完了時刻で選び、跨日の開始itemもそのturnの開始〜完了の範囲で保持する。user/assistantと必要なtool結果を最小化し、失敗診断を保存できなければ不足として止める。reasoningは種類判定直後に本文未参照で破棄し、秘密、生args、大量出力、patch、外部本文は保存しない。
 4. [reader入力手順](reader-input.md)に従って共通exportを作る。失敗出力は終了値だけへ潰さず、原因判断に必要な安全な診断・HTTP結果を残す。プロセス終了値0とアプリ処理成功を区別する。診断不足や除去部分が判断に必要な場合は保留する。完了した記録と成功した作業は同じ意味ではない。
 
 既存daemonでの一覧メタデータと、新しい日の`thread/turns/list`による完了turn選択を、この入口でMac上に確認した。本文の接続・最小化は既存の承認済みturnで成功したコードを再利用し、共通exportへの接続は合成入力で確認した。新しい日の本文取得、別PC、無人実行への権限引継ぎは未確認である。
@@ -55,7 +55,7 @@ python3 <skill-root>/scripts/codex_reader.py read --read-completed \
 
 各段階は前段の成功時だけ続ける。`read --read-completed`は本文取得を許可された実行だけで使う。CLI/server確認は`0.159.3 / 0.160.0`に限定し、各RPC30秒、最大20ページ、thread/turn各100件で止める。上限は引数で小さくできる。拒否・未知schema・scope不明・既知未完了rootの欠落は停止し、元台帳は更新しない。個人scopeの既存登録と台帳bindingを照合し、組織scopeや未登録の入力を黙って追加しない。
 
-既存台帳のsource/root/unit/revisionとbindingを保持する。既に記録した完了turnは保存済みfactsを再利用し、reader変更だけで新revisionや再分析を作らない。追加証拠のrevisionや入力scope移行は別途照合して行う。未完了は本文なしで持ち越し、過去の未完了が索引範囲から消えた場合はcoverage不足で停止する。failed/interrupted turnも変更不要とせず、証拠の扱いを確認するまで止める。
+既存台帳のsource/root/unit/revisionとbindingを保持する。既に記録した終了turnは保存済みfactsを再利用し、reader変更だけで新revisionや再分析を作らない。追加証拠のrevisionや入力scope移行は別途照合して行う。現在の保守rootと保存済み除外集合をindex→export→collectで永続化し、翌日の自己収集を防ぐ。未完了は本文なしで持ち越し、既知未完了の欠落や期間内の失敗証拠不足ではcheckpointを進めない。failed/interruptedは変更不要やcancelledに置き換えず、失敗の証拠を持つcompleted unitへ変換する。
 
 ## 収集・振り返り・再開
 

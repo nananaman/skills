@@ -31,6 +31,17 @@ def text_id(value):
     return value
 
 
+def turn_disposition(status, started, completed, start, end, known=False):
+    """Select finished observations by completion, including failed/interrupted work."""
+    require(status in {'completed', 'failed', 'interrupted', 'inProgress'}, 'unknown turn status')
+    require(started is not None, 'missing turn start time')
+    if status == 'inProgress':
+        require(completed is None, 'in-progress turn has completion time')
+        return 'pending'
+    require(completed is not None and completed >= started, 'finished turn lacks valid completion time')
+    return 'selected' if completed <= end and (completed >= start or known) else 'skip'
+
+
 def path_key(value, flavour):
     cls = PureWindowsPath if flavour == 'windows' else PurePosixPath
     path = cls(value)

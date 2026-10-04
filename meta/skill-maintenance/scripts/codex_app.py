@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 import math
 
-from common import instant, require, stamp, text_id, path_key, SENSITIVE, validate_evidence
+from common import instant, require, stamp, text_id, path_key, SENSITIVE, validate_evidence, turn_disposition
 
 
 LIMIT = 50
@@ -90,7 +90,7 @@ def minimize_native(bundle, config, since, cutoff):
                 unit = {k: turn[k] for k in ('id', 'status', 'startedAt', 'completedAt')}
                 done = epoch(unit['completedAt']) if unit['completedAt'] is not None else None
                 known = unit['id'] in entry.get('known_unfinished_ids', [])
-                if unit['status'] == 'completed' and done is not None and (start <= done <= end or known):
+                if turn_disposition(unit['status'], epoch(unit['startedAt']), done, start, end, known) == 'selected':
                     requests = []
                     finals = []
                     for item in turn['items']:
@@ -228,7 +228,7 @@ def export(snapshot, config, target, since, cutoff, previous, state_units):
                 path_key(row['cwd'], config['path_flavour']) in repos)
     def wanted(index):
         return {key: row for key, row in index.items() if allowed(row) and
-                (start <= epoch(row['updated_at']) <= end or row['id'] in pending_threads or
+                (start <= epoch(row['updated_at']) or row['id'] in pending_threads or
                  row['status'] in {'active', 'waiting'})}
     wanted_first, wanted_last = wanted(first), wanted(last)
     require(wanted_first == wanted_last, 'app index changed during capture; retry within authorization')
@@ -274,8 +274,6 @@ def export(snapshot, config, target, since, cutoff, previous, state_units):
             require((info['hasMore'] and isinstance(info['nextCursor'], str) and info['nextCursor']) or
                     (not info['hasMore'] and info['nextCursor'] is None), 'invalid app next cursor')
             for turn in page['turns']:
-                turn_count += 1
-                require(turn_count <= config['max_turns'], 'app turn budget exhausted; acquisition incomplete')
                 ident = text_id(turn['id'])
                 require(ident not in seen, 'duplicate app turn page entry')
                 seen.add(ident)
@@ -287,25 +285,24 @@ def export(snapshot, config, target, since, cutoff, previous, state_units):
                 completed = epoch(turn['completedAt']) if turn['completedAt'] is not None else None
                 require(completed is None or completed >= started, 'app turn timestamps reversed')
                 known = any(d['session_id'] == row['id'] and d['unit_id'] == ident for d in deferred)
-                if turn['status'] == 'inProgress':
-                    require(completed is None, 'in-progress app turn has completion timestamp')
+                disposition = turn_disposition(turn['status'], started, completed, start, end, known)
+                if disposition == 'skip':
+                    require('content' not in turn, 'out-of-window app content must not be persisted')
+                    continue
+                turn_count += 1
+                require(turn_count <= config['max_turns'], 'app selected turn budget exhausted; acquisition incomplete')
+                if disposition == 'pending':
                     session['units'].append({'id': ident, 'revision': 1, 'updated_at': stamp(started),
                                              'status': 'in-progress'})
                     continue
-                require(completed is not None, 'finished app turn lacks completion timestamp')
-                if turn['status'] != 'completed':
-                    session['units'].append({'id': ident, 'revision': 1, 'updated_at': stamp(completed),
-                                             'status': 'cancelled'})
-                    continue
-                if not (start <= completed <= end or known):
-                    require('content' not in turn, 'out-of-window app content must not be persisted')
-                    continue
-                require(completed <= end, 'unfinished app turn completed outside authorized capture window')
-                content = turn['content']
+                require('content' in turn, 'finished app turn content missing; failure evidence must not be discarded')
+                content = dict(turn['content'])
                 require(set(content) == {'request', 'expected', 'observed'} and
                         all(isinstance(v, str) and v.strip() for v in content.values()),
                         'app completed content missing; do not invent success')
                 require(not any(SENSITIVE.search(v) for v in content.values()), 'sensitive app turn blocked')
+                if turn['status'] != 'completed':
+                    content['observed'] += '\nRecorded turn status: ' + turn['status']
                 facts = {'source_id': config['source_id'], 'root_id': row['id'], 'id': ident,
                          'source_repo': repo['id'], 'information_scope': repo['information_scope'],
                          'revision': 1, 'updated_at': stamp(completed), 'content': content}

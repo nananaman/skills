@@ -1,7 +1,0 @@
-name: Synthetic middle
-on: workflow_call
-permissions: {contents: read, actions: read}
-jobs:
-  deploy:
-    permissions: {contents: read, actions: read}
-    uses: ./.github/workflows/deploy.yaml

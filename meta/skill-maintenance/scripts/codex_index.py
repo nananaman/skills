@@ -101,6 +101,8 @@ def index(proxy, config, ledger, since, cutoff, codex_home, max_pages, max_threa
     selection = dict(version=1, source_id=config['source_id'], device_id=config['device_id'],
         host_id='local', adapter_selection=saved, window=dict(since=since, cutoff=cutoff),
         coverage_complete=not held, threads=eligible,
-        unfinished_turn_ids=sorted({v['unit_id'] for v in previous_source.get('deferred', {}).values()}))
+        excluded_roots=sorted(excluded),
+        unfinished_by_root={root: sorted(v['unit_id'] for v in previous_source.get('deferred', {}).values() if v['root_id'] == root)
+                            for root in {v['root_id'] for v in previous_source.get('deferred', {}).values()} - excluded})
     stats.update(eligible_sessions=len(eligible), held_sessions=sum(held.values()))
     return selection, {**dict(stats), 'repositories': dict(repositories), 'held_reasons': dict(held)}

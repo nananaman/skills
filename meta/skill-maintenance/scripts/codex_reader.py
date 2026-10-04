@@ -6,7 +6,7 @@ from pathlib import Path
 import queue
 import sys
 
-from common import instant, require, text_id, stamp, validate_content, validate_evidence
+from common import instant, require, text_id, stamp, validate_content, validate_evidence, turn_disposition
 from maintenance import atomic_write, private_path
 from codex_proxy import Proxy, iter_pages
 from codex_index import index, github_repo
@@ -28,36 +28,41 @@ def select_turns(proxy, selection, max_pages, max_turns):
                 'local source not verified')
         require(thread.get('Mac_local_proof') and thread['information_scope'].startswith('personal:') and
                 thread.get('ephemeral') is False, 'unverified source selection')
-        turns, seen = [], set()
+        turns, seen, previous_started = [], set(), None
+        known_ids = set(selection.get('unfinished_by_root', {}).get(ident, selection.get('unfinished_turn_ids', [])))
         params = dict(threadId=ident, itemsView='notLoaded', limit=20, sortDirection='desc')
         for page in iter_pages(proxy, 'thread/turns/list', params, max_pages):
             stats['turn_pages'] += 1
+            older = False
             for turn in page:
                 require(isinstance(turn, dict) and turn.get('items') == [] and
                         turn.get('itemsView') == 'notLoaded', 'unexpected turn body; discard response')
                 tid = text_id(turn['id'])
                 require(tid not in seen, 'duplicate turn')
                 seen.add(tid)
-                require(len(seen) <= max_turns, 'turn budget exhausted')
                 status = turn['status']
-                require(status in {'completed', 'inProgress', 'failed', 'interrupted'}, 'unknown turn status')
+                started, done = turn.get('startedAt'), turn.get('completedAt')
+                require(type(started) is int and (done is None or type(done) is int), 'invalid turn timestamp')
+                require(previous_started is None or started <= previous_started, 'turn pages not newest-first')
+                previous_started = started
                 stats['enumerated_turns'] += 1
-                require(stats['enumerated_turns'] <= max_turns, 'total turn budget exhausted')
-                if status == 'inProgress':
+                disposition = turn_disposition(status, started, done, start, end, tid in known_ids)
+                if done is not None and done < start and started < start:
+                    older = True
+                if disposition == 'skip':
+                    continue
+                stats['selected_turns'] += 1
+                require(stats['selected_turns'] <= max_turns, 'selected turn budget exhausted')
+                if disposition == 'pending':
                     stats['unfinished_turns'] += 1
-                    turns.append(dict(id=tid, status=status, startedAt=turn.get('startedAt'), completedAt=None))
-                elif status == 'completed':
-                    done = turn.get('completedAt')
-                    require(type(done) is int, 'missing completion time')
-                    known = tid in selection.get('unfinished_turn_ids', [])
-                    if start <= done <= end or known and done <= end:
-                        started = turn.get('startedAt')
-                        require(type(started) is int and started <= done, 'missing or invalid start time')
-                        turns.append(dict(id=tid, status=status, startedAt=started, completedAt=done))
-                        stats['selected_completed_turns'] += 1
+                    turns.append(dict(id=tid, status=status, startedAt=started, completedAt=None))
                 else:
-                    # Failed/interrupted turns are not silently reported as no input.
-                    raise ValueError('failed/interrupted turn requires explicit evidence review')
+                    turns.append(dict(id=tid, status=status, startedAt=started, completedAt=done))
+                    stats['selected_finished_turns'] += 1
+                    stats['selected_' + status + '_turns'] += 1
+            if older and known_ids <= seen:
+                break
+        require(known_ids <= seen, 'turn pages omitted a known unfinished turn')
         selected.append({**thread, 'turns': turns})
     return {**selection, 'threads': selected, 'turn_selection_complete': True}, dict(stats)
 
@@ -104,6 +109,8 @@ def read_completed(proxy, selection, ledger, max_pages=20):
             finals = [m['text'] for m in review['messages'] if m['kind'] == 'agentMessage']
             content = dict(request=requests, expected='Original request requirements; outcome not independently verified.',
                            observed='Recorded assistant reports (not independently verified):\n' + '\n'.join(finals))
+            if turn['status'] != 'completed':
+                content['observed'] += '\nRecorded turn status: ' + turn['status']
             evidence = dict(version=1, complete=True, truncated=False, events=review['events'])
             validate_content(content)
             validate_evidence(evidence)
@@ -115,6 +122,7 @@ def read_completed(proxy, selection, ledger, max_pages=20):
         sessions.append(dict(id=thread['id'], root_id=thread['id'], parent_id=None,
             source_repo=thread['repository'], information_scope=thread['information_scope'], kind='work', units=units))
     return dict(version=1, source_id=source, adapter_selection=selection['adapter_selection'],
+        excluded_roots=selection.get('excluded_roots', []),
         coverage=dict(start=selection['window']['since'], end=selection['window']['cutoff'], complete=True, truncated=False),
         sessions=sessions, coverage_notes=dict(
             scope='registered Mac personal sources; updated index and selected completed turns in the authorized window',

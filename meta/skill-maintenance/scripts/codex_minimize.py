@@ -21,7 +21,8 @@ def clean(text):
         line=re.sub(r'/Users/[^\s`"\'\)\],:]+','[local-path]',line)
         line=re.sub(r'https?://[^\s)\]"\']+',lambda m: urlparse(m.group()).scheme+'://'+(urlparse(m.group()).hostname or '[host]')+urlparse(m.group()).path,line)
         line=re.sub(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}','[email]',line)
-        line=OPAQUE.sub('[opaque value omitted]',line)
+        line,omissions=OPAQUE.subn('[opaque value omitted]',line)
+        redactions+=omissions
         lines.append(line)
     value='\n'.join(lines)
     require(not SENSITIVE.search(value),'sensitive normalized text')
@@ -88,6 +89,13 @@ def tool(item):
         require(type(item.get('success')) is bool or status=='declined','missing dynamic result')
         success=success and item.get('success') is True
         summary={'execution_status':status,'success':item.get('success'),'result_items':len(item.get('contentItems') or [])}
+        if not success:
+            items=item.get('contentItems') or []
+            text='\n'.join(x.get('text','') for x in items if isinstance(x,dict) and x.get('type') in {'inputText','text'})
+            detail,removed=clean(text)
+            summary['diagnostic_excerpt']=detail if len(detail)<=2500 else '[diagnostic exceeds safe summary budget]'
+            summary['diagnostic_not_available']=not detail or len(detail)>2500
+            summary['diagnostic_has_omission']=removed>0 or len(detail)>2500
         tool_name=kind+':'+item.get('tool','unknown')
     else: raise ValueError('unsupported tool')
     summary_text=json.dumps(summary,ensure_ascii=False)
@@ -97,6 +105,8 @@ def tool(item):
 
 def read_turn(proxy,thread_id,t,start,end,max_pages=20):
     START,END=start,end
+    require(type(t.get('startedAt')) is int and type(t.get('completedAt')) is int and
+            START <= t['completedAt'] <= END and t['startedAt'] <= t['completedAt'], 'turn outside completion window')
     ids=set();counts=Counter();messages=[];events=[];missing=[];pages=0;excluded_reasoning=0;excluded_nonessential=Counter();orphan_results=[]
     params={'threadId':thread_id,'turnId':t['id'],'limit':20,'sortDirection':'asc'}
     for page in iter_pages(proxy,'thread/items/list',params,max_pages):
@@ -111,7 +121,8 @@ def read_turn(proxy,thread_id,t,start,end,max_pages=20):
                 continue
             for field in ('startedAtMs','completedAtMs'):
                 ts=entry.get(field)
-                require(ts is None or type(ts) is int and START*1000<=ts<=END*1000,'item outside window')
+                # Turn timestamps have second precision; item timestamps have millisecond precision.
+                require(ts is None or type(ts) is int and t['startedAt']*1000<=ts<(t['completedAt']+1)*1000,'item outside selected turn')
             ident=item.get('id');require(isinstance(ident,str) and ident and ident not in ids,'duplicate/missing item')
             ids.add(ident);counts[kind]+=1
             if kind in {'userMessage','agentMessage'}:
@@ -122,7 +133,14 @@ def read_turn(proxy,thread_id,t,start,end,max_pages=20):
                 require(len(value)<=16000,'message review budget exceeded')
                 value,removed=clean(value)
                 messages.append({'id':ident,'kind':kind,'phase':item.get('phase'),'text':value,'redacted_lines':removed})
-            elif kind in {'commandExecution','fileChange','mcpToolCall','dynamicToolCall','collabAgentToolCall'}:events.extend(tool(item))
+            elif kind in {'commandExecution','fileChange','mcpToolCall','dynamicToolCall','collabAgentToolCall'}:
+                recorded=tool(item)
+                events.extend(recorded)
+                diagnostic=json.loads(recorded[-1]['summary'])
+                if recorded[-1]['status']=='error' and (
+                        diagnostic.get('diagnostic_not_available') or
+                        kind=='dynamicToolCall' and diagnostic.get('diagnostic_has_omission')):
+                    missing.append({'id':ident,'kind':kind,'reason':'failure diagnostic missing or minimized; review before advancing coverage'})
             elif kind=='webSearch':
                 results=item.get('results');require(results is None or isinstance(results,list),'invalid web result')
                 if results is None:missing.append({'id':ident,'kind':kind,'reason':'API result payload absent'})

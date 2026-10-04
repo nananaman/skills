@@ -41,7 +41,7 @@ evidence: optional {version:1, complete:true, truncated:false, events:[...]}
 root sessionは必ず含め、`root_id=id / parent_id=null`にする。子の祖先も含め、source repoと情報scopeをrootと揃える。親子に複製された同じ実務turnは同じunit ID・revision・contentに正規化する。独立した子turnは別IDだが、同じrootの事例群になる。
 `kind`は`work / skill-maintenance / evaluation`。保守・評価rootの全子孫と、評価等として識別された子自身を除外する。今回のroot IDを`--exclude-root`でも除外できる。exporterが識別できない保守実行を通常の成功事例として流し込まない。
 
-`status`は`completed / in-progress / cancelled`。完了turnのcontentだけを分析へ渡す。進行中contentは保存せず識別子を持ち越す。root IDとunit IDの組で持越しを照合し、同じunit IDを持つ別rootの古い本文を回収しない。次回は時刻が古くても同じunitを含め、完了またはcancelledを示す。持越しが消えたexportは不完全として停止する。
+`status`は`completed / in-progress / cancelled`。終了した観測だけを分析へ渡す。元turnのcompleted/failed/interruptedは完了時刻で選択し、失敗を示すcontent・evidenceもcompleted unitへ保持する。記録の完了は作業成功ではない。必要な失敗証拠がない入力はcheckpointを進めず停止する。進行中contentは保存せず識別子を持ち越す。root IDとunit IDの組で持越しを照合し、同じunit IDを持つ別rootの古い本文を回収しない。次回は時刻が古くても同じunitを含め、完了またはcancelledを示す。cancelledは明示取消し・コピー解消用で、failed/interruptedの証拠を消す用途にはしない。持越しが消えたexportは不完全として停止する。
 完了unitは不変とし、訂正はrevisionを増やす。新revisionは新しい証拠であり、前回の採用を自動で取り消さない。
 
 optionalな`evidence`は[証拠fixture](../examples/trace-export.json)と[reader手順](reader-input.md)に従う。tool callと結果、エラー、修正の短い要約を元ID・参照・順序付きで保持する。`complete:true`は必要な証拠を取得したproducer表明であり、独立検証や全履歴網羅の保証ではない。`complete:false`、`truncated:true`、結果のないcall、未知の参照先は停止する。`coverage.truncated:true`も停止する。証拠を使う新入力では欠落したeventを捨ててcompleteへ書き換えない。
@@ -83,7 +83,7 @@ contentとevidenceは既知の秘密形式を検査する。regexは秘密が皆
 除外rootはexport・前回state・今回CLI引数・rootのkind由来の集合をunionし、同じ集合を適用・保存する。空のexportで既存除外を消さない。新たに明示除外したrootの未完了持越しは本文を読まず解除し、除外対象外の持越し欠落だけを停止する。
 
 台帳更新はlock directoryと一時ファイルの置換を使う。`collect`は保存済み入力の検査から状態保存まで、`import-app`は保存済みcapture変換から状態保存まで一つのlockを保持する。同時実行は拒否し、中断時の古いlockは自動削除しない。稼働中processがないことと台帳を確認して手動復旧する。batchは台帳より先に保存するため、途中停止で孤立batchが残ってもcheckpointを進めない。台帳の決定前に外部反映を行わない。
-新しい評価runはworkbenchの別run IDに保存する。台帳・実験結果をGitへ送らず、他端末へ移す場合も情報scopeと許可を確認する。標準ライブラリの保存済みcapture検査は別PCでも利用できる。アプリ新規取得はそのPCのツール公開と成功した能力確認が必要。Windows実機・ネットワークfilesystem・他PCのライブ取得は未検証。
+新しい評価runはworkbenchの別run IDに保存する。台帳・実験結果をGitへ送らず、他端末へ移す場合も情報scopeと許可を確認する。標準ライブラリの保存済みcapture検査は別PCでも利用できる。Codex新規取得は公式CLI入口で利用環境の成功確認を要する。Windows実機・ネットワークfilesystem・他PCのライブ取得は未検証。
 
 ## fixtureでの利用例
 
