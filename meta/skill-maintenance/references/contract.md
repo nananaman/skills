@@ -3,7 +3,7 @@
 ## この版の担当範囲
 
 Python 3.11+の標準ライブラリだけで[maintenance.py](../scripts/maintenance.py)を動かす。collect/recordはreader非依存のJSON exportの検査・収集・非公開台帳の更新を行う。履歴の新規取得は行わない。モデルの実行・採点、対象repoの編集、Git/GitHub/APM操作は行わない。
-モデルによる事例整理と評価はretrospective-codifyとskill-workbenchが担当する。CLIの判断記録は評価器でも権限管理機構でもない。
+モデルによる事例整理は[振り返り手順](retrospective.md)、候補評価はskill-workbenchが担当する。CLIの判断記録は評価器でも権限管理機構でもない。
 
 [readerからの入力手順](reader-input.md)で、今回許可されたreaderの出力を共通JSONへ変換する。`common.py`が共通の入力・証拠検査を持ち、collectorは履歴通信をimportしない。[任意のCodex入口](../scripts/codex_reader.py)は既存成功コードで公式CLI proxyを読む別入口であり、collectorの依存・daemon起動・fallback・`prepare`にはしない。接続拒否の解決は振り返りから切り離す。
 [日次手順](daily-run.md)の公式CLI経路でMacの一覧メタデータと承認済み完了turnの取得・証拠入力を確認した。他PCや無人実行への権限引継ぎは未確認。

@@ -1,6 +1,6 @@
 # 履歴readerと振り返りを分ける
 
-許可されたreader → 薄い変換 → 非公開の共通JSON → `collect / record` → retrospective-codify / skill-workbenchの順で使う。共通JSONはこのrepoの入力契約であり、特定製品のexport規格ではない。collectorはreaderやDBに依存しない。任意のCodex readerは[日次手順](daily-run.md)の別入口として使う。
+許可されたreader → 薄い変換 → 非公開の共通JSON → `collect` → [事例整理](retrospective.md) → 必要な候補をskill-workbenchへ → `record`の順で使う。共通JSONはこのrepoの入力契約であり、特定製品のexport規格ではない。collectorはreaderやDBに依存しない。任意のCodex readerは[日次手順](daily-run.md)の別入口として使う。
 
 ## 取得側で確認すること
 

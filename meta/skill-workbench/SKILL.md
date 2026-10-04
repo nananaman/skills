@@ -1,6 +1,6 @@
 ---
 name: skill-workbench
-description: skillやAGENTS.md・tool指示を作成・改善・レビューする。実行結果から更新方向を診断し、候補の比較・採用と、統合・廃止を含む構造探索を行う。振り返りの事例抽出はretrospective-codifyが担当する。
+description: skillやAGENTS.md・tool指示を作成・改善・レビューする。実行結果から更新方向を診断し、候補の比較・採用と、統合・廃止を含む構造探索を行う。
 ---
 
 # 実行結果から skill を改善する

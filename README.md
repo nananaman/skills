@@ -111,9 +111,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — skill・AGENTS.md・tool 指示を、実行結果に基づく更新と候補比較・構造探索で改善する。
   - Use when: skill 作成・改善、評価・診断・候補比較、統合・廃止、指示のレビュー・監査
   - Type: `model-invoked`
-- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 実務の経験を事例・証拠・更新仮説へ整理し、評価改善へ渡す。
-  - Use when: 明示的な retrospective / codify 依頼、事例・仮説の抽出、採用済み要求の反映
-  - Type: `user-invoked`
 - **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新化する。
   - Use when: apm.yml の pin drift、local 参照先の同期漏れ、複数 skill の一括更新、source-of-truth と展開先の同期確認
   - Type: `user-invoked`
