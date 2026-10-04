@@ -16,14 +16,11 @@
 
 日次target.jsonの`budget`へこの値を設定してcollectのbatchに渡す。予算はtarget identityに含まれないため、値の変更だけで新stateを作らず、既存checkpointと重複防止を維持する。起動側の「候補抽出のみ・評価0」という指定も同時に整合させるが、スケジュールや自己収集契約の変更をこの予算から許可しない。
 
-## 旧試験台帳から日次を始める
+## 日次を新規開始する
 
-旧台帳の取得方式・証拠が現契約に適合しない場合は、bindingを書き換えず、元の台帳・checkpoint・未解決unitとdecision・claimsを保持する。証拠なし事例を完了やno-changeに変換せず、成功証拠を補わない。旧ファイルを上書きせず、新しい日次state pathを指定する。新stateは単に古い未処理を解決した意味にはならない。
+現行7項目のsource、許可済みsource repo・target、確認済み保守・評価rootの除外を照合する。各段階のbyte/time予算を起動引数に指定し、初回の開始とcutoff（直近24時間）を固定して非公開に記録する。
 
-1. 同じ管理主体・情報scopeの旧stateとsourceから、確認済み保守・評価rootの除外をsourceへ引き継ぐ。既に除外され分類不明のrootも通常workへ戻さず未照合として保持する。旧unitsや会話本文を新stateの証拠へコピーしない。source ID・root/unitの元IDを変えて新証拠に数えない。
-2. 現行7項目のsource、許可済みsource repoとtargetを照合する。旧`max_threads / max_turns`は試験由来の件数制限なので新形式へ持ち込まず、上記byte/time予算を起動引数に設定する。許可・設定変更が拒否されている間は実行しない。
-3. 新stateが存在しないことを確かめ、初回の開始とcutoff（直近24時間）を固定して非公開に記録する。`register-run`は現在rootだけを登録し、初回の成功exportをcollectしてからcheckpointを作る。旧checkpointを新stateへコピーして取得済みにしない。次回以後は新しいcheckpointと未取得windowを再開点にする。
-4. 新batchの元ID・root・候補を旧記録の既知ID・判断・claims、現在の正本と既存PRへ照合する。同じ元事例を二重の裏付けに数えず、同目的の変更・PRを重ねない。旧記録の証拠不足、照合不能、未確認の反映intentは未照合として残し、該当候補の外部反映を保留する。
+初回stateは未作成または判断・checkpointのない空の台帳から始める。`register-run`は現在rootだけを登録し、初回の成功exportをcollectしてからcheckpointを作る。次回以後はcheckpoint・未完了turn・未取得window・反映claimから再開する。外部反映前には現在の正本と既存PRを照合し、同目的の変更を重ねない。
 
 ## 保守runを登録する
 

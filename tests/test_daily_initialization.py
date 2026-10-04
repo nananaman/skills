@@ -1,4 +1,4 @@
-"""Fresh daily checkpoint without rewriting legacy evidence or losing exclusions."""
+"""Fresh daily checkpoint with registered maintenance and evaluation exclusions."""
 import argparse
 import json
 import os
@@ -17,18 +17,12 @@ from tests import test_reader_regressions as fixture_tests
 
 
 class InitializationTest(unittest.TestCase):
-    def test_new_daily_state_preserves_legacy_and_inherits_confirmed_exclusions(self):
+    def test_initial_daily_collection_preserves_registered_exclusions(self):
         fixture=fixture_tests.ReaderRegressions();window=fixture.selection()['window']
         start=int(R.instant(window['since']).timestamp())
         source=fixture.source();source['exclude_roots']=['known-maintenance','known-evaluation']
         target=json.loads((ROOT/'meta/skill-maintenance/examples/target.json').read_text())
         target['source_repos']=['example/project']
-        legacy=dict(version=1,target=M.profile(target),
-            sources={'synthetic':dict(through='2026-10-02T00:00:00Z',adapter_selection=dict(mode='app-index'),
-                        excluded_roots=source['exclude_roots'],deferred={})},
-            units={str(i):dict(status='deferred' if i<14 else 'no-change',candidate_id=None,
-                facts=dict(source_id='synthetic',root_id='old-work',id='old-'+str(i),revision=1)) for i in range(17)},
-            claims={'legacy-intent':dict(status='applying',unit_keys=['0'],operations=['pr'])},decisions={})
         class Pages:
             calls=[]
             def call(self,method,params):
@@ -44,8 +38,7 @@ class InitializationTest(unittest.TestCase):
                        dict(id='a',type='agentMessage',text='New fixture recorded; outcome unverified.')]
                 return dict(data=[dict(turnId='new-turn',item=i) for i in items],nextCursor=None)
         with tempfile.TemporaryDirectory() as tmp:
-            private=Path(tmp);old=private/'legacy-state.json';daily=private/'daily-state.json';target_path=private/'target.json'
-            old.write_text(json.dumps(legacy));preserved=old.read_bytes()
+            private=Path(tmp);daily=private/'daily-state.json';target_path=private/'target.json'
             target_path.write_text(json.dumps(target))
             with patch.dict(os.environ,{'CODEX_THREAD_ID':'new-maintenance'},clear=True):
                 M.register_run(argparse.Namespace(target=target_path,repo=ROOT,state=daily,
@@ -64,9 +57,6 @@ class InitializationTest(unittest.TestCase):
                 result=M.collect(argparse.Namespace(repo=ROOT,state=daily,target=target_path,input=export_path,
                     output=private/'batches',since=window['since'],cutoff=window['cutoff'],hours=24,exclude_root=[],new_evidence_only=True))
             current=json.loads(daily.read_text());batch=json.loads(Path(result['batch']).read_text())
-            self.assertEqual(preserved,old.read_bytes())
-            self.assertEqual(17,len(json.loads(old.read_text())['units']))
-            self.assertEqual(14,sum(u['status']=='deferred' for u in json.loads(old.read_text())['units'].values()))
             self.assertEqual(window['cutoff'],current['sources']['synthetic']['through'])
             self.assertEqual('repo-index',current['sources']['synthetic']['adapter_selection']['mode'])
             self.assertTrue(set(source['exclude_roots']) <= set(current['sources']['synthetic']['excluded_roots']))
@@ -74,7 +64,6 @@ class InitializationTest(unittest.TestCase):
             self.assertEqual(1,len(batch['cases']))
             self.assertEqual('synthetic',batch['cases'][0]['source_id'])
             self.assertEqual('new-work',batch['cases'][0]['root_id'])
-            self.assertEqual({'legacy-intent':legacy['claims']['legacy-intent']},json.loads(old.read_text())['claims'])
             self.assertFalse(any(method=='thread/read' and params['threadId']!='new-work' for method,params in pages.calls))
 
 
