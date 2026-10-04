@@ -102,7 +102,7 @@ exportは8 MiB以下でsymlinkを拒否する。容量に収まらない場合�
 
 初回のcollectはcutoffから24時間。明示`--since`は取得下限とし、それより古いcheckpointは停止する。継続収集を許可した既定lookbackでは開始とcheckpointの古い方から休止分を回収する。Codex readerは開始を必ず明示し、許可期間を自動で巻き戻さない。保存済み未処理事例は時刻にかかわらず持ち越す。
 
-旧方式・証拠なし台帳をそのまま使えない場合の初期化は[日次手順](daily-run.md)に従い、元記録・除外・未照合・反映claimを失わない。新stateを作ることを既存の判断や二重反映防止のリセットにしない。
+初回の開始条件は[日次手順](daily-run.md)に従う。運用中のstateを切り替える場合は、既存の判断・除外・未解決の反映claimを保持した移行先、または引き続き参照する元stateを正本として確定する。保持と照合を確認できなければ切替と該当候補の外部反映を保留し、新state作成を二重反映防止のリセットにしない。
 
 台帳にはtarget identity、source別checkpoint・未完了unit・除外root・取得scope、完了unitと状態、発行batch digest、decision、候補claimを保存する。case IDはrootとunit集合から決まり、batch IDは実行ごとに変わる。
 

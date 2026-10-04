@@ -2,6 +2,18 @@
 
 本人・所属組織が管理する許可済みrepoで、取得・振り返り・skill-workbenchによる評価・改修・検証・draft PR作成まで進める。予定の作成・更新は呼出側が担当する。merge・APM更新・installは別の明示依頼が必要。新規契約・課金設定・認証・アクセス権を追加しない。
 
+収集からPR提出までの実行手順はこの文書を正本とし、スケジューラpromptへ複製しない。単独依頼・別端末でも同じ順序で実行し、その環境で許可されたsource・reader・接続・操作範囲を確認する。別端末の登録や承認を引き継いだとは扱わない。
+
+呼出側はtarget/source/state・非公開出力先・対象checkout・readerと元CODEX_HOME・予算・確認済み操作範囲を渡す。既定期間と予算は以下を使い、取得・評価・PR作成の業務手順を呼出し文へ追加する必要はない。
+
+```text
+skill-maintenanceを実行する。
+設定: <target/source/state・非公開出力先・対象checkout・reader/元CODEX_HOME>
+許可操作: 編集・commit・push・draft PR作成/更新
+```
+
+この操作範囲は対象repoについて実際に委任された場合だけ指定する。設定値・この呼出し例を外部操作の許可の代わりにしない。
+
 ## 設定と期間を固定する
 
 [入力・状態契約](contract.md)に従い、端末、許可reader・入力repo、改善先と管理主体、scope、非公開のsource/target・state・出力先、予算・操作範囲を確かめる。改善先だけを入力repoにしない。個人と各組織は分離し、今回の保守rootは下記で登録し、評価rootはsourceの`exclude_roots`に登録して除外する。
@@ -101,5 +113,7 @@ python3 <skill-root>/scripts/maintenance.py record \
 ## 結果と再開
 
 期間、取得範囲・coverage_notes・除外・持越し、処理件数・対象repo、採否と理由、未評価候補、未取得・保留・次回再開条件を短く返す。`awaiting-evidence / held_cases / held_case_ids`は新証拠待ち、`no-new-input`は対象入力なしとして報告する。私的な会話・秘密・ID・証拠を公開repoやPRへ転記しない。
+
+定期実行では初回結果、PR作成/更新、取得・実行失敗、権限不足や重要な採用判断など対応が必要な問題を通知する。初回は起動時に該当sourceのcheckpointがない場合とし、以後の変更なし・変化のない既知保留は通知せず、状態と再開に必要な結果を非公開に保持する。単独依頼の結果報告や明示された通知指定には従う。
 
 取得・変換・coverage失敗ではcheckpointを進めず、許可範囲内の同じ対象から再開する。反映途中は実際の外部状態を照合してから記録し、再反映を先に実行しない。
