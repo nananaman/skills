@@ -1,4 +1,4 @@
-"""Daily metadata selection, preserving the successful Mac probe's checks."""
+"""Select registered Mac session metadata within an authorized window."""
 from collections import Counter
 import os
 from pathlib import Path, PurePosixPath

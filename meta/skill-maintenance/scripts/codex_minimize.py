@@ -1,4 +1,4 @@
-"""Minimization from the successful fixed-turn reader; no live connection on import."""
+"""Minimize selected turn messages and tool evidence."""
 import json, re
 from collections import Counter
 from urllib.parse import urlparse

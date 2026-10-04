@@ -1,4 +1,4 @@
-"""Thin bounded entry to the previously verified official CLI proxy reader."""
+"""Bounded Mac session reader through the official Codex CLI proxy."""
 import argparse
 from collections import Counter
 import json

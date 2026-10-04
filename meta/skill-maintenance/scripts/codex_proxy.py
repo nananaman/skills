@@ -1,6 +1,4 @@
-"""Optional official CLI reader, extracted from the successful bounded Mac probe.
-
-The existing transport is preserved; no daemon startup or fallback reads.
+"""Bounded official CLI connection to an existing Codex daemon.
 """
 import json, os, queue, re, shutil, subprocess, threading, time
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -42,7 +40,7 @@ def validate_read_params(method, params):
 
 
 def iter_pages(proxy, method, params, max_pages=20):
-    """The successful page loop, shared by index, turn selection and item read."""
+    """Yield bounded index, turn or item pages with cursor checks."""
     cursor = None
     seen = set()
     for _ in range(max_pages):
@@ -83,7 +81,7 @@ def validate_initialize_0160(result):
     absolute_metadata_path(result['codexHome'])
 
 def validate_metadata_0160(params,result):
-    # Only the explicitly verified includeTurns:false contract is supported.
+    # Only metadata reads with includeTurns:false are supported.
     thread=result.get('thread')
     required={'cliVersion','createdAt','cwd','ephemeral','id','modelProvider','preview',
               'projectId','sessionId','source','status','turns','updatedAt'}
