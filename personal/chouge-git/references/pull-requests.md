@@ -8,19 +8,6 @@
 - project に PR template がある場合は、その構成を優先する。
 - PR body には `review-diff-code`、`skill-workbench` 差分レビューなど、個人的な内部レビュー運用の実施内容(reviewer 構成、指摘内容、採否理由など)を書かない。レビュー要否と完了条件は `implement` に従い、既に評価した同じ差分は再レビューしない。
 
-## PR本文の画像
-
-説明専用のスクリーンショット・比較画像はrepo外の作業pathに置き、commit前に`git diff --cached --name-only`で混入していないことを確認する。
-`gh pr edit --help`で[正式な`--attach`](https://cli.github.com/manual/gh_pr_edit)への対応を確認し、対象repo・PR番号を明示して添付する。
-
-```sh
-gh pr edit <PR番号> --repo <owner/repo> \
-  --attach '/tmp/pr-screenshot.png#変更後の画面'
-```
-
-body指定なしなら既存本文を保持し、アップロードした画像への参照を末尾に追加する。本文内の位置を指定する場合は、既存内容を保った`--body-file`に画像pathのMarkdown参照を置き、同じ画像を`--attach`する。
-部分成功でも本文が更新されるため、`gh pr view <PR番号> --repo <owner/repo> --json body`で参照を読み戻し、再試行は未添付分だけにする。未対応・権限不足・添付失敗は報告し、説明用画像をcommitへ追加して代用しない。
-
 ## PR 完了後のローカル同期
 
 マージ後のローカル同期が依頼範囲に含まれ、対象repositoryとPRを特定できる場合だけ行う。PR作成やready化をこの手順の起動条件にしない。
