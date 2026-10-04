@@ -341,18 +341,6 @@ class MaintenanceTest(unittest.TestCase):
         self.batch_path.write_text(json.dumps(batch))
         self.assertNotEqual(0, self.record(batch, 'no-change').returncode)
 
-    def test_id_scoped_export_cannot_omit_an_allowed_thread_and_advance_checkpoint(self):
-        self.document['adapter_selection']={'mode':'thread-ids','thread_ids':['task','missing']}
-        failed=self.collect()
-        self.assertNotEqual(0,failed.returncode)
-        self.assertFalse(self.state.exists())
-        missing=copy.deepcopy(self.document['sessions'][0]);missing.update(id='missing',root_id='missing',units=[])
-        self.document['sessions'].append(missing)
-        self.batch(self.collect())
-        before=self.state.read_bytes()
-        self.document['sessions'].pop()
-        self.assertNotEqual(0,self.collect().returncode)
-        self.assertEqual(before,self.state.read_bytes())
 
     def test_new_collection_invalidates_old_batch_even_with_unchanged_unit(self):
         batch = self.batch(self.collect())

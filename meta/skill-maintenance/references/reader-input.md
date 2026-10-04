@@ -5,17 +5,17 @@
 ## 取得側で確認すること
 
 端末・入力元、許可repo/cwd、期間、対象ID、進行中の扱い、必要ページ・切り詰めの有無を確認する。改善対象は本人・所属組織のskillで、入力は許可された開発セッション。改善先repoのセッションだけへ黙って限定しない。
-新規取得は今回許可されたreaderだけで行う。接続・アクセス拒否で止まった後に別readerや生ログへ切り替えない。新規ソフトのインストール・実行・権限変更はこの手順から許可されない。未取得と既存captureのreplayを区別する。
+新規取得は今回許可されたreaderだけで行う。接続・アクセス拒否で止まった後に別readerや生ログへ切り替えない。新規ソフトのインストール・実行・権限変更はこの手順から許可されない。未取得と保存済み共通exportの再処理を区別する。
 
 変換は保存済みの許可済みexportだけを扱う。元source/root/unit/revisionを保持し、tool eventも元IDを使う。元event IDがない場合は同じunit内の元順序から安定IDを作り、その由来を非公開に記録する。毎回の乱数・タイトル・要約のhashで元記録IDを置き換えない。
-既存台帳の`adapter_selection`も保持し、reader切替で範囲やrootを勝手に付け替えない。source IDを変えたり専用stateを作ったりして既存の重複防止をすり抜けない。scope・祖先対応が変わる場合は旧記録と反映結果を照合して明示的に移行する。
+既存台帳の`adapter_selection`も保持し、reader切替で範囲やrootを勝手に付け替えない。source IDを変えたり専用stateを作ったりして既存の重複防止をすり抜けない。scope・祖先対応の変更は日次起動の範囲外とし、既存記録と反映結果の照合を必要とする。
 
 期間・scopeのcoverageと、unit内の必要な証拠の完全性は別である。取得失敗、欠落ページ、切り詰め、完了時刻不明、結果欠落を`complete:true`へ変えない。未完了unitは本文を渡さず次回持ち越す。保守・評価rootとその子孫を除外する。
-unitの`completed`は記録が終わった状態であり、作業成功を意味しない。失敗して終わった作業もcontentとerrorの証拠を持つcompleted unitへ変換する。`cancelled`で証拠のある失敗を消さない。本文・結果を得られない中断は持越しや未取得として区別する。
+unitの`completed`は記録が終わった状態であり、作業成功を意味しない。失敗して終わった作業もcontentとerrorの証拠を持つcompleted unitへ変換する。本文・結果を得られない中断は持越しや未取得として区別する。
 
 ## 保存する最小証拠
 
-[trace-export.json](../examples/trace-export.json)は失敗→修正→再検証の合成例。既存contentに加え、unitのoptionalな`evidence`へ次を保存できる。
+[trace-export.json](../examples/trace-export.json)は失敗→修正→再検証の合成例。既存contentに加え、完了unitの必須`evidence`へ次を保存する。
 
 ```text
 version: 1
@@ -37,8 +37,7 @@ callと結果の対応、失敗・修正・再検証の順序を保持する。c
 ## 振り返り側の起動
 
 `collect --input <private/export.json> --target <private/target.json> --repo <skill-checkout> --state <private/state.json> --output <private/batches> --since <authorized-start> --cutoff <authorized-end>`を実行する。以後は既存の事例整理・評価・判断記録へ渡す。readerの導入・通信・認証と振り返りは独立して検証する。
-証拠なしの旧v1はreplayできるが、batchの`evidence_quality.report_only`を確認して成否・原因を確定しない。証拠付きも独立検証済みとは扱わず、再現・評価へ進む。旧native captureは途中経過を持たないが、[日次手順](daily-run.md)のMac経路では承認済み完了turnのtool証拠を共通exportへ変換し、collect/recordと再実行を確認した。診断不足は保留し、この確認を改善評価の成功としない。
-`capture-app`は旧native応答をreport-onlyへ最小化する互換入口で、native turnへ付けた`evidence`は明示拒否する。証拠付きreaderの出力は共通exportへ変換して`collect`へ渡す。既に正規化したアプリcaptureのoptional evidenceは`import-app`で検査・保持する。
+証拠欄のない完了unitは拒否する。証拠付きも独立検証済みとは扱わず、再現・評価へ進む。[日次手順](daily-run.md)のMac経路では承認済み完了turnのtool証拠を共通exportへ変換し、collect/recordと再実行を確認した。診断不足は保留し、この確認を改善評価の成功としない。
 
 ## 公開資料から参考にした範囲
 

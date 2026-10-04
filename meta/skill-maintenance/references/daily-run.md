@@ -22,6 +22,8 @@ codex app-server proxy
 
 `daemon version`は既存接続の確認、`proxy`は既存daemonへの接続である。起動・更新・認証・恒久権限の変更は含めない。必要なsandbox承認は各操作の正式な手続きで得る。拒否後はその対象を止め、別host・DB・生ログ・別readerへ切り替えない。readerに残したprotocol clientを使い、stdinにJSON行を流すだけの手順へ置き換えない。
 
+非公開の`source.json`には`version:1`、安定した`source_id / device_id`、`host_id:"local"`、`path_flavour:"posix"`、`repos:[{id,cwd,information_scope}]`、`exclude_roots:[]`を指定する。repo ID・正規化した絶対cwd・`personal:<owner>`のscopeは許可対象の実体と照合する。初回はstateが存在しなくても起動でき、readerは台帳を作成・更新しない。成功したexportをcollectへ渡した時点で台帳を作る。以後は同じsource設定とstateを使い、取得scopeの変更や古い形式の台帳を自動移行しない。
+
 接続時のCLI/server版、元のCODEX_HOME、実行端末を確認する。以下のschemaはserver `0.160.0`の確認根拠であり、他の版へ未確認のまま流用しない。
 
 1. [thread/list](https://raw.githubusercontent.com/openai/codex/rust-v0.160.0/codex-rs/app-server-protocol/schema/json/v2/ThreadListParams.json)で一覧メタデータだけを取得する。

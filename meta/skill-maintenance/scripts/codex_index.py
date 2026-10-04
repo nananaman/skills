@@ -4,7 +4,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import sys
-from common import instant, require
+from common import instant, require, text_id
 from codex_proxy import iter_pages
 
 
@@ -19,22 +19,42 @@ def within(path, prefix):
     return isinstance(path, str) and path.startswith(prefix + '/') and '..' not in PurePosixPath(path).parts
 
 
+def source_boundary(config):
+    """The current Mac CLI reader's immutable repository selection."""
+    require(isinstance(config, dict) and set(config) == {'version', 'source_id', 'device_id', 'host_id', 'path_flavour', 'repos', 'exclude_roots'}, 'unknown source fields')
+    require(config['version'] == 1 and config['host_id'] == 'local' and
+            config['path_flavour'] == 'posix', 'unknown Mac source contract')
+    text_id(config['source_id'])
+    text_id(config['device_id'])
+    repos = config['repos']
+    require(isinstance(repos, list) and repos, 'source repos required')
+    for repo in repos:
+        require(isinstance(repo, dict) and set(repo) == {'id', 'cwd', 'information_scope'}, 'invalid source repo')
+        text_id(repo['id'])
+        scope = text_id(repo['information_scope'])
+        require(scope.startswith('personal:') and scope.removeprefix('personal:').strip(),
+                'this verified Mac entry supports registered personal sources only')
+        path = PurePosixPath(repo['cwd'])
+        require(path.is_absolute() and '..' not in path.parts and str(path) == repo['cwd'],
+                'source cwd must be absolute and normalized')
+    require(len({(r['id'], r['cwd']) for r in repos}) == len(repos), 'duplicate source repo')
+    require(isinstance(config['exclude_roots'], list) and
+            all(isinstance(v, str) and v.strip() for v in config['exclude_roots']), 'invalid source exclusions')
+    return dict(mode='repo-index', device_id=config['device_id'], host_id='local', path_flavour='posix',
+                repos=sorted(repos, key=lambda r: (r['cwd'], r['id'])))
+
+
 def index(proxy, config, ledger, since, cutoff, codex_home, max_pages, max_threads):
     require(sys.platform == 'darwin' and config['host_id'] == 'local', 'Mac local source required')
-    require(config['version'] == 1 and config['path_flavour'] == 'posix', 'unknown source contract')
     start, end = int(instant(since).timestamp()), int(instant(cutoff).timestamp())
     require(start < end, 'invalid window')
-    # Retain the existing logical input boundary. No new source/state identity.
-    saved = ledger['sources'][config['source_id']]['adapter_selection']
-    previous_source = ledger['sources'][config['source_id']]
-    require(int(instant(previous_source['through']).timestamp()) >= start,
-            'checkpoint gap precedes authorized start; use an explicitly authorized wider window')
-    require(saved['mode'] in {'app-index', 'repo-index'} and saved['device_id'] == config['device_id'] and
-            saved['host_id'] == config['host_id'] and saved['path_flavour'] == config['path_flavour'] and
-            sorted(saved['repos'], key=lambda r: (r['cwd'], r['id'])) ==
-            sorted(config['repos'], key=lambda r: (r['cwd'], r['id'])), 'source boundary changed; reconcile before reading')
-    require(all(r['information_scope'].startswith('personal:') for r in config['repos']),
-            'this verified Mac entry supports registered personal sources only')
+    boundary = source_boundary(config)
+    previous_source = ledger['sources'].get(config['source_id'], {})
+    if previous_source:
+        require(int(instant(previous_source['through']).timestamp()) >= start,
+                'checkpoint gap precedes authorized start; use an explicitly authorized wider window')
+        require(previous_source['adapter_selection'] == boundary,
+                'source boundary changed; reconcile before reading')
     home = str(Path.home())
     excluded = set(config['exclude_roots']) | set(previous_source.get('excluded_roots', []))
     if os.environ.get('CODEX_THREAD_ID'):
@@ -99,7 +119,7 @@ def index(proxy, config, ledger, since, cutoff, codex_home, max_pages, max_threa
     if missing:
         held['known_unfinished_root_outside_index'] += len(missing)
     selection = dict(version=1, source_id=config['source_id'], device_id=config['device_id'],
-        host_id='local', adapter_selection=saved, window=dict(since=since, cutoff=cutoff),
+        host_id='local', adapter_selection=boundary, window=dict(since=since, cutoff=cutoff),
         coverage_complete=not held, threads=eligible,
         excluded_roots=sorted(excluded),
         unfinished_by_root={root: sorted(v['unit_id'] for v in previous_source.get('deferred', {}).values() if v['root_id'] == root)

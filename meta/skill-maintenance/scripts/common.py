@@ -1,6 +1,5 @@
 """Shared private input contract; no reader, transport, or maintenance state imports."""
 from datetime import datetime, timezone
-from pathlib import PurePosixPath, PureWindowsPath
 import re
 
 
@@ -40,13 +39,6 @@ def turn_disposition(status, started, completed, start, end, known=False):
         return 'pending'
     require(completed is not None and completed >= started, 'finished turn lacks valid completion time')
     return 'selected' if completed <= end and (completed >= start or known) else 'skip'
-
-
-def path_key(value, flavour):
-    cls = PureWindowsPath if flavour == 'windows' else PurePosixPath
-    path = cls(value)
-    require(path.is_absolute() and '..' not in path.parts, 'source cwd must be absolute and normalized')
-    return str(path).casefold() if flavour == 'windows' else str(path)
 
 
 def validate_content(content):

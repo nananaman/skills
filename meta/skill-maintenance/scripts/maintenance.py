@@ -2,7 +2,7 @@
 """Collect normalized, private exports and journal maintenance decisions. Python 3.11+."""
 
 import argparse
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from common import require, instant, stamp, text_id, validate_content, validate_evidence
 import hashlib
@@ -92,29 +92,23 @@ def load_state(path, identity):
 def completed_facts(source, session, unit, updated):
     content = unit["content"]
     validate_content(content)
-    evidence = {}
-    if "evidence" in unit:
-        validate_evidence(unit["evidence"])
-        evidence["evidence"] = unit["evidence"]
+    validate_evidence(unit["evidence"])
     return {"source_id": source, "root_id": session["root_id"], "id": unit["id"],
             "source_repo": session["source_repo"], "information_scope": session["information_scope"],
-            "revision": unit["revision"], "updated_at": stamp(updated), "content": content, **evidence}
+            "revision": unit["revision"], "updated_at": stamp(updated), "content": content,
+            "evidence": unit["evidence"]}
 
 
 def check_selection(state, source, selection):
     require(selection is None or isinstance(selection, dict) and
-            selection.get('mode') in {'repo-index', 'thread-ids', 'app-index'}, 'invalid adapter selection')
-    for ident, saved in state['sources'].items():
-        boundary = saved.get('adapter_selection')
-        if boundary and boundary.get('mode') == 'thread-ids':
-            require(ident == source and boundary == selection, 'dedicated ID-scoped state selection changed')
+            selection.get('mode') == 'repo-index', 'invalid adapter selection')
     previous = state['sources'].get(source)
     if previous:
-        require(previous.get('adapter_selection') == selection,
-                'input selection changed or legacy checkpoint; use a dedicated state')
+        require(previous['adapter_selection'] == selection,
+                'input selection changed; use a dedicated state')
 
 
-def collect(args, _locked=False):
+def collect(args):
     require(args.repo.is_dir(), "target repository directory is missing")
     private_path(args.state, args.repo)
     private_path(args.output, args.repo)
@@ -127,7 +121,7 @@ def collect(args, _locked=False):
     require(args.hours > 0, "hours must be positive")
     since = instant(args.since) if args.since else cutoff - timedelta(hours=args.hours)
     require(since < cutoff, "empty or reversed window")
-    with nullcontext() if _locked else locked(args.state):
+    with locked(args.state):
         state = load_state(args.state, identity)
         previous = state["sources"].get(source, {})
         selection = document.get('adapter_selection')
@@ -143,12 +137,6 @@ def collect(args, _locked=False):
         require(coverage.get("truncated", False) is False, "truncated export coverage; not no-change")
         sessions = document["sessions"]
         require(isinstance(sessions, list), "sessions must be a list")
-        if selection and selection['mode'] == 'thread-ids':
-            ids = selection.get('thread_ids')
-            require(isinstance(ids, list) and ids and all(isinstance(x, str) and x for x in ids),
-                    'invalid adapter selection IDs')
-            require(len(ids)==len(set(ids)) and set(ids)=={s['id'] for s in sessions},
-                    'incomplete or unselected thread ID coverage')
         indexed = {text_id(s["id"]): s for s in sessions}
         require(len(indexed) == len(sessions), "duplicate session ID")
         for session in sessions:
@@ -186,7 +174,7 @@ def collect(args, _locked=False):
                 key = digest([source, session["root_id"], unit["id"], unit["revision"]])
                 observed.add(key)
                 updated = instant(unit["updated_at"])
-                require(unit["status"] in {"completed", "in-progress", "cancelled"}, "invalid unit status")
+                require(unit["status"] in {"completed", "in-progress"}, "invalid unit status")
                 if key in state["units"]:
                     require(unit["status"] == "completed", "completed unit changed; export a new revision")
                     require(state["units"][key]["facts"] == completed_facts(source, session, unit, updated),
@@ -201,8 +189,6 @@ def collect(args, _locked=False):
                                      "unit_id": unit["id"], "revision": unit["revision"]}
                     continue
                 if updated < since and key not in previous.get("deferred", {}):
-                    continue
-                if unit["status"] == "cancelled":
                     continue
                 state["units"][key] = {"facts": completed_facts(source, session, unit, updated),
                                        "status": "pending", "candidate_id": None}
@@ -244,8 +230,7 @@ def collect(args, _locked=False):
             batch['held_cases'] = len(held)
             batch['held_case_ids'] = sorted(held_ids)
         selected_units = [u for case in selected for u in case["units"]]
-        batch["evidence_quality"] = {"with_trace": sum("evidence" in u for u in selected_units),
-                                     "report_only": sum("evidence" not in u for u in selected_units),
+        batch["evidence_quality"] = {"with_trace": len(selected_units),
                                      "outcomes_independently_verified": False}
         batch_path = args.output / (batch["id"] + ".json")
         if 'coverage_notes' in document:
@@ -319,54 +304,6 @@ def record(args):
         return {"decision_id": decision_id, "status": status}
 
 
-def import_app(args):
-    """Import a minimized app capture, preserving collection/decision idempotency."""
-    import codex_app
-    private_path(args.state, args.repo)
-    private_path(args.output, args.repo)
-    private_path(args.snapshot, args.repo)
-    with locked(args.state):
-        target, config = read(args.target), read(args.source)
-        state = load_state(args.state, profile(target))
-        boundary = codex_app.selection(config)
-        check_selection(state, config['source_id'], boundary)
-        previous = state['sources'].get(config['source_id'], {})
-        cutoff = instant(args.cutoff)
-        since = instant(args.since)
-        if previous:
-            require(instant(previous['through']) <= cutoff, 'cutoff precedes checkpoint')
-            require(instant(previous['through']) >= since,
-                    'checkpoint gap precedes authorized start; authorize a wider --since')
-            since = min(since, instant(previous['through']))
-        config['exclude_roots'] = sorted(set(config['exclude_roots']) |
-                                        set(args.exclude_root) | {args.current_root})
-        snapshot = read(args.snapshot, limit=8 * 1024 * 1024)
-        document = codex_app.export(snapshot, config, target, stamp(since), stamp(cutoff),
-                                    previous, state['units'])
-        args.input = args.output / ('app-export-' + uuid.uuid4().hex + '.json')
-        require(len(json.dumps(document, ensure_ascii=False, allow_nan=False).encode()) <= 8 * 1024 * 1024,
-                'generated app export exceeds 8 MiB')
-        atomic_write(args.input, document, indent=None)
-        args.cutoff, args.since, args.hours = stamp(cutoff), stamp(since), 24
-        args.exclude_root = document['excluded_roots']
-        return {**collect(args, _locked=True), 'export': str(args.input), 'source': 'codex-app-capture',
-                'coverage_notes': document['coverage_notes']}
-
-
-def capture_app(args):
-    """Minimize a transient native bundle; this command does not call app tools."""
-    import codex_app
-    private_path(args.bundle, args.repo)
-    private_path(args.output, args.repo)
-    config = read(args.source)
-    codex_app.selection(config)
-    result = codex_app.minimize_native(read(args.bundle, limit=8 * 1024 * 1024), config,
-                                      args.since, args.cutoff)
-    atomic_write(args.output, result)
-    return {'snapshot': str(args.output), 'source': 'saved-native-tool-results',
-            'live_acquisition': False}
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -379,25 +316,12 @@ def main():
     collect_parser.add_argument("--new-evidence-only", action="store_true",
                                 help="hold unchanged deferred/failed cases; keep unrecorded work and reconciliation")
     collect_parser.add_argument("--exclude-root", action="append", default=[])
-    app_parser = commands.add_parser('import-app', help='import a private app-tool capture; no live RPC')
-    for name in ('snapshot', 'source', 'target', 'repo', 'state', 'output'):
-        app_parser.add_argument('--' + name, type=Path, required=True)
-    app_parser.add_argument('--current-root', required=True)
-    app_parser.add_argument('--since', required=True)
-    app_parser.add_argument('--cutoff', required=True)
-    app_parser.add_argument('--exclude-root', action='append', default=[])
-    capture_parser = commands.add_parser('capture-app', help='minimize saved native tool results; no live calls')
-    for name in ('bundle', 'source', 'repo', 'output'):
-        capture_parser.add_argument('--' + name, type=Path, required=True)
-    capture_parser.add_argument('--since', required=True)
-    capture_parser.add_argument('--cutoff', required=True)
     record_parser = commands.add_parser("record")
     for name in ("batch", "result", "state", "repo"):
         record_parser.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args()
     try:
-        result = {'collect': collect, 'record': record,
-                  'import-app': import_app, 'capture-app': capture_app}[args.command](args)
+        result = {'collect': collect, 'record': record}[args.command](args)
         print(json.dumps(result))
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(json.dumps({"status": "blocked", "error": str(error)}), file=sys.stderr)

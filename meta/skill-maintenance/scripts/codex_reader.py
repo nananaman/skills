@@ -29,7 +29,7 @@ def select_turns(proxy, selection, max_pages, max_turns):
         require(thread.get('Mac_local_proof') and thread['information_scope'].startswith('personal:') and
                 thread.get('ephemeral') is False, 'unverified source selection')
         turns, seen, previous_started = [], set(), None
-        known_ids = set(selection.get('unfinished_by_root', {}).get(ident, selection.get('unfinished_turn_ids', [])))
+        known_ids = set(selection.get('unfinished_by_root', {}).get(ident, []))
         params = dict(threadId=ident, itemsView='notLoaded', limit=20, sortDirection='desc')
         for page in iter_pages(proxy, 'thread/turns/list', params, max_pages):
             stats['turn_pages'] += 1
@@ -71,8 +71,9 @@ def read_completed(proxy, selection, ledger, max_pages=20):
     from codex_minimize import read_turn
     require(selection.get('turn_selection_complete') is True, 'turn selection incomplete')
     source = selection['source_id']
-    saved = ledger['sources'][source]
-    require(saved['adapter_selection'] == selection['adapter_selection'], 'input boundary changed')
+    saved = ledger['sources'].get(source, {})
+    if saved:
+        require(saved['adapter_selection'] == selection['adapter_selection'], 'input boundary changed')
     start = int(instant(selection['window']['since']).timestamp())
     end = int(instant(selection['window']['cutoff']).timestamp())
     prior = {}
@@ -162,14 +163,14 @@ def main():
         if args.action == 'index':
             require(args.source and args.state and args.since and args.cutoff, 'index requires source/state and fixed window')
             config = json.loads(args.source.read_text())
-            ledger = json.loads(args.state.read_text())
+            ledger = json.loads(args.state.read_text()) if args.state.exists() else dict(sources={}, units={})
         else:
             require(args.selection, 'selection required')
             selection = json.loads(args.selection.read_text())
             require(selection['host_id'] == 'local', 'local source required')
         if args.action == 'read':
-            require(args.state and args.read_completed, 'body read requires existing ledger and explicit --read-completed')
-            ledger = json.loads(args.state.read_text())
+            require(args.state and args.read_completed, 'body read requires state path and explicit --read-completed')
+            ledger = json.loads(args.state.read_text()) if args.state.exists() else dict(sources={}, units={})
         proxy = Proxy(vars(args))
         require(proxy.server_version == '0.160.0', 'unverified server version')
         if args.action == 'index':

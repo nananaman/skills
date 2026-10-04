@@ -11,53 +11,11 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'meta/skill-maintenance/scripts'))
-import codex_app as APP
 import codex_index as INDEX
 import codex_reader as READER
 import codex_minimize as MINIMIZE
 import maintenance as COLLECT
-from tests import test_codex_app as app_tests
-from tests.test_codex_app import START, END, T0, T1
 from tests import test_codex_reader as reader_tests
-
-
-class AppRegressions(unittest.TestCase):
-    setUp = app_tests.AppCaptureTest.setUp
-    tearDown = app_tests.AppCaptureTest.tearDown
-    run_capture = app_tests.AppCaptureTest.run_capture
-    row = app_tests.AppCaptureTest.row
-    turn = app_tests.AppCaptureTest.turn
-    synchronize_row = app_tests.AppCaptureTest.synchronize_row
-
-    def test_post_cutoff_update_keeps_finished_turn_or_blocks_without_capture(self):
-        self.row()['updated_at'] = T1+1
-        self.synchronize_row()
-        self.assertEqual(1, len(self.run_capture()['cases']))
-        original = self.args.state.read_bytes()
-        self.snapshot['threads'] = []
-        with self.assertRaisesRegex(ValueError, 'captures missing'):
-            self.run_capture()
-        self.assertEqual(original, self.args.state.read_bytes())
-
-    def test_finished_failures_keep_evidence_and_missing_body_never_advances_checkpoint(self):
-        for status in ('failed', 'interrupted'):
-            with self.subTest(status=status):
-                self.turn()['status'] = status
-                self.turn()['evidence'] = dict(version=1, complete=True, truncated=False,
-                    events=[dict(id='failure', kind='error', summary='HTTP 403 permission denied')])
-                export = APP.export(self.snapshot, self.source, self.target, START, END, {}, {})
-                unit = export['sessions'][0]['units'][0]
-                self.assertEqual('completed', unit['status'])
-                self.assertIn(status, unit['content']['observed'])
-                self.assertIn('403', unit['evidence']['events'][0]['summary'])
-        self.turn()['status'] = 'completed'
-        self.run_capture()
-        original = self.args.state.read_bytes()
-        self.turn().update(id='new-failed', status='failed')
-        self.turn().pop('content')
-        with self.assertRaisesRegex(ValueError, 'content missing'):
-            self.run_capture()
-        self.assertEqual(original, self.args.state.read_bytes())
 
 
 class ReaderRegressions(unittest.TestCase):
@@ -67,6 +25,68 @@ class ReaderRegressions(unittest.TestCase):
     def turn(self, ident, done, status='completed', started=None):
         return dict(id=ident, status=status, startedAt=done-1 if started is None else started,
                     completedAt=done, items=[], itemsView='notLoaded')
+
+    def metadata(self, ident, updated):
+        return dict(id=ident, sessionId=ident, updatedAt=updated, turns=[], source='cli',
+            cwd=str(Path.home()/'fixture'), path=str(Path.home()/'.codex/fixture'),
+            gitInfo={'originUrl':'https://github.com/example/project.git'},
+            ephemeral=False, status={'type':'idle'})
+
+    def source(self):
+        return dict(version=1, source_id='synthetic', device_id='fixture', host_id='local',
+            path_flavour='posix', repos=[dict(id='example/project', cwd='/fixture/project',
+                information_scope='personal:example')], exclude_roots=[])
+
+    def test_post_cutoff_thread_update_preserves_in_window_completed_turn(self):
+        window=self.selection()['window']; start=int(READER.instant(window['since']).timestamp())
+        row=self.metadata('root',start+86401)
+        class Pages:
+            def call(self,method,params):
+                if method == 'thread/list':
+                    return dict(data=[] if params['archived'] else [row],nextCursor=None)
+                return dict(data=[ReaderRegressions().turn('inside',start+1)],nextCursor=None)
+        with patch.object(INDEX.sys,'platform','darwin'):
+            selected,_=INDEX.index(Pages(),self.source(),dict(sources={}),**window,
+                codex_home=str(Path.home()/'.codex'),max_pages=1,max_threads=10)
+        selected,_=READER.select_turns(Pages(),selected,1,10)
+        self.assertEqual(['inside'],[t['id'] for t in selected['threads'][0]['turns']])
+
+    def test_finished_failures_keep_evidence_and_missing_body_never_advances_checkpoint(self):
+        selection=self.selection();start=int(READER.instant(selection['window']['since']).timestamp())
+        selection['turn_selection_complete']=True
+        class Body:
+            missing=False
+            def call(self,method,params):
+                if method == 'thread/read':
+                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                items=[] if self.missing else [dict(id='u',type='userMessage',content=[dict(type='text',text='Check fixture.')]),
+                    dict(id='a',type='agentMessage',text='The request failed.'),
+                    dict(id='e',type='dynamicToolCall',tool='check',status='completed',success=False,
+                         contentItems=[dict(type='inputText',text='HTTP 403 permission denied')])]
+                return dict(data=[dict(turnId=params['turnId'],item=i) for i in items],nextCursor=None)
+        body=Body()
+        ledger=dict(sources={},units={})
+        with tempfile.TemporaryDirectory() as tmp:
+            private=Path(tmp)
+            target=json.loads((ROOT/'meta/skill-maintenance/examples/target.json').read_text())
+            target['source_repos']=['example/project']
+            (private/'target.json').write_text(json.dumps(target))
+            args=argparse.Namespace(repo=ROOT,state=private/'state.json',input=private/'export.json',target=private/'target.json',output=private/'batches',since=selection['window']['since'],cutoff=selection['window']['cutoff'],hours=24,exclude_root=[],new_evidence_only=True)
+            for status in ('failed','interrupted'):
+                selection['threads'][0]['turns']=[self.turn(status,start+10,status,started=start)]
+                export,_=READER.read_completed(body,selection,ledger)
+                unit=export['sessions'][0]['units'][0]
+                self.assertEqual('completed',unit['status'])
+                self.assertIn(status,unit['content']['observed'])
+                self.assertIn('403',unit['evidence']['events'][1]['summary'])
+                args.input.write_text(json.dumps(export));COLLECT.collect(args)
+                ledger=json.loads(args.state.read_text())
+            original=args.state.read_bytes()
+            selection['threads'][0]['turns']=[self.turn('missing',start+11,'failed',started=start)]
+            body.missing=True
+            with self.assertRaisesRegex(ValueError,'request/response missing'):
+                READER.read_completed(body,selection,ledger)
+            self.assertEqual(original,args.state.read_bytes())
 
     def test_old_history_and_failure_do_not_consume_today_budget(self):
         start = int(READER.instant(self.selection()['window']['since']).timestamp())

@@ -1,4 +1,4 @@
-"""Synthetic tool evidence and compatibility; no reader, socket, or private history."""
+"""Synthetic current-contract tool evidence; no reader, socket, or private history."""
 import copy
 import json
 from pathlib import Path
@@ -7,7 +7,6 @@ import sys
 import unittest
 
 from tests import test_skill_maintenance as baseline
-from tests import test_codex_app as app_tests
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +30,7 @@ class EvidenceTest(unittest.TestCase):
     def test_tool_failure_correction_and_recheck_survive_collect_record_replay(self):
         first = self.batch(self.collect())
         self.assertEqual(self.evidence(), first['cases'][0]['units'][0]['evidence'])
-        self.assertEqual({'with_trace': 1, 'report_only': 0, 'outcomes_independently_verified': False},
+        self.assertEqual({'with_trace': 1, 'outcomes_independently_verified': False},
                          first['evidence_quality'])
         self.assertEqual(0, self.record(first, 'no-change').returncode)
         again = self.batch(self.collect())
@@ -89,17 +88,10 @@ class EvidenceTest(unittest.TestCase):
         self.assertEqual(2, self.collect().returncode)
         self.assertEqual(original, self.state.read_bytes())
 
-    def test_legacy_input_keeps_keys_and_closed_decisions_without_implicit_enrichment(self):
-        del self.document['sessions'][0]['units'][0]['evidence']
-        first = self.batch(self.collect())
-        self.assertEqual(1, first['evidence_quality']['report_only'])
-        facts = json.loads(self.state.read_text())['units']
-        self.assertTrue(all('evidence' not in u['facts'] for u in facts.values()))
-        self.assertEqual(0, self.record(first, 'no-change').returncode)
-        again = self.batch(self.collect())
-        self.assertEqual([], again['cases'])
+    def test_completed_input_without_evidence_is_rejected_without_checkpoint_change(self):
+        self.batch(self.collect())
         original = self.state.read_bytes()
-        self.document['sessions'][0]['units'][0]['evidence'] = copy.deepcopy(TRACE['sessions'][0]['units'][0]['evidence'])
+        del self.document['sessions'][0]['units'][0]['evidence']
         self.assertEqual(2, self.collect().returncode)
         self.assertEqual(original, self.state.read_bytes())
 
@@ -109,7 +101,7 @@ class EvidenceTest(unittest.TestCase):
         self.document['coverage']['truncated'] = True
         self.assertEqual(2, self.collect().returncode)
         self.document['coverage']['truncated'] = False
-        self.document['adapter_selection'] = {'mode': 'app-index'}
+        self.document['adapter_selection'] = {'mode': 'unsupported'}
         self.assertEqual(2, self.collect().returncode)
         self.assertEqual(original, self.state.read_bytes())
 
@@ -122,24 +114,10 @@ class EvidenceTest(unittest.TestCase):
         self.assertFalse(self.state.exists())
 
 
-class AppEvidenceTest(unittest.TestCase):
-    setUp = app_tests.AppCaptureTest.setUp
-    tearDown = app_tests.AppCaptureTest.tearDown
-    run_capture = app_tests.AppCaptureTest.run_capture
-    turn = app_tests.AppCaptureTest.turn
-
-    def test_optional_trace_is_preserved_by_offline_capture_import(self):
-        self.turn()['evidence'] = copy.deepcopy(TRACE['sessions'][0]['units'][0]['evidence'])
-        first = self.run_capture()
-        self.assertEqual(self.turn()['evidence'], first['cases'][0]['units'][0]['evidence'])
-        self.assertEqual(1, first['evidence_quality']['with_trace'])
-        self.assertEqual(first['cases'][0]['id'], self.run_capture()['cases'][0]['id'])
-
-
 class DependencyTest(unittest.TestCase):
     def test_shared_contract_import_does_not_load_collector_or_transport(self):
         scripts = ROOT / 'meta/skill-maintenance/scripts'
-        code = "import common,codex_app,sys; assert 'maintenance' not in sys.modules; assert 'codex_export' not in sys.modules; assert 'codex_wire' not in sys.modules"
+        code = "import common,sys; assert 'maintenance' not in sys.modules; assert 'codex_export' not in sys.modules; assert 'codex_wire' not in sys.modules"
         result = subprocess.run([sys.executable, '-c', code], cwd=scripts, capture_output=True, text=True)
         self.assertEqual(0, result.returncode, result.stderr)
 
