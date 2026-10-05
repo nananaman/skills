@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "report_timezone": "Asia/Tokyo",
+  "information_scope": "personal:example",
+  "report_destination": {
+    "kind": "host-space",
+    "reference": "caller-private-parent-reference",
+    "information_scope": "personal:example"
+  }
+}

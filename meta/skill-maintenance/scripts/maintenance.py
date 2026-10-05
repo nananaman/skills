@@ -492,13 +492,11 @@ def main():
     intake_parser = commands.add_parser("intake-retrospectives")
     for name in ("input", "target", "repo", "state", "output"):
         intake_parser.add_argument("--" + name, type=Path, required=True)
-    intake_parser.add_argument("--max-reports", type=int, choices=(1, 2), default=2)
     intake_parser.add_argument("--exclude-root", action="append", default=[])
     intake_parser.add_argument("--new-evidence-only", action="store_true")
     select_parser = commands.add_parser("select-retrospectives")
     for name in ("input", "target", "repo", "state"):
         select_parser.add_argument("--" + name, type=Path, required=True)
-    select_parser.add_argument("--max-reports", type=int, choices=(1, 2), default=2)
     select_parser.add_argument("--exclude-root", action="append", default=[])
     report_parser = commands.add_parser("report")
     for name in ('acquisitions', 'target', 'repo', 'state', 'output'):
@@ -506,6 +504,9 @@ def main():
     for name in ('since', 'cutoff'):
         report_parser.add_argument('--' + name, required=True)
     report_parser.add_argument('--expected-source-id', action='append', required=True)
+    daily_parser = commands.add_parser('daily-report')
+    for name in ('input', 'config', 'repo', 'output'):
+        daily_parser.add_argument('--' + name, type=Path, required=True)
     record_parser = commands.add_parser("record")
     for name in ("batch", "result", "state", "repo"):
         record_parser.add_argument("--" + name, type=Path, required=True)
@@ -514,6 +515,9 @@ def main():
         if args.command in {'intake-retrospectives', 'select-retrospectives'}:
             from work_retrospectives import intake, select
             result = intake(args) if args.command == 'intake-retrospectives' else select(args)
+        elif args.command == 'daily-report':
+            from daily_report import daily_report
+            result = daily_report(args)
         else:
             result = {'collect': collect, 'record': record, 'register-run': register_run, 'report': report}[args.command](args)
         print(json.dumps(result))

@@ -21,6 +21,22 @@ def report(task='task-a', revision=1):
 
 
 class RetrospectiveTest(unittest.TestCase):
+    def test_all_received_tasks_are_available_for_retrospective_even_without_candidate_budget(self):
+        # 評価候補予算は全実務の回収・診断を件数で切り捨てる予算ではない。
+        self.target['budget'] = dict(max_cases=0, max_runs=0)
+        self.target_file.write_text(json.dumps(self.target))
+        self.document['reports'] = [report('task-' + str(n)) for n in range(43)]
+        self.document['requested_tasks'] = [dict(task_id=r['task_id'], status='received')
+                                            for r in self.document['reports']]
+
+        batch = self.batch(self.intake())
+
+        self.assertEqual(43, len(batch['cases']))
+        self.assertEqual(43, batch['queued_cases'])
+        self.assertEqual(0, batch['budget']['max_runs'])
+        self.assertEqual('ready', batch['status'])
+        self.assertFalse(batch['history_coverage_complete'])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -157,7 +173,7 @@ class RetrospectiveTest(unittest.TestCase):
         self.document['reports'][1]['claims'][0]['summary'] = 'Changed claim.'
         self.assert_rejected_without_mutation()
 
-    def test_strict_envelope_reports_and_request_budget_reject_before_persistence(self):
+    def test_strict_envelope_reports_reject_before_persistence(self):
         # Arrange: v1の境界・異常系を独立した入力として検査する。
         original = copy.deepcopy(self.document)
         invalid = [dict(version=True), dict(enumeration_complete=1), dict(extra='unknown'),
@@ -165,8 +181,7 @@ class RetrospectiveTest(unittest.TestCase):
                    dict(requested_tasks=[dict(task_id='task-a', status='unknown')]),
                    dict(requested_tasks=[dict(task_id='task-a', status='failed')]),
                    dict(requested_tasks=[dict(task_id='task-a', status='received')] * 2),
-                   dict(reports=[report(), report()]),
-                   dict(requested_tasks=[dict(task_id=str(i), status='held') for i in range(3)], reports=[])]
+                   dict(reports=[report(), report()])]
         bad_reports = [dict(revision=True), dict(revision=0), dict(raw_trace='blocked'), dict(raw_reasoning=[]),
                        dict(extra='unknown'), dict(kind='other'), dict(received_at='bad'),
                        dict(completed_at='2026-01-02T12:00:00'), dict(completed_at='2026-01-04T00:00:00Z'),
@@ -326,19 +341,20 @@ class RetrospectiveTest(unittest.TestCase):
         for key, value in before['batches'].items():
             self.assertEqual(value, after['batches'][key])
 
-    def test_case_budget_limits_selection_and_queues_remaining_tasks(self):
-        # Arrange: request予算2件、targetのcase予算1件。
+    def test_candidate_budget_does_not_limit_received_task_diagnosis(self):
+        # 改善候補の評価予算と、受信実務の診断を分離する。
         self.document['requested_tasks'].append(dict(task_id='task-b', status='received'))
         self.document['reports'].append(report('task-b'))
         # Act
         batch = self.batch(self.intake())
         # Assert
-        self.assertEqual(1, len(batch['cases']))
+        self.assertEqual(2, len(batch['cases']))
         self.assertEqual(2, batch['queued_cases'])
         self.target['budget']['max_cases'] = 0
         self.target_file.write_text(json.dumps(self.target))
         again = self.batch(self.intake())
-        self.assertEqual('budget-exhausted', again['status'])
+        self.assertEqual('ready', again['status'])
+        self.assertEqual(2, len(again['cases']))
         self.assertEqual(2, again['queued_cases'])
 
     def test_output_collisions_symlinks_and_state_lock_are_protected(self):
@@ -519,9 +535,9 @@ class RetrospectiveTest(unittest.TestCase):
         # Assert
         self.assertIn(('source-b', 'shared-root'), [(case['source_id'], case['root_id']) for case in batch['cases']])
 
-    def test_request_cap_cannot_be_expanded_by_cli_argument(self):
+    def test_obsolete_count_limit_is_rejected_instead_of_silently_cutting_off_tasks(self):
         # Arrange / Act / Assert
-        self.assert_rejected_without_mutation('--max-reports', '3')
+        self.assert_rejected_without_mutation('--max-reports', '2')
 
     def test_case_budget_selects_oldest_instant_across_timezone_offsets(self):
         # Arrange: 表記上は03:30が02:00より後だが、実時間は先。

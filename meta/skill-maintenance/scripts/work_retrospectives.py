@@ -58,7 +58,7 @@ def read_envelope(path):
                       parse_constant=invalid_constant)
 
 
-def validate(document, max_reports):
+def validate(document):
     require(isinstance(document, dict) and type(document.get('version')) is int and
             document['version'] in {1, 2}, 'unsupported retrospective version')
     delta = document['version'] == 2
@@ -76,7 +76,6 @@ def validate(document, max_reports):
     require(type(document['enumeration_complete']) is bool, 'invalid enumeration completeness')
     tasks, reports = document['requested_tasks'], document['reports']
     require(isinstance(tasks, list) and isinstance(reports, list), 'retrospective lists required')
-    require(len(tasks) <= max_reports and len(reports) <= max_reports, 'retrospective request/report budget exceeded')
     requested = {}
     for task in tasks:
         fields(task, 'task_id status' + (' completed_turn_id receipt_turn_id' if delta else ''))
@@ -158,7 +157,6 @@ def current_binding(state, current, incoming_roots):
 
 def select(args):
     """Queue completed IDs from permitted host metadata; never receipt or transport."""
-    require(type(args.max_reports) is int and 1 <= args.max_reports <= 2, 'max-reports must be 1 or 2')
     require(args.repo.is_dir(), 'target repository directory is missing')
     for path in (args.input, args.state):
         private_path(path, args.repo)
@@ -246,19 +244,22 @@ def select(args):
             if turn is None:
                 continue
             eligible_turns += len((set(turns) | {turn}) - consumed)
-            previous = [unit['facts'] for unit in state.get('retrospective_units', {}).values()
-                        if unit['facts']['source_id'] == source and unit['facts']['task_id'] == root]
+            saved_report = latest_reports.get(root)
+            previous = state['retrospective_units'][saved_report[0]]['facts'] if saved_report else None
             requests.append(dict(task_id=root, completed_turn_id=turn, retry=bool(retry),
-                                 report_id=previous[0]['report_id'] if previous else None,
-                                 revision=max((fact['revision'] for fact in previous), default=0) + 1))
+                                 report_id=previous['report_id'] if previous else None,
+                                 revision=previous['revision'] + 1 if previous else 1))
         requests.sort(key=lambda request: (not request['retry'], request['task_id']))
         if pending_turns != old_turns:
             state.setdefault('retrospective_pending_turns', {})[source] = pending_turns
         if digest(state) != original_digest:
             atomic_write(args.state, state)
+        queued = {(root, turn) for root, turns in pending_turns.items()
+                  for turn in set(turns) - set(seen.get(root, []))}
+        chosen = {(request['task_id'], request['completed_turn_id']) for request in requests}
         return dict(source_id=source, selection_basis='completed-turn-delta',
-                    requested_tasks=requests[:args.max_reports], eligible_completed_turns=eligible_turns,
-                    queued_completed_turns=max(0, eligible_turns - min(len(requests), args.max_reports)),
+                    requested_tasks=requests, eligible_completed_turns=eligible_turns,
+                    queued_completed_turns=len(queued - chosen),
                     enumeration_complete=document['enumeration_complete'],
                     legacy_unbound_requests=unbound, legacy_unbound_reports=unbound_receipts,
                     held_retry_tasks=held_retry, unresolved_request_count=len(pending),
@@ -266,12 +267,11 @@ def select(args):
 
 
 def intake(args):
-    require(type(args.max_reports) is int and 1 <= args.max_reports <= 2, 'max-reports must be 1 or 2')
     paths(args)
     target = read(args.target)
     identity = profile(target)
     document = read_envelope(args.input)
-    since, cutoff, counts = validate(document, args.max_reports)
+    since, cutoff, counts = validate(document)
     delta = document['version'] == 2
     source = document['source_id']
     explicit = {text_id(root) for root in args.exclude_root}
@@ -309,11 +309,15 @@ def intake(args):
             pending_requests.pop(root, None)
             state.get('retrospective_pending_turns', {}).get(source, {}).pop(root, None)
         excluded_count = 0
+        previous_by_task = {}
+        for unit in ledger.values():
+            fact = unit['facts']
+            if fact['source_id'] == source:
+                previous_by_task.setdefault(fact['root_id'], []).append(fact)
         for report in document['reports']:
             key = digest(['work-retrospective', source, report['task_id'], report['revision']])
             snapshot = facts(source, report)
-            previous = [unit['facts'] for unit in ledger.values()
-                        if unit['facts']['source_id'] == source and unit['facts']['root_id'] == report['task_id']]
+            previous = previous_by_task.get(report['task_id'], [])
             require(all(fact['report_id'] == report['report_id'] for fact in previous),
                     'stable retrospective report ID changed')
             require(key in ledger or not previous or report['revision'] > max(fact['revision'] for fact in previous),
@@ -370,7 +374,9 @@ def intake(args):
                 all(unit['status'] in {'deferred', 'failed'} for unit in group['units'])]
         held_ids = {group['id'] for group in held}
         pending = [group for group in groups if not group['needs_reconciliation'] and group['id'] not in held_ids]
-        selected = reconciliation + pending[:max(0, target['budget']['max_cases'] - len(reconciliation))]
+        # All received work is available for diagnosis. Candidate evaluation budgets
+        # remain in the batch; receipt/retrospective is not a candidate execution.
+        selected = reconciliation + pending
         receipt_complete = counts['received'] == len(document['requested_tasks']) and not pending_requests
         coverage = (not delta and document['enumeration_complete'] and receipt_complete and
                     all(report['completed_at'] is not None for report in document['reports']))
@@ -386,7 +392,7 @@ def intake(args):
                      unresolved_request_count=len(pending_requests),
                      requested_outcome_counts={status: counts[status] for status in sorted(OUTCOMES)},
                      report_receipt_complete=receipt_complete, window_coverage_complete=coverage,
-                     status='ready' if selected else 'budget-exhausted' if pending else
+                     status='ready' if selected else
                      'awaiting-evidence' if held else 'awaiting-input' if not receipt_complete or
                      not (document['enumeration_complete'] if delta else coverage) else 'no-new-input',
                      cases=selected, queued_cases=len(groups), unfinished_units=0, excluded_reports=excluded_count,

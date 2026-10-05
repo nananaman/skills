@@ -2,7 +2,7 @@
 
 ## 担当と取得範囲
 
-Python 3.11+の標準ライブラリで[maintenance.py](../scripts/maintenance.py)を動かす。`register-run / collect / select-retrospectives / intake-retrospectives / report / record`は共通JSONの検査・収集・非公開台帳の更新を行い、履歴通信、モデル実行・採点、対象repoの編集、Git/GitHub/APM操作は行わない。事例整理は[振り返り手順](retrospective.md)、候補評価はskill-workbenchが担当する。判断記録は評価や権限の証明ではない。
+Python 3.11+の標準ライブラリで[maintenance.py](../scripts/maintenance.py)を動かす。`register-run / collect / select-retrospectives / intake-retrospectives / report / daily-report / record`は共通JSONの検査・収集・非公開台帳の更新を行い、履歴通信、モデル実行・採点、対象repoの編集、Git/GitHub/APM操作は行わない。事例整理は[振り返り手順](retrospective.md)、候補評価はskill-workbenchが担当する。判断記録は評価や権限の証明ではない。
 
 履歴取得は許可されたreaderだけで行う。Codexは[日次手順](daily-run.md)の公式CLI入口を使い、接続・アクセス拒否後にDB・生ログ・別reader・他端末へ切り替えない。新規ソフトの導入、daemon起動、認証・恒久権限の変更は含めない。保存済み共通exportの再処理と新規取得を区別する。
 
@@ -15,7 +15,7 @@ Python 3.11+の標準ライブラリで[maintenance.py](../scripts/maintenance.p
 - `owner / management_verified`: 管理主体の確認結果。設定中の`true`だけを許可の証拠にしない。
 - `information_scope`: `personal:<owner> / organization:<owner>`。
 - `source_repos`: 入力repo IDのallowlist。改善先repoと同一である必要はない。
-- `budget.max_cases / max_runs`: 非負整数。一回の事例群数と評価実行上限。CLIは前者を制限し、後者をbatchへ渡す。agentは親子比較の両側・反復を含めて後者を守る。0は該当工程を保留する。反映途中の照合は予算0でも全件残り、評価・再反映の許可にはならない。
+- `budget.max_cases / max_runs`: 非負整数。候補を評価する事例群数と評価実行上限。native collectは前者でcase選定を制限する。Work intakeは全pending実務を回収・診断へ渡し、両値を候補評価の予算としてbatchへ渡す。agentは親子比較の両側・反復を含めて後者を守る。0は該当工程を保留する。反映途中の照合は予算0でも全件残り、評価・再反映の許可にはならない。
 
 個人と各組織は別のtarget・state・出力を使う。`source_repos`の正規化した集合もstate identityに固定し、拡大・縮小ともcheckpointの流用を拒否する。対象変更は再収集開始と既存記録・反映済み候補の照合を必要とする。source IDや専用stateを変えて重複防止をすり抜けない。一般的な管理主体の指定から全repoの編集・push・merge権限を推測しない。
 
@@ -154,3 +154,5 @@ batchは選択case、予算、queue数、未完了数、除外数を持つ。`re
 台帳更新はlockと一時ファイルの置換を使う。collectは入力検査から保存までlockを保持し、同時実行を拒否する。中断時のlockは自動削除せず、稼働processと台帳を確認して手動復旧する。batchを先に保存するため孤立batchが残ってもcheckpointを進めない。台帳の決定前に外部反映を行わない。評価runはworkbenchの別run IDに残し、台帳・実験結果をGitへ送らない。他端末へ移す場合も情報scopeと許可を確認する。
 
 互換性setupでread契約・normalizer版が変わった場合、旧progressを新しいbindingへ書き換えない。旧checkpoint・判断は保持し、許可された同windowで新しい非公開出力先を使う。新scopeの初回は同scopeの新台帳を使い、既存の個人台帳を読み込まない。
+
+日次のユーザー向け成果物は[日次レポート契約](daily-report.md)に従う。native source report・私的台帳と分離し、Spaceの個人IDや組織の具体的な保存先をskill本体へ固定しない。

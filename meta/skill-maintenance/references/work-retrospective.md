@@ -6,7 +6,11 @@
 
 hostは利用者が許可したsource・source repo・情報scope・期間・閉じた実務task ID・除外rootを先に固定する。私的APIや特定アプリの内部DBは前提にしない。許可されたtaskへのsendと、その応答のreadが両方可能なときだけ下記promptを送る。許可された送信・読取手段がなければ該当taskを`unsupported`とし、別API・credential・生ログ・他端末へ迂回しない。task IDを選定する能力もない場合は自己申告source自体をunsupportedとして報告し、IDや空の成功を創作しない。このCLI自身はsend/readも履歴列挙も行わない。select-retrospectivesはhostが渡した最小metadataからIDを持越し、intake-retrospectivesが受信を記録する。
 
-一回のhost取得は **最大2 task requests、経過5分、受信64 MiB**。intakeのJSONは **8 MiB以下**。hostは受信前に残容量・待ち時間を検査し、超過・打切りを`failed`または`held`として保持する。進行中taskへ依頼しない。closedの確認と元taskの完了時刻は別で、閉じたことは確認できても時刻が不明なら`completed_at:null`にする。依頼への応答時刻を元taskの完了時刻にしない。候補が2件を超える場合は選定CLIの未回収IDを次回へ残し、`enumeration_complete:false`にする。`--max-reports`は1または2だけのrequest/report予算（既定2）であり、host予算を拡張する許可ではない。
+許可範囲の未回収完了turnを**全対象**として扱い、task/request/reportの固定件数で打ち切らない。一回の日次起動のWork取得全体は **経過5分・受信64 MiB・既存の許可済み利用枠**を上限とする。列挙、send/read、待機、再選定、分割の全工程で同じ残量を使い、ページ・envelope・taskごとに予算をリセットしない。追加費用、利用枠の拡張、新接続は許可しない。hostは各呼出し前と受信前に残容量・残時間を検査し、残量内のdeadlineを使う。制限・拒否・接続能力不足なら該当taskを`failed / held / unsupported`として停止・保持する。
+
+metadataとintake JSONは **一ファイル8 MiB以下**。上限内に収まるbyte量で分割し、全ページ・全envelopeを順に処理する。分割単位を件数上限にせず、ファイル超過時は対象を切り捨てない。hostは非公開の列挙cursor、未処理metadata/envelope、送信済みと未送信のtask/元turn、受信状態、累積時間/byte量、停止理由と再開位置を保存する。未送信の観測済みturnはselection queue、送信後の未受信はintakeのpending_requestsへ残す。未列挙ページはhost cursorで区別する。CLIはhost通信の時間・byte量・費用を証明しない。
+
+進行中taskへ依頼しない。closedと完了時刻は別で、時刻不明は`completed_at:null`。応答時刻を元taskの完了時刻にしない。`enumeration_complete`は許可範囲の列挙終端を確認した事実で、受信件数や分析完了を表さない。分割中・未列挙ページがある場合はfalse、全列挙終了後はtrueにできるが、未回収queue・未受信要求があれば全回収完了にはならない。`--max-reports`は廃止し、旧引数はCLIが拒否する。起動設定から削除し、別の小さな固定上限へ置き換えない。
 
 hostが安定した`source_id`と元の`task_id`を付け、依頼したIDごとに`received / unsupported / failed / held`を一つ記録する。source identityを変更して重複防止をリセットしない。元task一つにつき一回のintakeでreportは一つ。report IDを維持し、訂正・追加証拠は正整数revisionを増やす。同revisionの変更を要約hashや新source IDで隠さない。親子・転載・同じ元taskを別の独立証拠として数えず、sourceを跨ぐ同一元taskの関係はhost/分析担当が照合する。
 
@@ -20,7 +24,7 @@ hostが安定した`source_id`と元の`task_id`を付け、依頼したIDごと
 
 1. hostはMac側の既存stateと最新自己申告batchから、source/task/report/revision、状態、元window、pending_requests、登録済み・明示除外rootを読む。非公開pathや最小JSONで引き渡し、本文を公開先へ出さない。Workにはnative checkpointがない。旧v1 windowは出所記録として維持するが、時刻不明は新しい差分選定のblockerにしない。旧v1未受信要求にturn bindingがなければlegacy_unbound_requestsとして保留し、元v1入力で解消してから移行する。v2未受信要求をv1入力で解消・上書きすることも拒否する。
 2. 選定CLIへ正規list/readの最小metadataを渡す。同じ完了turnと振り返り返信turnは再依頼しない。未受信要求は元completed_turn_idを先にretryし、最新turnがfailed/interruptedでもtaskが終了済みなら元の完了turnをretryする。inProgressならheld_retry_tasksとして保持し、再開後の新完了turnは同task/report IDの新revisionで取り込む。元taskの再開後に新しい実務がある場合は、同task/report ID・増加revisionとして元完了時刻と今回の追加証拠を区別する。window内だったという推定で日付を埋めず、時刻不明はnullとして保持する。attachedAtを完了・更新時刻にしない。
-3. hostは許可済みの閉じたtaskへ下記promptを最大2件送信し、対応する応答をreadする。現在の保守task・Mac委譲task・評価task・その派生を除外する。kindを応答の自己申告だけから決めず、hostのtask provenanceと照合する。
+3. hostは選定した許可済みの閉じたtask全件へ下記promptを送り、対応する応答をreadする。時間・byte・既存利用枠の残量内で順に進め、同じ元turnは一回の起動で一度だけ依頼する。受信envelopeを保存・intakeした後に同じstateで再選定し、同taskの追加完了turnも残量内で処理する。進捗のない未受信retryを同じ起動で繰り返さない。現在の保守task・Mac委譲task・評価task・その派生を除外する。kindを応答の自己申告だけから決めず、hostのtask provenanceと照合する。
 4. hostは取得結果を下記v2 envelopeにする。選定したcompleted_turn_idと実際の返信receipt_turn_idを付ける。両IDを既回収にすることで自己申告返信の再循環を防ぐ。未知の元完了時刻・受信時刻はnull、未確認の列挙はfalseのまま残す。秘密・原文・reasoningを最小化し、対応するtask/report/revision・scope・参照を保持する。このenvelopeを既存の許可されたMac委譲inputで渡すか、既存の許可された非公開ファイル受渡しを使う。新接続を前提にしない。
 5. Macはenvelopeを専用の非公開通常ファイルとして保存し、上記CLIを実行する。引渡しで欠落・変質したinputは取り込み成功にしない。batch pathと受信件数・coverage・case状態をhostへ返す。受信済みreportの正本はintake後のretrospective_units、turn差分の正本はretrospective_seen_turnsとretrospective_unit_turnsであり、hostが送信しただけでは取得済みにしない。
 6. 再起動後は同じstateで同じenvelopeを再intakeする。同revisionは重複しない。`--new-evidence-only`で同じ保留caseを選び直さず、残るpendingと新revisionだけを選ぶ。source/rootの除外は台帳とhost選定の双方に適用する。
@@ -72,7 +76,7 @@ IDは空白だけでない256文字以下の文字列、task_idは一意。各ob
 ```sh
 python3 <skill-root>/scripts/maintenance.py select-retrospectives \
   --input <private/host-metadata.json> --target <private/target.json> \
-  --repo <skill-checkout> --state <private/state.json> --max-reports 2 \
+  --repo <skill-checkout> --state <private/state.json> \
   --exclude-root <known-host-maintenance-or-derived-task-id>
 ```
 
@@ -113,13 +117,20 @@ requested IDは一意で、receivedのID集合とreportsのtask ID集合は完�
 python3 <skill-root>/scripts/maintenance.py intake-retrospectives \
   --input <private/work-retrospectives.json> --target <private/target.json> \
   --repo <skill-checkout> --state <private/state.json> --output <private/work-batches> \
-  --max-reports 2 --new-evidence-only --exclude-root <known-excluded-task-id>
+  --new-evidence-only --exclude-root <known-excluded-task-id>
 ```
 
 stateの`retrospective_units`はnative `units / sources / checkpoints`と独立する。keyは`digest(['work-retrospective', source_id, task_id, revision])`。report_idはsource/taskを通じて維持する。同keyの内容変更、既知最大以下の未登録revisionを原子的に拒否する。保存済みの旧snapshotは同一factsで再利用でき、終了済みunitを再開しない。updated_atはUTC正規化して選択順に使う。scopeとsource_repo allowlist外のreportは事例にしない。非workと明示除外はsource別`retrospective_excluded_roots`へ保持し、現在rootの照合は登録source内に限定する。
 
-caseは既存のunit snapshot形を用い、同じ元taskのpending revisionsを一つに束ねる。複数revisionは独立した裏付けではない。targetのmax_cases、queued_cases、pending/evaluated/applyingの分離、反映途中の照合、共有lock・target identityを維持する。`--new-evidence-only`で同じdeferred/failed入力を再評価せず、held/failed/unsupportedの依頼状態も新しい受信なしに成功へ変換しない。新revisionで再開する。batch登録とlatest_batchはcollectと同じ共有journalなので、状態遷移前は保存envelopeから同じコマンドで最新batchを得て、既存`record`を使う。古いbatchとnative caseを混ぜて記録しない。
+caseは既存のunit snapshot形を用い、同じ元taskのpending revisionsを一つに束ねる。複数revisionは独立した裏付けではない。intakeは回収済みの全pending実務caseを振り返りに渡す。targetのmax_cases/max_runsは改善候補の選択・評価予算としてbatchに残し、回収・診断の件数上限にしない。全caseの要求・事実・候補の有無を整理し、候補の評価は予算内のものだけに絞る。未評価候補は理由付きでdeferredにし、評価予算不足をno-changeへ変換しない。queued_casesは保持された未処理case群数で、評価実行数ではない。pending/evaluated/applyingの分離、反映途中の照合、共有lock・target identityを維持する。`--new-evidence-only`で同じdeferred/failed入力を再評価せず、held/failed/unsupportedの依頼状態も新しい受信なしに成功へ変換しない。新revisionで再開する。batch登録とlatest_batchはcollectと同じ共有journalなので、状態遷移前は保存envelopeから同じコマンドで最新batchを得て、既存`record`を使う。古いbatchとnative caseを混ぜて記録しない。
 
 batchの`evidence_basis:'self-report' / history_coverage_complete:false / checkpoint_written:false`は常に固定する。requested_tasksは元の要求IDと各受信状態を保持する。未受信要求はsource別のretrospective_pending_requestsへID/status/元windowを保持する。空の次回envelopeで欠落を解消しない。hostはpending_requestsとunresolved_request_countを照合し、元windowで再取得・intakeする。未依頼分と区別し、新接続や取得範囲の拡張を推測しない。時刻不明のcaseはstable source/task ID順とし、時系列を推定しない。requested_outcome_countsは4状態の件数、report_receipt_completeは全依頼がreceivedであることを示す。window_coverage_completeはenumeration_complete、全reportの既知完了時刻、全依頼受信が揃う場合だけtrue。これは **reports-only coverage** であり、空の場合を含め履歴取得の完全性を証明しない。完了時刻不明はcompletion_timestamp_missing、受信時刻不明はreceipt_timestamp_missingとして残す。欠落をno-changeや成功した空履歴へ変換しない。native `report`のcollected行へこのbatchを入れることは拒否する。
 
 毎晩のスケジュールは維持し、Work選定基準の切替はskill側の責務とする。スケジューラはskillへの起動、時刻、対象、許可範囲、予算だけを渡す。prompt送信・検査・振り返り・recordの業務workflowをスケジュールへ複製しない。host接続や効果の比較はこのoffline統合の検証外であり、自己申告の分析から性能改善を主張しない。
+
+
+## 全対象の終了判定と再開
+
+許可範囲の列挙終端、全送信結果のintake、元turnと返信turnの既回収化、未回収queue・未受信要求・legacy binding保留がないことを照合して初めて「可視範囲の全対象を回収」と報告する。アカウント全履歴のcoverageや元実務の成功を証明しない。見えていない範囲、列挙不足、能力不足、予算不足、停止中taskは残件・理由・再開条件として分ける。件数が分からなければunknownとし、0を作らない。
+
+同じ起動の再選定で要求が出ないのにqueueが残る場合は進捗なしとして停止する。最新metadataがないtask、inProgress、legacy binding、未受信retryなどを照合し、hostの正規能力で確認できる次回まで保持する。残量切れでは次回の同じsource/state/scopeで保存cursorと元turnから再開し、source identity、既回収turn、既存revisionをリセットしない。全回収できても、分析や候補評価が未完なら別に記録し、[日次レポート](daily-report.md)へ全実務の状態を渡す。

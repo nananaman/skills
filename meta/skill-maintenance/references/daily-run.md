@@ -22,7 +22,7 @@ skill-maintenanceを実行する。
 
 Codex nativeの初回は直近24時間の開始〜cutoffを固定する。Workは許可済みtaskの未回収完了turn差分を対象とし、元時刻不明でも選定できる。以後はcheckpoint・未完了turn・未取得期間・反映claimを照合する。取得下限より古いcheckpointなら、許可された再開期間を確認し、自動で巻き戻さない。source/root/unit/revisionとbindingを保持し、別readerや新stateで同じ事例を増やさない。
 
-一晩の既定予算は`budget: {max_cases: 1, max_runs: 12}`。1件の診断に絞り、現行版と最小変更1候補を、開発・候補選択・最終確認それぞれ2ケース（失敗条件と成功・制約を守る反例）で比較する計12実行に使う。単発の観測差として報告し、反復なしで統計的な改善を主張しない。両側・失敗・中断も数え、未評価の反復や追加候補を際限なく実行しない。既存の契約・利用枠だけを使い、実行不可・予算切れ・退行・差が不確実なら保留する。決定的な誤字・リンク修正はworkbenchの軽量経路でよい。複数targetでは全体で1件・12実行を配分し、個人・組織のケースや結果を混ぜない。
+一晩の既定予算は`budget: {max_cases: 1, max_runs: 12}`。回収済みWork実務は全件を振り返り、その中から評価する改善候補を1件に絞り、現行版と最小変更1候補を、開発・候補選択・最終確認それぞれ2ケース（失敗条件と成功・制約を守る反例）で比較する計12実行に使う。単発の観測差として報告し、反復なしで統計的な改善を主張しない。両側・失敗・中断も数え、未評価の反復や追加候補を際限なく実行しない。既存の契約・利用枠だけを使い、実行不可・予算切れ・退行・差が不確実なら保留する。決定的な誤字・リンク修正はworkbenchの軽量経路でよい。複数targetでは全体で1件・12実行を配分し、個人・組織のケースや結果を混ぜない。
 
 `max_runs`はworkbenchの`run`に相当する候補・ケース・反復ごとの実行を1回と数える。開始した失敗・timeout・中断・再試行も消費し、CLIが記録保存に成功したことを評価合格へ読み替えない。採点はこのrun数に含まれないため、同じケースの親子成果を匿名で独立採点する呼出しは最大6回、独立した差分レビューは最大1回に制限する。必要なら決定的な検査を使う。これらをモデルで行う場合も既存の利用枠だけを使い、不足・拒否・未採点ならPRへの反映を保留する。
 
@@ -88,19 +88,19 @@ readerの標準出力と`index.result.json / turns.result.json / export.result.j
 ```sh
 python3 <skill-root>/scripts/maintenance.py select-retrospectives \
   --input <private/host-metadata.json> --target <private/target.json> \
-  --repo <skill-checkout> --state <private/state.json> --max-reports 2 \
+  --repo <skill-checkout> --state <private/state.json> \
   --exclude-root <known-host-maintenance-or-derived-task-id>
 ```
 
 選定結果のrequested_tasksだけに依頼し、v2 envelopeへ元completed_turn_idと実際のreceipt_turn_idを渡す。新完了turnでは同task/report IDのrevisionを増やす。進行中taskには依頼しない。未受信retryは保存した元turn IDを維持する。
 
-閉じた実務taskの許可されたhost送信・読取は[portable retrospective intake](work-retrospective.md)に従う。最大2 task requests・5分/64 MiBのhost予算、intake 8 MiBを守り、未対応・失敗・保留・時刻不明を残す。日次skillを受けたhostがtask選定・send/read・Macへのenvelope委譲を行い、Macはintake結果を返す。具体的な境界と再開は同referenceの「日次起動から Mac への最小 handoff」に従う。host能力が日次contextに露出しない場合は自動要求が成立したとせず、未対応を報告する。hostが未対応でも、検証済みCodexの分析は進められる。Work自己申告batchはnative取得manifestのcollected行へ入れず、受信状態と可視差分の受信状態を別に報告する。source履歴coverageはunknownのまま、時刻不明を新基準のblockerにしない。旧windowは過去v1入力の出所記録として維持し、差分へ時刻を補わない。
+閉じた実務taskの許可されたhost送信・読取は[portable retrospective intake](work-retrospective.md)に従う。許可範囲の全未回収完了turnを対象とし、固定件数で打ち切らない。一回のWork取得全体に累積5分/64 MiB・既存利用枠を適用し、metadata/envelopeは8 MiB以下で分割する。全対象の回収・診断と、候補評価の1件/12実行予算を分ける。未対応・失敗・保留・時刻不明・未列挙cursor・残件と再開条件を残す。日次skillを受けたhostがtask選定・send/read・Macへのenvelope委譲を行い、Macはintake結果を返す。具体的な境界と再開は同referenceの「日次起動から Mac への最小 handoff」に従う。host能力が日次contextに露出しない場合は自動要求が成立したとせず、未対応を報告する。hostが未対応でも、検証済みCodexの分析は進められる。Work自己申告batchはnative取得manifestのcollected行へ入れず、受信状態と可視差分の受信状態を別に報告する。source履歴coverageはunknownのまま、時刻不明を新基準のblockerにしない。旧windowは過去v1入力の出所記録として維持し、差分へ時刻を補わない。
 
 ```sh
 python3 <skill-root>/scripts/maintenance.py intake-retrospectives \
   --input <private/work-retrospectives.json> --target <private/target.json> \
   --repo <skill-checkout> --state <private/state.json> --output <private/work-batches> \
-  --max-reports 2 --new-evidence-only
+  --new-evidence-only
 ```
 
 ## 収集・振り返り・記録
@@ -125,7 +125,7 @@ python3 <skill-root>/scripts/maintenance.py report \
 
 未対応・失敗があっても成功sourceのbatchを振り返れる。ただし未取得sourceの証拠を必要とする事例は保留し、部分取得を全体成功にしない。共通exportの不完全coverageをcollectへ通すことは引き続き禁止する。reportはcheckpointを更新せず、取得成功したsourceのcollectだけがそのsourceを進める。
 
-返されたbatchのcaseと予算を確認し、選ばれた事例だけを[振り返り手順](retrospective.md)で分析する。必要な候補をskill-workbenchへ渡し、固定した条件で親子比較・独立採点・holdoutを行う。単発のtool障害から万能な規則を作らず、再現・反例と照合して最小変更を選ぶ。変更不要は正常な判断だが、取得不足・保留・評価不能をno-changeにしない。
+返されたbatchのcaseと予算を確認する。Workの全pending事例は回収・診断の件数で切らず、候補評価の予算は別に守る。Codexの選定事例とWorkの全pending事例を[振り返り手順](retrospective.md)で分析する。必要な候補をskill-workbenchへ渡し、固定した条件で親子比較・独立採点・holdoutを行う。単発のtool障害から万能な規則を作らず、再現・反例と照合して最小変更を選ぶ。変更不要は正常な判断だが、取得不足・保留・評価不能をno-changeにしない。
 
 `--new-evidence-only`による保留caseは新規turn・証拠revisionで再開する。評価環境・fixture・許可が新しく整った場合の通常collectによる再開は、その変化と操作範囲を確認する。毎日の起動でflagを外して同じ入力を再評価しない。未記録の中断とapplyingの照合は契約に従う。
 
@@ -154,3 +154,8 @@ python3 <skill-root>/scripts/maintenance.py record \
 定期実行では初回結果、PR作成/更新、取得・実行失敗、権限不足や重要な採用判断など対応が必要な問題を通知する。初回は起動時に該当sourceのcheckpointがない場合とし、以後の変更なし・変化のない既知保留は通知せず、状態と再開に必要な結果を非公開に保持する。単独依頼の結果報告や明示された通知指定には従う。
 
 取得・変換・coverage失敗では当該sourceのcheckpointを進めず、許可範囲内の同じ対象から再開する。反映途中は実際の外部状態を照合してから記録し、再反映を先に実行しない。
+
+
+## 毎回の日次レポートを生成・引き渡す
+
+取得や評価が未完でも[日次レポート契約](daily-report.md)に従い、全対象の状態、分かる作業名、改善候補、検証と判断、PR、次の対応をユーザー向けに整理する。日付はcallerのreport timezoneで決める。レポート生成はskill、指定Spaceへの保存は許可されたhostの責務。スケジューラは呼出時刻とcaller設定だけを渡し、本文生成や保存workflowを複製しない。PCにSpace能力がなくてもMarkdownと保存用handoffを生成し、配信未完として渡す。生成・保存・読戻しは別に確認し、通知の有無とレポート生成を分ける。

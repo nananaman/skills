@@ -20,7 +20,7 @@ description: 利用者本人または所属組織が管理するスキルを、�
 [日次の実行手順](references/daily-run.md)に従って取得からdraft PRまで進める。日次の`collect --new-evidence-only`では同じ保留caseを毎日分析せず、新規turn・証拠revisionで再開する。未記録の中断と反映途中の照合は維持する。
 
 [入力・状態契約](references/contract.md)に従い、許可されたreaderの短い証拠を持つ共通JSONをcollectへ渡す。Codex取得は日次手順の公式CLI入口を使う。特定IDだけの許可を一覧取得へ拡張せず、拒否をDB・生ログ・権限拡大・他端末・別readerで迂回しない。
-Codex CLIはnative共通JSONで扱う。Workの閉じた実務taskは[portable retrospective intake](references/work-retrospective.md)で許可済みtaskの未回収完了turn差分を選ぶ。初回も可視範囲の未回収完了turnを対象とし、完了時刻による24時間制約を適用しない。自己申告とnative export・checkpointは分離する。取得済み・検証済みの対象0件・未対応・取得失敗をsource別に報告し、取得できたsourceの分析と全体coverageを分ける。未対応sourceのために検証済みsourceの分析を止めず、必要な期間・scope・証拠が不足する取得や事例だけを保留する。取得失敗・持越し・予算切れをno-changeにしない。完了記録と成功した作業、自己申告と観測事実を分ける。stable ID、checkpoint、未完了の持越し、保守の限定feedback経路と評価の除外を維持し、進行中threadの本文は読まない。
+Codex CLIはnative共通JSONで扱う。Workの閉じた実務taskは[portable retrospective intake](references/work-retrospective.md)で許可済みtaskの未回収完了turn差分を選ぶ。初回も可視範囲の未回収完了turnを対象とし、完了時刻による24時間制約を適用しない。許可範囲の全未回収完了turnを対象とし、固定件数で打ち切らない。時間・容量・既存利用枠の制限で止まった場合は残件・理由・再開条件を保持する。回収済み実務の全件振り返りと改善候補の評価予算を分ける。自己申告とnative export・checkpointは分離する。取得済み・検証済みの対象0件・未対応・取得失敗をsource別に報告し、取得できたsourceの分析と全体coverageを分ける。未対応sourceのために検証済みsourceの分析を止めず、必要な期間・scope・証拠が不足する取得や事例だけを保留する。取得失敗・持越し・予算切れをno-changeにしない。完了記録と成功した作業、自己申告と観測事実を分ける。stable ID、checkpoint、未完了の持越し、保守の限定feedback経路と評価の除外を維持し、進行中threadの本文は読まない。
 
 ## 事例から候補を選ぶ
 
@@ -47,3 +47,5 @@ commit・push・PR・merge・APM更新・installは今回明示された操作�
 
 対象と期間、収集範囲・除外・持越し、採用／保留／棄却／no-changeと理由、変更ファイル、検証、許可された操作の到達点、次回再開位置を短く返す。
 収集不足、評価不能、未確認の外部操作があれば該当部分を未完了と示す。候補なしなら変更・PRは作らない。
+
+毎回[日次レポート契約](references/daily-report.md)でユーザー向けのレポートを生成する。作業名・取得状態・候補と根拠・検証・採否・PR・次の対応を整理し、秘密・生ログ・私的絶対path・内部運用情報を除く。Spaceへの保存先はcaller設定から解決し、連携能力のあるhostへMarkdownと保存用handoffを渡す。生成・配信・確認と通知条件を分け、保存不能でも再現できる成果物を残す。
