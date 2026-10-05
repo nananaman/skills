@@ -34,7 +34,7 @@ class ReaderRegressions(unittest.TestCase):
 
     def source(self):
         return dict(version=1, source_id='synthetic', device_id='fixture', host_id='local',
-            path_flavour='posix', repos=[dict(id='example/project', cwd='/fixture/project',
+            path_flavour='posix', repos=[dict(id='example/project', cwd=str(Path.home()/'fixture'),
                 information_scope='personal:example')], exclude_roots=[])
 
     def test_post_cutoff_thread_update_preserves_in_window_completed_turn(self):
@@ -58,7 +58,7 @@ class ReaderRegressions(unittest.TestCase):
             missing=False
             def call(self,method,params):
                 if method == 'thread/read':
-                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                    return dict(thread=reader_tests.ReaderTest().metadata(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
                 items=[] if self.missing else [dict(id='u',type='userMessage',content=[dict(type='text',text='Check fixture.')]),
                     dict(id='a',type='agentMessage',text='The request failed.'),
                     dict(id='e',type='dynamicToolCall',tool='check',status='completed',success=False,
@@ -96,7 +96,7 @@ class ReaderRegressions(unittest.TestCase):
             with_tool=False
             def call(self,method,params):
                 if method == 'thread/read':
-                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                    return dict(thread=reader_tests.ReaderTest().metadata(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
                 items=[dict(id='u',type='userMessage',content=[dict(type='text',text='Check fixture.')])]
                 if self.with_tool:
                     items.append(dict(id='e',type='dynamicToolCall',tool='check',status='completed',success=False,
@@ -220,7 +220,7 @@ class ReaderRegressions(unittest.TestCase):
         class Body:
             def call(self,method,params):
                 if method == 'thread/read':
-                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                    return dict(thread=reader_tests.ReaderTest().metadata(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
                 return body.call(method,params)
         # Act / Assert: 要約の保存成功を完全な失敗証拠としない。
         result=MINIMIZE.read_turn(body,'root',turn,start,start+86400)

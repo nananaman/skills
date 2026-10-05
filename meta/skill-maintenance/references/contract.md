@@ -26,11 +26,11 @@ version: 1
 source_id / device_id: 入力元・端末の安定ID
 host_id: local
 path_flavour: posix
-repos: [{id, cwd: 正規化した絶対path, information_scope: personal:<owner>}]
+repos: [{id, cwd: 正規化した絶対path, information_scope: personal:<owner> または organization:<owner>}]
 exclude_roots: 保守・評価root IDの配列
 ```
 
-現入口はMacの登録済み個人scopeに限定する。CLI/serverは`0.159.3 / 0.160.0`、元のCODEX_HOMEと端末を確認する。各RPC30秒、ページサイズは最大50件の分割単位で、ページ・thread・turnの取得総数では打ち切らない。各段階は`--max-bytes`（既定64 MiBの受信payload）と`--max-seconds`（既定300秒の経過）で制限する。値は正の整数。RPCの待ち期限も残り時間に収め、受信フレーム本文を読む前に残量を検査する。readerはstateを更新しない。保守runの事前登録はstateを作れるが、source checkpointは成功したexportをcollectした時点で作る。継続時はsource bindingとcheckpointを照合し、scope変更・未知schema・取得拒否では停止する。byte/time・export容量の予算切れは`incomplete`・exit 2・coverage不成立とし、export・checkpointを成功扱いにしない。他PC・無人実行の権限引継ぎを推測しない。
+現入口はcallerが登録したMacの`personal:<owner>`または`organization:<owner>`を扱い、具体的な組織名をスキル本体に固定しない。scopeのownerは空や前後空白を認めず、組織scopeの登録repo IDはそのownerのnamespace配下に限定する。callerは対象管理主体、許可repo IDと正規化したcwd、単一scope、専用private stateを設定し、一つのsourceに情報区分を混ぜない。indexはsourceとstateのscope、実metadataのrepoとcwdを照合する。具体的な組織ID・業務repo・端末pathは非公開のcaller設定に置き、スケジューラはskill呼び出しと設定参照だけを渡す。元のCODEX_HOMEと端末を確認する。CLI/serverの版番号は観測値として残し、完全一致の許可条件にはしない。CLIの公式`generate-json-schema --experimental`で必要なread RPC・cwd allowlist・本文なし選択を検査し、initializeと全read応答もそのschemaと既存の出所・終了状態契約に照合する。未知field・型・列挙値・未対応schema構文では停止する。schemaが明示する不透明なtool引数等は内容を証明せず、既存の最小化・秘密検査を維持する。各RPC30秒、ページサイズは最大50件の分割単位で、ページ・thread・turnの取得総数では打ち切らない。各段階は`--max-bytes`（既定64 MiBの受信payload）と`--max-seconds`（既定300秒の経過）で制限する。値は正の整数。RPCの待ち期限も残り時間に収め、受信フレーム本文を読む前に残量を検査する。readerはstateを更新しない。保守runの事前登録はstateを作れるが、source checkpointは成功したexportをcollectした時点で作る。継続時はsource bindingとcheckpointを照合し、scope変更・未知schema・取得拒否では停止する。byte/time・export容量の予算切れは`incomplete`・exit 2・coverage不成立とし、export・checkpointを成功扱いにしない。他PC・無人実行の権限引継ぎを推測しない。
 
 ## 複数sourceの取得結果
 
@@ -57,12 +57,12 @@ source間で同名rootを自動同一視せず、除外と重複防止はsource�
 
 ## Codex readerの選択条件
 
-各段階の非公開`*.progress.json`は[再開処理](../scripts/codex_resume.py)が保存する最小化済みページと次cursorで、coverage checkpointではない。固定window・sourceまたは選択入力・stateのtarget/source/units・元CODEX_HOME・protocol/normalizer版をbindingに持ち、入力変更時の再利用を拒否する。予算だけの変更はbindingを変えない。digestは保存内容の破損検出であり、producerの信頼や取得権限を証明しない。private path・symlink・lockを検査し、成功保存後だけページを再利用する。再試行は保存済みページを通信なしで再生し、最初の未取得cursorから続ける。完全取得までexportとcheckpointを成功扱いにしない。
+各段階の非公開`*.progress.json`は[再開処理](../scripts/codex_resume.py)が保存する最小化済みページと次cursorで、coverage checkpointではない。固定window・sourceまたは選択入力・stateのtarget/source/units・元CODEX_HOME・read契約/normalizer版をbindingに持ち、入力変更時の再利用を拒否する。予算だけの変更はbindingを変えない。digestは保存内容の破損検出であり、producerの信頼や取得権限を証明しない。private path・symlink・lockを検査し、成功保存後だけページを再利用する。再試行は保存済みページを通信なしで再生し、最初の未取得cursorから続ける。完全取得までexportとcheckpointを成功扱いにしない。
 
 再開時の一覧先頭の変化・cursor失効・順序不整合は停止し、古いprogressを自動で捨てない。本文取得直前のthread/readと現在rootの除外は毎回確認する。stateに保守rootを登録しただけではprogressを失効させないが、登録済み保守rootを通常workとして読み戻すことは拒否する。progressと日付ごとの出力はGit外へ保存する。実際の再開・停止手順は[日次手順](daily-run.md)に従う。
 
 - 通常・archived双方の一覧メタデータを更新日時の降順で読み、cursorを追う。既存索引だけを使い、生ログ走査・索引修復はしない。preview・title本文は分析・保存しない。
-- source種別（cli/vscode/exec/appServer）、ローカルのcwd・path、remote環境の有無、Git repo情報を照合する。pathは出所確認の文字列とし、参照先を開かない。cwd完全一致だけで選ばず、食い違いは保存する。Macローカル・repo・scopeを確認できなければ本文取得前に保留する。
+- source種別（cli/vscode/exec/appServer）、ローカルのcwd・path、remote環境の有無、Git repo情報を照合する。pathは出所確認の文字列とし、参照先を開かない。一覧RPCへ登録済みcwdだけを渡し、repo ID・cwd・情報scopeとローカル出所を併せて照合する。本文直前のmetadata-only readでも同じ条件とidle状態を再確認し、食い違いでは本文を取得しない。Macローカル・repo・scopeを確認できなければ本文取得前に保留する。
 - thread更新日時は発見の下限だけに使う。cutoff後に更新されたthreadも候補にし、本文を読み込まないturn一覧の完了時刻で期間を選ぶ。session更新日時でturn完了を代用しない。
 - newest-firstを確認し、古い完了境界に達して既知持越しが揃えばページ取得を止める。件数だけで止めず、期間内の終了turnと既知持越しをすべて選ぶ。古いfailed/interruptedだけで当日の取得を止めない。不安定な順序・欠落・cursorループ・資源予算切れはcoverage不足とし、既知未完了root/turnの欠落ではcheckpointを進めない。
 - 本文は許可された期間内のcompleted/failed/interruptedだけを明示IDで読む。進行中threadの本文は読まない。跨日turnのitemはturn自身の開始〜完了秒（ミリ秒の端数を含む）に照合する。reasoningは種類判定直後に本文未参照で破棄する。
@@ -152,3 +152,5 @@ batchは選択case、予算、queue数、未完了数、除外数を持つ。`re
 反映途中は`needs_reconciliation=true`。実際の外部状態を確認し、成功ならapplied、未反映を確認した場合だけ`failed / reconciled:true / evidence`でclaimを解除する。不明ならapplyingを維持し、再実行しない。
 
 台帳更新はlockと一時ファイルの置換を使う。collectは入力検査から保存までlockを保持し、同時実行を拒否する。中断時のlockは自動削除せず、稼働processと台帳を確認して手動復旧する。batchを先に保存するため孤立batchが残ってもcheckpointを進めない。台帳の決定前に外部反映を行わない。評価runはworkbenchの別run IDに残し、台帳・実験結果をGitへ送らない。他端末へ移す場合も情報scopeと許可を確認する。
+
+互換性setupでread契約・normalizer版が変わった場合、旧progressを新しいbindingへ書き換えない。旧checkpoint・判断は保持し、許可された同windowで新しい非公開出力先を使う。新scopeの初回は同scopeの新台帳を使い、既存の個人台帳を読み込まない。

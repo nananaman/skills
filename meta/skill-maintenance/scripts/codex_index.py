@@ -8,6 +8,13 @@ from common import instant, require, text_id
 from codex_proxy import iter_pages
 
 
+def permitted_scope(scope):
+    if not isinstance(scope, str):
+        return False
+    kind, separator, owner = scope.partition(':')
+    return kind in {'personal', 'organization'} and bool(separator and owner) and owner == owner.strip()
+
+
 def github_repo(origin):
     if not isinstance(origin, str):
         return None
@@ -19,6 +26,26 @@ def within(path, prefix):
     return isinstance(path, str) and path.startswith(prefix + '/') and '..' not in PurePosixPath(path).parts
 
 
+def repository_scope(repos):
+    """Validate the caller's repository allowlist and return its single scope."""
+    require(isinstance(repos, list) and repos, 'source repos required')
+    for repo in repos:
+        require(isinstance(repo, dict) and set(repo) == {'id', 'cwd', 'information_scope'}, 'invalid source repo')
+        text_id(repo['id'])
+        scope = text_id(repo['information_scope'])
+        require(permitted_scope(scope), 'unregistered information scope')
+        kind, _, owner = scope.partition(':')
+        require(kind != 'organization' or repo['id'].startswith(owner + '/'),
+                'organization repo owner mismatch')
+        path = PurePosixPath(repo['cwd'])
+        require(path.is_absolute() and '..' not in path.parts and str(path) == repo['cwd'],
+                'source cwd must be absolute and normalized')
+    require(len({r['information_scope'] for r in repos}) == 1,
+            'mixed information scopes require separate source and state')
+    require(len({(r['id'], r['cwd']) for r in repos}) == len(repos), 'duplicate source repo')
+    return repos[0]['information_scope']
+
+
 def source_boundary(config):
     """The current Mac CLI reader's immutable repository selection."""
     require(isinstance(config, dict) and set(config) == {'version', 'source_id', 'device_id', 'host_id', 'path_flavour', 'repos', 'exclude_roots'}, 'unknown source fields')
@@ -27,17 +54,7 @@ def source_boundary(config):
     text_id(config['source_id'])
     text_id(config['device_id'])
     repos = config['repos']
-    require(isinstance(repos, list) and repos, 'source repos required')
-    for repo in repos:
-        require(isinstance(repo, dict) and set(repo) == {'id', 'cwd', 'information_scope'}, 'invalid source repo')
-        text_id(repo['id'])
-        scope = text_id(repo['information_scope'])
-        require(scope.startswith('personal:') and scope.removeprefix('personal:').strip(),
-                'this verified Mac entry supports registered personal sources only')
-        path = PurePosixPath(repo['cwd'])
-        require(path.is_absolute() and '..' not in path.parts and str(path) == repo['cwd'],
-                'source cwd must be absolute and normalized')
-    require(len({(r['id'], r['cwd']) for r in repos}) == len(repos), 'duplicate source repo')
+    repository_scope(repos)
     require(isinstance(config['exclude_roots'], list) and
             all(isinstance(v, str) and v.strip() for v in config['exclude_roots']), 'invalid source exclusions')
     return dict(mode='repo-index', device_id=config['device_id'], host_id='local', path_flavour='posix',
@@ -54,7 +71,7 @@ def index_page(page, config, codex_home):
         ts, created = t.get('updatedAt'), t.get('createdAt')
         require(type(ts) is int and (created is None or type(created) is int and created <= ts), 'invalid index timestamp')
         repo = github_repo((t.get('gitInfo') or {}).get('originUrl'))
-        scope = {r['information_scope'] for r in config['repos'] if r['id'] == repo}
+        scope = {r['information_scope'] for r in config['repos'] if r['id'] == repo and r['cwd'] == t.get('cwd')}
         extra, envs = t.get('extra') or {}, t.get('environments')
         reason = None
         if not isinstance(t.get('source'), str) or t['source'] not in {'cli', 'vscode', 'exec', 'appServer'}:
@@ -114,7 +131,7 @@ def index(proxy, config, ledger, since, cutoff, codex_home):
         phase_seen = set()
         phase_first_page = stats['index_pages'] + 1
         params = dict(archived=archived, sortKey='updated_at', sortDirection='desc',
-                      sourceKinds=['cli', 'vscode', 'exec', 'appServer'], useStateDbOnly=True, limit=50)
+                      sourceKinds=['cli', 'vscode', 'exec', 'appServer'], useStateDbOnly=True, cwd=sorted({r['cwd'] for r in config['repos']}), limit=50)
         for page in iter_pages(proxy, 'thread/list', params,
                                normalize=lambda page: index_page(page, config, codex_home)):
             stats['index_pages'] += 1
@@ -160,7 +177,7 @@ def index(proxy, config, ledger, since, cutoff, codex_home):
         # progress intact if confirmation itself exhausts this attempt's budget.
         for archived in (False, True):
             params = dict(archived=archived, sortKey='updated_at', sortDirection='desc',
-                          sourceKinds=['cli', 'vscode', 'exec', 'appServer'], useStateDbOnly=True, limit=50)
+                          sourceKinds=['cli', 'vscode', 'exec', 'appServer'], useStateDbOnly=True, cwd=sorted({r['cwd'] for r in config['repos']}), limit=50)
             response = proxy.call('thread/list', params)
             require(isinstance(response.get('data'), list) and len(response['data']) <= 50,
                     'invalid live head page')
@@ -173,7 +190,7 @@ def index(proxy, config, ledger, since, cutoff, codex_home):
     if missing:
         held['known_unfinished_root_outside_index'] += len(missing)
     selection = dict(version=1, source_id=config['source_id'], device_id=config['device_id'],
-        host_id='local', adapter_selection=boundary, window=dict(since=since, cutoff=cutoff),
+        host_id='local', codex_home=codex_home, adapter_selection=boundary, window=dict(since=since, cutoff=cutoff),
         coverage_complete=not held, threads=eligible,
         excluded_roots=sorted(excluded), feedback_excluded_roots=sorted(feedback_excluded),
         unfinished_by_root={root: sorted(v['unit_id'] for v in previous_source.get('deferred', {}).values() if v['root_id'] == root)

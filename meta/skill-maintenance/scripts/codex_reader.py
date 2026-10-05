@@ -10,7 +10,8 @@ import sys
 from common import instant, require, text_id, stamp, validate_content, validate_evidence, validate_feedback, turn_disposition
 from maintenance import atomic_write, private_path, locked, digest
 from codex_proxy import Proxy, iter_pages, AcquisitionBudget, AcquisitionIncomplete
-from codex_index import index, github_repo
+from codex_index import index, index_page, source_boundary, github_repo, permitted_scope, repository_scope
+from codex_compat import CONTRACT
 from codex_resume import Progress
 
 
@@ -48,7 +49,7 @@ def select_turns(proxy, selection):
         seen_threads.add(ident)
         require(thread['host_id'] == 'local' if 'host_id' in thread else selection['host_id'] == 'local',
                 'local source not verified')
-        require(thread.get('Mac_local_proof') and thread['information_scope'].startswith('personal:') and
+        require(thread.get('Mac_local_proof') and permitted_scope(thread['information_scope']) and
                 thread.get('ephemeral') is False, 'unverified source selection')
         if thread.get('kind') == 'maintenance-feedback':
             first = next(iter_pages(proxy, 'thread/turns/list',
@@ -95,8 +96,18 @@ def select_turns(proxy, selection):
             'excluded_roots': sorted(set(selection.get('excluded_roots', [])) | ({current_root} if current_root else set()))}, dict(stats)
 
 
+def selection_scope(selection, ledger=None):
+    scope = repository_scope(selection['adapter_selection']['repos'])
+    require(all(t['information_scope'] == scope for t in selection['threads']),
+            'thread and selection information scopes differ')
+    if ledger and ledger.get('target'):
+        require(ledger['target']['information_scope'] == scope,
+                'selection and state information scopes differ')
+
+
 def read_completed(proxy, selection, ledger):
     from codex_minimize import read_turn
+    selection_scope(selection, ledger)
     require(selection.get('turn_selection_complete') is True, 'turn selection incomplete')
     source = selection['source_id']
     saved = ledger['sources'].get(source, {})
@@ -127,6 +138,11 @@ def read_completed(proxy, selection, ledger):
         require(github_repo((metadata.get('gitInfo') or {}).get('originUrl')) == thread['repository'] and
                 metadata['sessionId'] == thread['session_id'], 'thread source changed')
         require(metadata['status']['type'] in {'idle', 'notLoaded'}, 'active thread body held')
+        assessment = index_page([metadata], {'repos': selection['adapter_selection']['repos']},
+                                selection['codex_home'])[0]['thread']
+        require(assessment is not None and all(assessment[key] == thread[key]
+                for key in ('id', 'session_id', 'repository', 'information_scope', 'source_kind')),
+                'thread local source or allowlist changed before body read')
         units = []
         for turn in thread['turns']:
             tid = turn['id']
@@ -174,7 +190,7 @@ def read_completed(proxy, selection, ledger):
         feedback_excluded_roots=selection.get('feedback_excluded_roots', []),
         coverage=dict(start=selection['window']['since'], end=selection['window']['cutoff'], complete=True, truncated=False),
         sessions=sessions, coverage_notes=dict(
-            scope='registered Mac personal sources; updated index and selected completed turns in the authorized window',
+            scope='registered Mac sources in one authorized information scope; updated index and selected completed turns in the authorized window',
             older_unindexed_unfinished_not_guaranteed=True,
             known_unfinished_root_missing_stops_coverage=True,
             tool_result_ids='aggregate API item ID for call; deterministic :result for its derived result',
@@ -219,16 +235,22 @@ def main():
             require(args.source and args.state and args.since and args.cutoff, 'index requires source/state and fixed window')
             config = json.loads(args.source.read_text())
             ledger = json.loads(args.state.read_text()) if args.state.exists() else dict(sources={}, units={})
+            boundary = source_boundary(config)
+            if ledger.get('target'):
+                require(ledger['target']['information_scope'] == boundary['repos'][0]['information_scope'],
+                        'source and state information scopes differ')
         else:
             require(args.selection, 'selection required')
             selection = json.loads(args.selection.read_text())
             require(selection['host_id'] == 'local', 'local source required')
+            selection_scope(selection)
         if args.action == 'read':
             require(args.state and args.read_completed, 'body read requires state path and explicit --read-completed')
             ledger = json.loads(args.state.read_text()) if args.state.exists() else dict(sources={}, units={})
+            selection_scope(selection, ledger)
         window = dict(since=args.since, cutoff=args.cutoff) if args.action == 'index' else selection['window']
         binding = dict(stage=args.action, window=window, codex_home=str(Path(args.codex_home).resolve()),
-                       protocol='0.159.3/0.160.0', normalizer_version=3,
+                       protocol=CONTRACT, normalizer_version=4,
                        input_digest=digest(config if args.action == 'index' else selection),
                        state_digest=digest({k: ledger.get(k) for k in ('target', 'sources', 'units')})
                        if args.action in {'index', 'read'} else None)
@@ -238,7 +260,6 @@ def main():
         progress = Progress(progress_path, binding)
         proxy = Proxy(proxy_config)
         proxy.progress = progress
-        require(proxy.server_version == '0.160.0', 'unverified server version')
         if args.action == 'index':
             output, counts = index(proxy, config, ledger, args.since, args.cutoff,
                                    str(Path(args.codex_home).resolve()))

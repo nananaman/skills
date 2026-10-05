@@ -10,6 +10,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
+from tests import test_codex_reader as reader_tests
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -168,7 +169,7 @@ class ResumeTest(unittest.TestCase):
                 self.calls.append(method)
                 if method=='thread/read':
                     self.budget.consume(10)
-                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                    return dict(thread=reader_tests.ReaderTest().metadata(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
                 self.budget.consume(100)
                 n=int(params.get('cursor','0'))
                 item=dict(id='u',type='userMessage',content=[dict(type='text',text='Synthetic request.')])
@@ -226,7 +227,7 @@ class ResumeTest(unittest.TestCase):
             def call(self,method,params):
                 if method=='thread/read':
                     self.budget.consume(10)
-                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                    return dict(thread=reader_tests.ReaderTest().metadata(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
                 self.calls.append(params.get('cursor'));n=int(params.get('cursor','0'))
                 self.budget.consume(100)
                 return dict(data=[dict(turnId='turn',item=items[n])],nextCursor=str(n+1) if n<3 else None)
@@ -283,6 +284,7 @@ class ResumeTest(unittest.TestCase):
         class Fake(P.Proxy):
             def __init__(self,config):
                 self.server_version='0.160.0';self.budget=config['acquisition_budget'];self.sequence=0
+                self.contract=SimpleNamespace(validate_request=lambda *args: None)
                 self.close_lock=threading.Lock();self.send_lock=threading.Lock();self.messages=queue.Queue()
                 class Jammed:
                     gate=threading.Event()

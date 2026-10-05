@@ -3,11 +3,10 @@
 import json, os, queue, re, shutil, subprocess, threading, time
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import codex_wire
+from codex_compat import inspect_cli
 from common import require, SENSITIVE
-PROTOCOL = '0.159.3'
 RPC_TIMEOUT = 30
 READ_METHODS = {'thread/read', 'thread/list', 'thread/turns/list', 'thread/items/list'}
-SERVER_METHODS = {PROTOCOL: READ_METHODS, '0.160.0': READ_METHODS}
 
 
 def validate_read_params(method, params):
@@ -19,10 +18,13 @@ def validate_read_params(method, params):
         return
     fields = {'cursor', 'limit', 'sortDirection'}
     if method == 'thread/list':
-        fields |= {'archived', 'sortKey', 'sourceKinds', 'useStateDbOnly'}
+        fields |= {'archived', 'sortKey', 'sourceKinds', 'useStateDbOnly', 'cwd'}
         require(params.get('useStateDbOnly') is True and params.get('sortKey') == 'updated_at' and
                 params.get('sortDirection') == 'desc' and type(params.get('archived')) is bool and
-                params.get('sourceKinds') == ['cli', 'vscode', 'exec', 'appServer'],
+                params.get('sourceKinds') == ['cli', 'vscode', 'exec', 'appServer'] and
+                isinstance(params.get('cwd'), list) and params['cwd'] and
+                all(isinstance(path, str) and PurePosixPath(path).is_absolute() and
+                    '..' not in PurePosixPath(path).parts for path in params['cwd']),
                 'metadata-only index parameters required')
     else:
         fields.add('threadId')
@@ -109,8 +111,8 @@ def verify_server_version(agent):
     # get_codex_user_agent() prefixes the server build with its originator,
     # which may be a desktop client name rather than "codex_cli_rs".
     match=re.fullmatch(r'([^/]+)/([^\s()]+) \([^()\r\n]+; [^()\r\n]+\)(?: [^\r\n]*)?',agent)
-    require(match is not None and match.group(1).strip() and match.group(2) in SERVER_METHODS,
-            'unsupported or unverified app-server version; no thread read attempted')
+    require(match is not None and match.group(1).strip() and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?', match.group(2)),
+            'unknown app-server identity; no thread read attempted')
     return match.group(2)
 
 def absolute_metadata_path(value):
@@ -119,34 +121,34 @@ def absolute_metadata_path(value):
                 for path in (PurePosixPath(value),PureWindowsPath(value))),
             'unknown absolute metadata path')
 
-def validate_initialize_0160(result):
-    # Public rust-v0.160.0 v1/InitializeResponse; no settings are inferred.
+def validate_initialize(result):
+    # Required read-handshake fields; no settings are inferred.
     require(isinstance(result,dict) and all(isinstance(result.get(k),str) and result[k]
             for k in ('userAgent','codexHome','platformFamily','platformOs')),
-            'unknown 0.160.0 initialize response')
+            'unknown read-contract initialize response')
     absolute_metadata_path(result['codexHome'])
 
-def validate_metadata_0160(params,result):
+def validate_metadata(params,result):
     # Only metadata reads with includeTurns:false are supported.
     thread=result.get('thread')
     required={'cliVersion','createdAt','cwd','ephemeral','id','modelProvider','preview',
               'projectId','sessionId','source','status','turns','updatedAt'}
-    require(isinstance(thread,dict) and required<=thread.keys(), 'unknown 0.160.0 thread metadata')
+    require(isinstance(thread,dict) and required<=thread.keys(), 'unknown read-contract thread metadata')
     require(thread['id']==params['threadId'], 'thread read ID mismatch')
     require(all(isinstance(thread[k],str) for k in ('cliVersion','id','modelProvider','preview','sessionId'))
             and all(type(thread[k]) is int for k in ('createdAt','updatedAt'))
             and type(thread['ephemeral']) is bool
             and (thread['projectId'] is None or isinstance(thread['projectId'],str))
-            and isinstance(thread['source'],(str,dict)), 'unknown 0.160.0 metadata field type')
+            and isinstance(thread['source'],(str,dict)), 'unknown read-contract metadata field type')
     absolute_metadata_path(thread['cwd'])
     require(thread['turns']==[], 'metadata-only read unexpectedly included turns')
     status=thread['status']
     require(isinstance(status,dict) and status.get('type') in {'notLoaded','idle','systemError','active'},
-            'unknown 0.160.0 thread status')
+            'unknown read-contract thread status')
     if status['type']=='active':
         require(isinstance(status.get('activeFlags'),list) and
                 all(flag in {'waitingOnApproval','waitingOnUserInput'} for flag in status['activeFlags']),
-                'unknown 0.160.0 active thread flags')
+                'unknown read-contract active thread flags')
 
 class Proxy:
     """Use only an existing daemon. Rejections/timeouts stop this source."""
@@ -160,9 +162,7 @@ class Proxy:
         env['CODEX_HOME'] = inputs['codex_home']
         executable = inputs['codex_executable']
         try:
-            result = subprocess.run([executable, '--version'], env=env, capture_output=True,
-                                    text=True, timeout=min(15, max(0.001, self.budget.deadline - time.monotonic())), check=True)
-            require(result.stdout.strip() == 'codex-cli ' + PROTOCOL, 'unsupported Codex CLI version')
+            self.contract, self.cli_version = inspect_cli(executable, env, self.budget)
             self.process = subprocess.Popen([executable, 'app-server', 'proxy'], env=env,
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                             stderr=subprocess.DEVNULL, bufsize=0)
@@ -182,7 +182,7 @@ class Proxy:
             initialized=self.call('initialize', {'clientInfo': {'name': 'skill-maintenance', 'version': '1'},
                                                  'capabilities': {'experimentalApi': True}})
             self.server_version=verify_server_version(initialized.get('userAgent'))
-            if self.server_version=='0.160.0':validate_initialize_0160(initialized)
+            validate_initialize(initialized)
             require(isinstance(initialized.get('codexHome'), str) and
                     Path(initialized['codexHome']).is_absolute() and
                     str(Path(initialized['codexHome']).resolve()) == inputs['codex_home'],
@@ -272,9 +272,8 @@ class Proxy:
         require(method in {'initialize', *READ_METHODS},
                 'unsupported read method')
         if method!='initialize':
-            require(method in SERVER_METHODS.get(self.server_version,set()),
-                    'method not validated for this app-server version')
             validate_read_params(method, params)
+        self.contract.validate_request(method, params)
         self.sequence += 1
         ident = self.sequence
         try:
@@ -299,8 +298,9 @@ class Proxy:
                         safe=detail[:256] if detail.startswith(('thread not loaded:','thread not found:')) and not SENSITIVE.search(detail) else 'read rejected'
                         raise ValueError('Codex read RPC '+str(code)+': '+safe)
                     require(isinstance(message.get('result'),dict),'unknown Codex RPC response')
-                    if self.server_version=='0.160.0' and method=='thread/read':
-                        validate_metadata_0160(params,message['result'])
+                    self.contract.validate_response(method, message['result'])
+                    if method=='thread/read':
+                        validate_metadata(params,message['result'])
                     return message['result']
         except (OSError, queue.Empty):
             self.budget.check()
