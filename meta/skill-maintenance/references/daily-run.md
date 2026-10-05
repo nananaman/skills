@@ -83,7 +83,7 @@ readerの標準出力と`index.result.json / turns.result.json / export.result.j
 
 ## Work の自己申告を取り込む
 
-閉じた実務taskの許可されたhost送信・読取は[portable retrospective intake](work-retrospective.md)に従う。最大2 task requests・5分/64 MiBのhost予算、intake 8 MiBを守り、未対応・失敗・保留・時刻不明を残す。hostが未対応でも、検証済みCodexの分析は進められる。Work自己申告batchはnative取得manifestのcollected行へ入れず、受信状態とreports-only coverageを別に報告する。
+閉じた実務taskの許可されたhost送信・読取は[portable retrospective intake](work-retrospective.md)に従う。最大2 task requests・5分/64 MiBのhost予算、intake 8 MiBを守り、未対応・失敗・保留・時刻不明を残す。日次skillを受けたhostがtask選定・send/read・Macへのenvelope委譲を行い、Macはintake結果を返す。具体的な境界と再開は同referenceの「日次起動から Mac への最小 handoff」に従う。host能力が日次contextに露出しない場合は自動要求が成立したとせず、未対応を報告する。hostが未対応でも、検証済みCodexの分析は進められる。Work自己申告batchはnative取得manifestのcollected行へ入れず、受信状態とreports-only coverageを別に報告する。
 
 ```sh
 python3 <skill-root>/scripts/maintenance.py intake-retrospectives \

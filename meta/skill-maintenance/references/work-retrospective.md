@@ -14,6 +14,19 @@ hostが安定した`source_id`と元の`task_id`を付け、依頼したIDごと
 
 秘密、生trace、生reasoning、私的タイトルや不要な本文を受信・引き渡し前に除く。組織入力の匿名化だけで個人scopeへの転記を許可しない。公開fixtureは合成例だけにする。CLIの`common.SENSITIVE`検査は検出可能な秘密の拒否であり、privacyの証明ではない。証拠参照は不透明な文字列で、このコマンドでは実行・fetch・openしない。後の参照確認も別途許可されたscopeの操作だけにする。
 
+## 日次起動から Mac への最小 handoff
+
+日次のskill実行を受けたhostがsend/read・許可task選定を担当し、Macのintakeは受信後の検査だけを担当する。スケジュールpromptへ送信・振り返りの実装を複製しない。hostに必要な能力がなければWorkはunsupportedとして終え、Macから私的APIを探さない。既知taskへのsend/read成功は、その二件についての接続証拠であり、期間内のtask列挙成功ではない。
+
+1. hostはMac側の既存stateと最新自己申告batchから、source/task/report/revision、状態、元window、pending_requests、登録済み・明示除外rootを読む。非公開pathや最小JSONで引き渡し、本文を公開先へ出さない。Workにはnative checkpointがないので、前回のenumeration不足・時刻不明のwindowを解消済みとせず、新しい日次windowとは別に保持する。
+2. 同revision受信済みのtaskへ同じ依頼を送り直さない。pendingを先に処理し、deferred/failedは新証拠revisionがあるときだけ再開する。未受信要求は保存された元windowで再試行する。元taskの再開後に新しい実務がある場合は、同task/report ID・増加revisionとして元完了時刻と今回の追加証拠を区別する。window内だったという推定で日付を埋めず、帰属不明なら保留する。
+3. hostは許可済みの閉じたtaskへ下記promptを最大2件送信し、対応する応答をreadする。現在の保守task・Mac委譲task・評価task・その派生を除外する。kindを応答の自己申告だけから決めず、hostのtask provenanceと照合する。
+4. hostは取得結果をv1 envelopeにする。未知の元完了時刻・受信時刻はnull、未確認の列挙はfalseのまま残す。秘密・原文・reasoningを最小化し、対応するtask/report/revision・scope・参照を保持する。このenvelopeを既存の許可されたMac委譲inputで渡すか、既存の許可された非公開ファイル受渡しを使う。新接続を前提にしない。
+5. Macはenvelopeを専用の非公開通常ファイルとして保存し、上記CLIを実行する。引渡しで欠落・変質したinputは取り込み成功にしない。batch pathと受信件数・coverage・case状態をhostへ返す。受信済み印の正本はintake後のretrospective_unitsであり、hostが送信しただけでは取得済みにしない。
+6. 再起動後は同じstateで同じenvelopeを再intakeする。同revisionは重複しない。`--new-evidence-only`で同じ保留caseを選び直さず、残るpendingと新revisionだけを選ぶ。source/rootの除外は台帳とhost選定の双方に適用する。
+
+この境界のローカル合成テストはintake・再開・除外を検証できるが、hostのsend/readや日次起動時の能力露出を証明しない。実運用の接続確認は、実際の日次skill実行contextで許可taskの選定→send→read→Mac委譲→intake結果返信が対応することを、非公開の最小receiptで確認する。
+
 ## Session に送る portable request prompt
 
 hostが山括弧の値を許可済み元task情報で置き換え、閉じたtaskへ一度だけ送る。unsupportedのhostはこの依頼を送ったふりをしない。
