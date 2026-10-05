@@ -51,7 +51,7 @@ python3 <skill-root>/scripts/maintenance.py register-run \
 
 ## Codex記録を取得する
 
-[Codex reader](../scripts/codex_reader.py)は公式CLI proxyで既存daemonへ接続する。元のCODEX_HOME、実行端末、CLI/server版を契約と照合する。必要なsandbox承認は各操作の正式な手続きで得る。拒否後はその対象を停止し、別host・DB・生ログ・別readerへ切り替えない。
+[Codex reader](../scripts/codex_reader.py)は公式CLI proxyで既存daemonへ接続する。元のCODEX_HOMEと実行端末を照合し、CLIの公式生成schemaと実際の応答で必要な機能・read契約を検査する。CLI/server版の完全一致では判定しない。必要なsandbox承認は各操作の正式な手続きで得る。拒否後はその対象を停止し、別host・DB・生ログ・別readerへ切り替えない。
 
 ```sh
 python3 <skill-root>/scripts/codex_reader.py index \

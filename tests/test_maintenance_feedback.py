@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from tests import test_codex_reader as reader_tests
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,7 +59,7 @@ class FeedbackTest(unittest.TestCase):
                 if method == 'thread/turns/list':
                     return dict(data=[owner.turns[0]] if params['sortDirection']=='asc' else list(reversed(owner.turns)), nextCursor=None)
                 if method == 'thread/read':
-                    return dict(thread=dict(sessionId='root', gitInfo={'originUrl':'https://github.com/example/project.git'}, status={'type':'idle'}))
+                    return dict(thread=reader_tests.ReaderTest().metadata(sessionId='root', gitInfo={'originUrl':'https://github.com/example/project.git'}, status={'type':'idle'}))
                 return dict(data=[dict(turnId=params['turnId'], item=i) for i in owner.items[params['turnId']]], nextCursor=None)
         self.proxy = Proxy()
 
@@ -277,7 +278,7 @@ class FeedbackTest(unittest.TestCase):
         original_call = self.proxy.call
         def active(method, params):
             if method == 'thread/read':
-                return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'active'}))
+                return dict(thread=reader_tests.ReaderTest().metadata(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'active'}))
             return original_call(method,params)
         self.proxy.call = active
         calls = len([c for c in self.proxy.calls if c[0]=='thread/items/list'])

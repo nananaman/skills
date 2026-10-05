@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from tests import test_codex_reader as reader_tests
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -33,7 +34,7 @@ class InitializationTest(unittest.TestCase):
                 if method=='thread/turns/list':
                     return dict(data=[fixture.turn('new-turn',start+1)],nextCursor=None)
                 if method=='thread/read':
-                    return dict(thread=dict(sessionId='new-work',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                    return dict(thread=reader_tests.ReaderTest().metadata(id='new-work',sessionId='new-work',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
                 items=[dict(id='u',type='userMessage',content=[dict(type='text',text='Check a new fixture.')]),
                        dict(id='a',type='agentMessage',text='New fixture recorded; outcome unverified.')]
                 return dict(data=[dict(turnId='new-turn',item=i) for i in items],nextCursor=None)

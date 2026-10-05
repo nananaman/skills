@@ -147,7 +147,7 @@ class AcquisitionTest(unittest.TestCase):
             def call(self,method,params):
                 self.budget.consume(self.charge)
                 if method=='thread/read':
-                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
+                    return dict(thread=reader_tests.ReaderTest().metadata(sessionId='root',gitInfo={'originUrl':'https://github.com/example/project.git'},status={'type':'idle'}))
                 items=[dict(id='u',type='userMessage',content=[dict(type='text',text='Check fixture.')]),
                        dict(id='a',type='agentMessage',text='Fixture recorded.')]
                 return dict(data=[dict(turnId='turn',item=i) for i in items],nextCursor=None)

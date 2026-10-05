@@ -15,12 +15,20 @@ from common import validate_evidence
 
 
 class ReaderTest(unittest.TestCase):
+    def metadata(self, **overrides):
+        return {**dict(id='root', sessionId='root', updatedAt=1, turns=[], source='cli',
+            cwd=str(Path.home()/'fixture'), path=str(Path.home()/'.codex/fixture'),
+            gitInfo={'originUrl':'https://github.com/example/project.git'},
+            ephemeral=False, status={'type':'idle'}), **overrides}
+
     def selection(self):
         return dict(source_id='synthetic', host_id='local', coverage_complete=True,
-            adapter_selection={'mode': 'repo-index'},
+            codex_home=str(Path.home()/'.codex'),
+            adapter_selection={'mode': 'repo-index', 'repos': [dict(id='example/project',
+                cwd=str(Path.home()/'fixture'), information_scope='personal:example')]},
             window={'since': '2026-10-03T00:00:00Z', 'cutoff': '2026-10-04T00:00:00Z'},
             threads=[dict(id='root', session_id='root', repository='example/project',
-                information_scope='personal:example', Mac_local_proof=True, ephemeral=False)])
+                information_scope='personal:example', source_kind='cli', Mac_local_proof=True, ephemeral=False)])
 
     def test_turn_selection_never_loads_items_and_applies_completion_cutoff(self):
         start = int(READER.instant('2026-10-03T00:00:00Z').timestamp())
@@ -47,7 +55,7 @@ class ReaderTest(unittest.TestCase):
         class Fake:
             def call(self, method, params):
                 if method == 'thread/read':
-                    return dict(thread=dict(sessionId='root', gitInfo={'originUrl': 'https://github.com/example/project.git'}, status={'type': 'idle'}))
+                    return dict(thread=ReaderTest().metadata(sessionId='root', gitInfo={'originUrl': 'https://github.com/example/project.git'}, status={'type': 'idle'}))
                 self.method = method
                 items = [dict(type='userMessage', id='u', content=[{'type': 'text', 'text': 'Check the endpoint.'}]),
                     dict(type='agentMessage', id='a', text='The endpoint returned HTTP 402.', phase='final_answer'),
@@ -75,7 +83,7 @@ class ReaderEntryTest(unittest.TestCase):
         start='2026-10-03T00:00:00Z'; cutoff='2026-10-04T00:00:00Z'
         ts=int(READER.instant(start).timestamp())
         source=dict(version=1,source_id='synthetic',device_id='fixture',host_id='local',path_flavour='posix',
-            repos=[dict(id='example/app',cwd='/fixture/app',information_scope='personal:example')],exclude_roots=[])
+            repos=[dict(id='example/app',cwd=str(Path.home()/'fixture'),information_scope='personal:example')],exclude_roots=[])
         class FakeProxy:
             server_version='0.160.0'
             def __init__(self,config): pass
@@ -90,7 +98,7 @@ class ReaderEntryTest(unittest.TestCase):
                     return dict(data=[dict(id='turn',status='completed',startedAt=ts,completedAt=ts+1,
                         items=[],itemsView='notLoaded')],nextCursor=None)
                 if method == 'thread/read':
-                    return dict(thread=dict(sessionId='root',gitInfo={'originUrl':'https://github.com/example/app.git'},status={'type':'idle'}))
+                    return dict(thread=ReaderTest().metadata(sessionId='root',gitInfo={'originUrl':'https://github.com/example/app.git'},status={'type':'idle'}))
                 items=[dict(id='u',type='userMessage',content=[dict(type='text',text='Check fixture.')]),
                        dict(id='a',type='agentMessage',text='Fixture checked.')]
                 return dict(data=[dict(turnId='turn',item=i) for i in items],nextCursor=None)
