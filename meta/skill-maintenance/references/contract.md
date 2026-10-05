@@ -2,7 +2,7 @@
 
 ## 担当と取得範囲
 
-Python 3.11+の標準ライブラリで[maintenance.py](../scripts/maintenance.py)を動かす。`register-run / collect / intake-retrospectives / report / record`は共通JSONの検査・収集・非公開台帳の更新を行い、履歴通信、モデル実行・採点、対象repoの編集、Git/GitHub/APM操作は行わない。事例整理は[振り返り手順](retrospective.md)、候補評価はskill-workbenchが担当する。判断記録は評価や権限の証明ではない。
+Python 3.11+の標準ライブラリで[maintenance.py](../scripts/maintenance.py)を動かす。`register-run / collect / select-retrospectives / intake-retrospectives / report / record`は共通JSONの検査・収集・非公開台帳の更新を行い、履歴通信、モデル実行・採点、対象repoの編集、Git/GitHub/APM操作は行わない。事例整理は[振り返り手順](retrospective.md)、候補評価はskill-workbenchが担当する。判断記録は評価や権限の証明ではない。
 
 履歴取得は許可されたreaderだけで行う。Codexは[日次手順](daily-run.md)の公式CLI入口を使い、接続・アクセス拒否後にDB・生ログ・別reader・他端末へ切り替えない。新規ソフトの導入、daemon起動、認証・恒久権限の変更は含めない。保存済み共通exportの再処理と新規取得を区別する。
 
@@ -34,7 +34,7 @@ exclude_roots: 保守・評価root IDの配列
 
 ## 複数sourceの取得結果
 
-Codex CLI・将来のnative readerは個別に取得し、共通exportへ正規化する。Work自己申告は[portable retrospective intake](work-retrospective.md)の厳密なv1 envelopeで別台帳へ取り込む。既存のCodex readerはCodexのscopeだけを証明し、Workの履歴がないことをCodexの取得失敗へ読み替えない。Workを含む新sourceの接続・reader実装は別途許可と取得契約が必要で、自動追加しない。
+Codex CLI・将来のnative readerは個別に取得し、共通exportへ正規化する。Work自己申告は[portable retrospective intake](work-retrospective.md)の完了turn差分v2 envelopeで別台帳へ取り込む。旧v1は保存済み入力の再処理に残す。Workの時刻不明は差分選定を止めず、履歴coverageはunknownとする。既存のCodex readerはCodexのscopeだけを証明し、Workの履歴がないことをCodexの取得失敗へ読み替えない。Workを含む新sourceの接続・reader実装は別途許可と取得契約が必要で、自動追加しない。
 
 現時点のWorkのnative履歴取得は単独PCでの公式取得契約が未検証のため`unsupported`とする。許可されたhost send/readがある場合の自己申告intakeは別経路であり、native取得成功にはしない。親側で会話textの一部を取得できても、時刻・native tool引数と結果・対応ID・元traceの完全性がなければ完全な共通exportにしない。assistantの成功報告はtool実行の証拠にしない。将来Claude等のreaderを追加する場合もsource・出所・root/unit/revision・既知未完了・scopeとcoverageを保持する。この契約だけから接続権限や新readerを作る権限を推測しない。
 

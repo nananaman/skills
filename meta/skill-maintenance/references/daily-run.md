@@ -20,7 +20,7 @@ skill-maintenanceを実行する。
 
 依頼された入力元を列挙し、source別の許可readerと取得結果を記録する。CodexとWorkの履歴を同じ一覧だと仮定しない。未対応sourceは明示して接続・実装を自動追加せず、native取得は共通export、Work自己申告は後述の別intakeで分析する。全体coverageと分析できる入力範囲を分ける。
 
-初回は直近24時間の開始〜cutoffを固定する。以後はcheckpoint・未完了turn・未取得期間・反映claimを照合する。取得下限より古いcheckpointなら、許可された再開期間を確認し、自動で巻き戻さない。source/root/unit/revisionとbindingを保持し、別readerや新stateで同じ事例を増やさない。
+Codex nativeの初回は直近24時間の開始〜cutoffを固定する。Workは許可済みtaskの未回収完了turn差分を対象とし、元時刻不明でも選定できる。以後はcheckpoint・未完了turn・未取得期間・反映claimを照合する。取得下限より古いcheckpointなら、許可された再開期間を確認し、自動で巻き戻さない。source/root/unit/revisionとbindingを保持し、別readerや新stateで同じ事例を増やさない。
 
 一晩の既定予算は`budget: {max_cases: 1, max_runs: 12}`。1件の診断に絞り、現行版と最小変更1候補を、開発・候補選択・最終確認それぞれ2ケース（失敗条件と成功・制約を守る反例）で比較する計12実行に使う。単発の観測差として報告し、反復なしで統計的な改善を主張しない。両側・失敗・中断も数え、未評価の反復や追加候補を際限なく実行しない。既存の契約・利用枠だけを使い、実行不可・予算切れ・退行・差が不確実なら保留する。決定的な誤字・リンク修正はworkbenchの軽量経路でよい。複数targetでは全体で1件・12実行を配分し、個人・組織のケースや結果を混ぜない。
 
@@ -32,7 +32,7 @@ skill-maintenanceを実行する。
 
 ## 日次を新規開始する
 
-現行7項目のsource、許可済みsource repo・target、確認済み保守・評価rootの除外を照合する。各段階のbyte/time予算を起動引数に指定し、初回の開始とcutoff（直近24時間）を固定して非公開に記録する。
+現行7項目のsource、許可済みsource repo・target、確認済み保守・評価rootの除外を照合する。各段階のbyte/time予算を起動引数に指定し、Codex初回の開始とcutoff（直近24時間）を固定して非公開に記録する。Work初回は可視範囲の未回収完了turnを対象とし、既存受信済みreportとそのhost確認済みreply turnを再回収しない。
 
 初回stateは未作成または判断・checkpointのない空の台帳から始める。`register-run`は現在rootだけを登録し、初回の成功exportをcollectしてからcheckpointを作る。次回以後はcheckpoint・未完了turn・未取得window・反映claimから再開する。外部反映前には現在の正本と既存PRを照合し、同目的の変更を重ねない。
 
@@ -83,7 +83,18 @@ readerの標準出力と`index.result.json / turns.result.json / export.result.j
 
 ## Work の自己申告を取り込む
 
-閉じた実務taskの許可されたhost送信・読取は[portable retrospective intake](work-retrospective.md)に従う。最大2 task requests・5分/64 MiBのhost予算、intake 8 MiBを守り、未対応・失敗・保留・時刻不明を残す。日次skillを受けたhostがtask選定・send/read・Macへのenvelope委譲を行い、Macはintake結果を返す。具体的な境界と再開は同referenceの「日次起動から Mac への最小 handoff」に従う。host能力が日次contextに露出しない場合は自動要求が成立したとせず、未対応を報告する。hostが未対応でも、検証済みCodexの分析は進められる。Work自己申告batchはnative取得manifestのcollected行へ入れず、受信状態とreports-only coverageを別に報告する。
+許可済みtaskをhostの正規list/readで列挙し、latestTurn.id/statusを最小metadataへ正規化する。attachedAtを完了時刻へ転用しない。選定CLIが未回収完了turn IDを先に持越すため、retry中の新turnも返信で隠れない。完了した振り返り返信のturn IDもintakeで既回収にする。
+
+```sh
+python3 <skill-root>/scripts/maintenance.py select-retrospectives \
+  --input <private/host-metadata.json> --target <private/target.json> \
+  --repo <skill-checkout> --state <private/state.json> --max-reports 2 \
+  --exclude-root <known-host-maintenance-or-derived-task-id>
+```
+
+選定結果のrequested_tasksだけに依頼し、v2 envelopeへ元completed_turn_idと実際のreceipt_turn_idを渡す。新完了turnでは同task/report IDのrevisionを増やす。進行中taskには依頼しない。未受信retryは保存した元turn IDを維持する。
+
+閉じた実務taskの許可されたhost送信・読取は[portable retrospective intake](work-retrospective.md)に従う。最大2 task requests・5分/64 MiBのhost予算、intake 8 MiBを守り、未対応・失敗・保留・時刻不明を残す。日次skillを受けたhostがtask選定・send/read・Macへのenvelope委譲を行い、Macはintake結果を返す。具体的な境界と再開は同referenceの「日次起動から Mac への最小 handoff」に従う。host能力が日次contextに露出しない場合は自動要求が成立したとせず、未対応を報告する。hostが未対応でも、検証済みCodexの分析は進められる。Work自己申告batchはnative取得manifestのcollected行へ入れず、受信状態と可視差分の受信状態を別に報告する。source履歴coverageはunknownのまま、時刻不明を新基準のblockerにしない。旧windowは過去v1入力の出所記録として維持し、差分へ時刻を補わない。
 
 ```sh
 python3 <skill-root>/scripts/maintenance.py intake-retrospectives \

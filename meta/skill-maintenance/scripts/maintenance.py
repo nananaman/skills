@@ -495,6 +495,11 @@ def main():
     intake_parser.add_argument("--max-reports", type=int, choices=(1, 2), default=2)
     intake_parser.add_argument("--exclude-root", action="append", default=[])
     intake_parser.add_argument("--new-evidence-only", action="store_true")
+    select_parser = commands.add_parser("select-retrospectives")
+    for name in ("input", "target", "repo", "state"):
+        select_parser.add_argument("--" + name, type=Path, required=True)
+    select_parser.add_argument("--max-reports", type=int, choices=(1, 2), default=2)
+    select_parser.add_argument("--exclude-root", action="append", default=[])
     report_parser = commands.add_parser("report")
     for name in ('acquisitions', 'target', 'repo', 'state', 'output'):
         report_parser.add_argument('--' + name, type=Path, required=True)
@@ -506,9 +511,9 @@ def main():
         record_parser.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args()
     try:
-        if args.command == 'intake-retrospectives':
-            from work_retrospectives import intake
-            result = intake(args)
+        if args.command in {'intake-retrospectives', 'select-retrospectives'}:
+            from work_retrospectives import intake, select
+            result = intake(args) if args.command == 'intake-retrospectives' else select(args)
         else:
             result = {'collect': collect, 'record': record, 'register-run': register_run, 'report': report}[args.command](args)
         print(json.dumps(result))
