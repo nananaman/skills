@@ -20,7 +20,7 @@ description: 利用者本人または所属組織が管理するスキルを、�
 [日次の実行手順](references/daily-run.md)に従って取得からdraft PRまで進める。日次の`collect --new-evidence-only`では同じ保留caseを毎日分析せず、新規turn・証拠revisionで再開する。未記録の中断と反映途中の照合は維持する。
 
 [入力・状態契約](references/contract.md)に従い、許可されたreaderの短い証拠を持つ共通JSONをcollectへ渡す。Codex取得は日次手順の公式CLI入口を使う。特定IDだけの許可を一覧取得へ拡張せず、拒否をDB・生ログ・権限拡大・他端末・別readerで迂回しない。
-Codex CLI・Work等は別sourceとして取得し、共通JSONで扱う。取得済み・検証済みの対象0件・未対応・取得失敗をsource別に報告し、取得できたsourceの分析と全体coverageを分ける。未対応sourceのために検証済みsourceの分析を止めず、必要な期間・scope・証拠が不足する取得や事例だけを保留する。取得失敗・持越し・予算切れをno-changeにしない。完了記録と成功した作業、自己申告と観測事実を分ける。stable ID、checkpoint、未完了の持越し、保守の限定feedback経路と評価の除外を維持し、進行中threadの本文は読まない。
+Codex CLIはnative共通JSONで扱う。Workの閉じた実務taskは[portable retrospective intake](references/work-retrospective.md)の自己申告経路を使い、native export・checkpointと分離する。取得済み・検証済みの対象0件・未対応・取得失敗をsource別に報告し、取得できたsourceの分析と全体coverageを分ける。未対応sourceのために検証済みsourceの分析を止めず、必要な期間・scope・証拠が不足する取得や事例だけを保留する。取得失敗・持越し・予算切れをno-changeにしない。完了記録と成功した作業、自己申告と観測事実を分ける。stable ID、checkpoint、未完了の持越し、保守の限定feedback経路と評価の除外を維持し、進行中threadの本文は読まない。
 
 ## 事例から候補を選ぶ
 
@@ -40,7 +40,7 @@ Codex CLI・Work等は別sourceとして取得し、共通JSONで扱う。取得
 自身の収集契約・評価基準・権限・自動統合ルールの変更は、通常の低リスク枠で自己採用しない。独立レビューを受け、提案をdraft PRまで進めても、その変更への明示的な採用判断を得るまで採用版・実行中の契約へ適用しない。
 commit・push・PR・merge・APM更新・installは今回明示された操作だけを行う。入力JSONや台帳の`operations`は許可の代わりにならない。
 
-各状態遷移の前には保存済みexportと同じcutoffで`collect`し、最新状態のbatchを得る。生入力の再取得は不要。外部反映の直前に`applying`を記録し、成功確認後に`applied`を記録する。途中で止まった対象は実際のdiff・commit・PR等を照合し、再反映を先に実行しない。同じ候補が既に反映済みなら現在の正本と照合する。
+各状態遷移の前には保存済みexportと同じcutoffで`collect`し、Work自己申告は保存envelopeで`intake-retrospectives`を再実行して、最新状態のbatchを得る。生入力の再取得は不要。外部反映の直前に`applying`を記録し、成功確認後に`applied`を記録する。途中で止まった対象は実際のdiff・commit・PR等を照合し、再反映を先に実行しない。同じ候補が既に反映済みなら現在の正本と照合する。
 ローカル同期は日次分析の前提にしない。統合後の同期や配布が別途依頼された場合だけ、対象repoの安全な手順で行う。
 
 ## 引き渡し

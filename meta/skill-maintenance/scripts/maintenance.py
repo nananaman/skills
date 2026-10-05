@@ -367,6 +367,7 @@ def report(args):
                 require(batch['target'] == identity and
                         state.get('batches', {}).get(batch['id']) == digest(batch),
                         'unverified collection batch')
+                require(batch.get('evidence_basis') != 'self-report', 'self-report is not native collection')
                 collection = batch.get('source_collection')
                 require(isinstance(collection, dict) and collection.get('source_id') == source
                         and collection.get('status') in {'acquired', 'empty'},
@@ -436,7 +437,8 @@ def record(args):
         require(state.get('latest_batch') == batch['id'], 'stale batch; collect a fresh batch')
         keys = [unit["key"] for unit in case["units"]]
         require(len(keys) == len(set(keys)) and keys, "invalid case units")
-        units = [state["units"][key] for key in keys]
+        ledger = state['retrospective_units'] if batch.get('evidence_basis') == 'self-report' else state['units']
+        units = [ledger[key] for key in keys]
         require(all(snapshot == {'key': key, **unit['facts'], 'status': unit['status'],
                                  'candidate_id': unit['candidate_id']}
                     for key, unit, snapshot in zip(keys, units, case['units'])),
@@ -487,6 +489,12 @@ def main():
     collect_parser.add_argument("--new-evidence-only", action="store_true",
                                 help="hold unchanged deferred/failed cases; keep unrecorded work and reconciliation")
     collect_parser.add_argument("--exclude-root", action="append", default=[])
+    intake_parser = commands.add_parser("intake-retrospectives")
+    for name in ("input", "target", "repo", "state", "output"):
+        intake_parser.add_argument("--" + name, type=Path, required=True)
+    intake_parser.add_argument("--max-reports", type=int, choices=(1, 2), default=2)
+    intake_parser.add_argument("--exclude-root", action="append", default=[])
+    intake_parser.add_argument("--new-evidence-only", action="store_true")
     report_parser = commands.add_parser("report")
     for name in ('acquisitions', 'target', 'repo', 'state', 'output'):
         report_parser.add_argument('--' + name, type=Path, required=True)
@@ -498,7 +506,11 @@ def main():
         record_parser.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args()
     try:
-        result = {'collect': collect, 'record': record, 'register-run': register_run, 'report': report}[args.command](args)
+        if args.command == 'intake-retrospectives':
+            from work_retrospectives import intake
+            result = intake(args)
+        else:
+            result = {'collect': collect, 'record': record, 'register-run': register_run, 'report': report}[args.command](args)
         print(json.dumps(result))
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(json.dumps({"status": "blocked", "error": str(error)}), file=sys.stderr)

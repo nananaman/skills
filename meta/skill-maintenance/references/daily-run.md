@@ -18,7 +18,7 @@ skill-maintenanceを実行する。
 
 [入力・状態契約](contract.md)に従い、端末、許可reader・入力repo、改善先と管理主体、scope、非公開のsource/target・state・出力先、予算・操作範囲を確かめる。改善先だけを入力repoにしない。個人と各組織は分離し、今回の保守rootは下記で登録し、評価rootはsourceの`exclude_roots`に登録して除外する。
 
-依頼された入力元を列挙し、source別の許可readerと取得結果を記録する。CodexとWorkの履歴を同じ一覧だと仮定しない。未対応sourceは明示して接続・実装を自動追加せず、取得できたsourceを共通exportで分析する。全体coverageと分析できる入力範囲を分ける。
+依頼された入力元を列挙し、source別の許可readerと取得結果を記録する。CodexとWorkの履歴を同じ一覧だと仮定しない。未対応sourceは明示して接続・実装を自動追加せず、native取得は共通export、Work自己申告は後述の別intakeで分析する。全体coverageと分析できる入力範囲を分ける。
 
 初回は直近24時間の開始〜cutoffを固定する。以後はcheckpoint・未完了turn・未取得期間・反映claimを照合する。取得下限より古いcheckpointなら、許可された再開期間を確認し、自動で巻き戻さない。source/root/unit/revisionとbindingを保持し、別readerや新stateで同じ事例を増やさない。
 
@@ -81,6 +81,17 @@ binding・digest・cursor・一覧順序や先頭の不一致は`blocked`とし�
 
 readerの標準出力と`index.result.json / turns.result.json / export.result.json`を確認する。成功状態は`index-selection-verified / turn-selection-verified / export-verified`。blocked・scope-held・incomplete・coverage不足なら次へ進まず、未取得として報告する。readerはcheckpointを更新しない。
 
+## Work の自己申告を取り込む
+
+閉じた実務taskの許可されたhost送信・読取は[portable retrospective intake](work-retrospective.md)に従う。最大2 task requests・5分/64 MiBのhost予算、intake 8 MiBを守り、未対応・失敗・保留・時刻不明を残す。hostが未対応でも、検証済みCodexの分析は進められる。Work自己申告batchはnative取得manifestのcollected行へ入れず、受信状態とreports-only coverageを別に報告する。
+
+```sh
+python3 <skill-root>/scripts/maintenance.py intake-retrospectives \
+  --input <private/work-retrospectives.json> --target <private/target.json> \
+  --repo <skill-checkout> --state <private/state.json> --output <private/work-batches> \
+  --max-reports 2 --new-evidence-only
+```
+
 ## 収集・振り返り・記録
 
 ```sh
@@ -115,7 +126,7 @@ python3 <skill-root>/scripts/maintenance.py record \
   --state <private/state.json> --repo <skill-checkout>
 ```
 
-次の状態遷移には保存export・同cutoffでcollectし直して最新batchを使う。外部反映は本体の許可とclaim条件を満たす場合だけ行う。
+次の状態遷移には保存export・同cutoffでcollectし直し、自己申告は保存envelopeでintake-retrospectivesを再実行して最新batchを使う。外部反映は本体の許可とclaim条件を満たす場合だけ行う。
 
 ## 評価からdraft PRへ進む
 
