@@ -31,7 +31,7 @@ class TurnDeltaTest(unittest.TestCase):
         metadata.write_text(json.dumps(dict(version=1, source_id='work-host-example',
                                            enumeration_complete=False, tasks=tasks)))
         result = self.cli('select-retrospectives', '--input', metadata, '--target', self.target_file,
-                          '--repo', self.repo, '--state', self.state, '--max-reports', 2, *extra)
+                          '--repo', self.repo, '--state', self.state, *extra)
         self.assertEqual(0, result.returncode, result.stderr)
         return json.loads(result.stdout)
 
@@ -54,7 +54,7 @@ class TurnDeltaTest(unittest.TestCase):
         self.assertEqual(1, len(json.loads(self.state.read_text())['retrospective_units']))
         self.assertEqual([], self.select([self.observed(turn=report['report_id'])])['requested_tasks'])
 
-    def test_selection_requires_completed_work_and_respects_budget_repo_scope_and_exclusions(self):
+    def test_selection_requires_completed_work_and_respects_repo_scope_and_exclusions(self):
         # Arrange
         tasks = [self.observed('task-c', 'work-c'), self.observed('task-a', 'work-a'),
                  self.observed('task-b', 'work-b'), self.observed('active', 'active-a', 'inProgress'),
@@ -69,6 +69,33 @@ class TurnDeltaTest(unittest.TestCase):
         self.assertEqual({}, state['sources'])
         self.assertEqual({}, state.get('retrospective_units', {}))
         self.assertFalse(selected['history_coverage_complete'])
+
+    def test_selection_returns_all_authorized_tasks_without_fixed_count_cutoff(self):
+        tasks = [self.observed('task-' + str(n), 'work-' + str(n)) for n in range(43)]
+
+        selected = self.select(tasks)
+
+        self.assertEqual(43, len(selected['requested_tasks']))
+        self.assertEqual(43, selected['eligible_completed_turns'])
+        self.assertEqual(0, selected['queued_completed_turns'])
+        # 選定だけでは送信・受信済みにはならず、全turnを失敗に備えて保持する。
+        queue = json.loads(self.state.read_text())['retrospective_pending_turns']['work-host-example']
+        self.assertEqual(43, sum(len(turns) for turns in queue.values()))
+
+    def test_transport_pages_keep_unprocessed_turns_and_resume_without_recollecting_receipts(self):
+        self.select([self.observed('task-a', 'work-a'), self.observed('task-b', 'work-b'),
+                     self.observed('task-c', 'work-c')])
+        self.document = self.delta()
+        first = self.batch(self.intake())
+        self.assertFalse(first['visible_delta_receipt_complete'])
+
+        selected = self.select([self.observed('task-a', 'reply-a')])
+
+        self.assertEqual([], selected['requested_tasks'])
+        self.assertEqual(2, selected['queued_completed_turns'])
+        selected = self.select([self.observed('task-b', 'work-b'), self.observed('task-c', 'work-c')])
+        self.assertEqual(['task-b', 'task-c'], [r['task_id'] for r in selected['requested_tasks']])
+
 
     def test_intake_consumes_work_and_reply_turn_and_reopened_task_selects_only_new_turn(self):
         # Arrange
@@ -105,6 +132,7 @@ class TurnDeltaTest(unittest.TestCase):
         # Assert: 元の未受信turnをretryしてから新turnを選ぶ。
         self.assertEqual('work-a', selected['requested_tasks'][0]['completed_turn_id'])
         self.assertTrue(selected['requested_tasks'][0]['retry'])
+        self.assertEqual(1, selected['queued_completed_turns'])
         self.document = self.delta()
         self.batch(self.intake())
         selected = self.select([self.observed(turn='reply-a')])
