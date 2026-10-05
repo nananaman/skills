@@ -20,3 +20,15 @@ gh pr edit <PR番号> --repo <owner/repo> \
 
 body指定なしなら既存本文を保持し、アップロードした画像への参照を末尾に追加する。本文内の位置を指定する場合は、既存内容を保った`--body-file`に画像pathのMarkdown参照を置き、同じ画像を`--attach`する。
 部分成功でも本文が更新されるため、`gh pr view <PR番号> --repo <owner/repo> --json body`で参照を読み戻し、再試行は未添付分だけにする。未対応・権限不足・添付失敗は報告し、説明用画像をcommitへ追加して代用しない。
+
+## PR 完了後のローカル同期
+
+マージ後のローカル同期が依頼範囲に含まれ、対象repositoryとPRを特定できる場合だけ行う。PR作成やready化をこの手順の起動条件にしない。
+
+1. 現在のbranch、未コミット変更、remote、default branchを確認する。
+2. 対象PRのマージ完了を、ユーザーの報告またはGitHubの状態で確認する。対象やマージ結果が不明なら同期を保留する。
+3. 未コミット変更をstash・破棄・commitせず、default branchへ切り替える。切替を妨げる変更があれば内容を報告して停止する。
+4. default branchでfetchし、確認したremote追跡branchへ`git merge --ff-only`する。履歴が分岐していれば履歴を変更せず停止する。
+5. ローカルとremote追跡のdefault branchが同じcommitを指すことを確認し、同期結果を報告する。
+
+この整理ではstash、reset、clean、rebase、force push、branch削除を行わない。同期失敗を完了扱いにしない。実務の振り返りは日次等の`skill-maintenance`に分け、この同期から呼び出さない。

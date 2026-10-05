@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "source_id": "fixture-device",
+  "coverage": {"start": "2026-01-01T00:00:00Z", "end": "2026-01-04T00:00:00Z", "complete": true},
+  "sessions": [
+    {"id": "task", "root_id": "task", "parent_id": null, "source_repo": "example/app", "information_scope": "personal:example", "kind": "work", "units": [
+      {"id": "turn-1", "revision": 1, "updated_at": "2026-01-02T12:00:00Z", "status": "completed", "content": {"request": "Explain a fixture link.", "expected": "A valid relative link.", "observed": "The link resolved."}, "evidence": {"version": 1, "complete": true, "truncated": false, "events": []}}
+    ]}
+  ]
+}

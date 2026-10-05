@@ -102,15 +102,15 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Meta
 
+- **[`skill-maintenance`](./meta/skill-maintenance/SKILL.md)** — 本人・所属組織が管理するスキルの定期保守で、実務入力の収集・再開と事例抽出・評価をつなぐ。
+  - Use when: 日次等のスキル保守、未処理事例の持越し、評価候補の選別
+  - Type: `model-invoked`
 - **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`
 - **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — skill・AGENTS.md・tool 指示を、実行結果に基づく更新と候補比較・構造探索で改善する。
   - Use when: skill 作成・改善、評価・診断・候補比較、統合・廃止、指示のレビュー・監査
   - Type: `model-invoked`
-- **[`retrospective-codify`](./meta/retrospective-codify/SKILL.md)** — 実務の経験を事例・証拠・更新仮説へ整理し、評価改善へ渡す。
-  - Use when: 明示的な retrospective / codify 依頼、事例・仮説の抽出、採用済み要求の反映
-  - Type: `user-invoked`
 - **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新化する。
   - Use when: apm.yml の pin drift、local 参照先の同期漏れ、複数 skill の一括更新、source-of-truth と展開先の同期確認
   - Type: `user-invoked`
@@ -123,9 +123,6 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 - **[`chouge-git`](./personal/chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
   - Use when: commit、branch、push、PR 作成・更新
   - Type: `model-invoked`
-- **[`merge-closeout`](./personal/merge-closeout/SKILL.md)** — PR マージ後の default branch 同期と retrospective を一度に行う。
-  - Use when: PR マージ後の local 同期と知見の棚卸し
-  - Type: `user-invoked`
 
 ### Productivity
 
