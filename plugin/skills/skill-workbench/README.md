@@ -12,13 +12,6 @@
 - 評価器と task の成果を切り離さない。合格条件の誤りや実行環境の混入も確認する。
 - 採用版が自己評価器を同時に更新して合格する循環を避ける。評価変更は別の suite 版として比較し直す。
 
-## 参考資料
-
-- [SkillOpt](https://arxiv.org/abs/2605.23904)：実行結果からの編集、編集量の制御、検証による更新の採否。
-- [SkillGrad](https://arxiv.org/abs/2605.27760)：診断の蓄積と、skill の層に応じた更新。
-- [DGM](https://arxiv.org/abs/2505.22954)：過去の候補を保存し、別の候補から探索を再開する考え方。
-- [Anthropic skill-creator](https://github.com/anthropics/skills/tree/34040c9c568585f6929bedeaad110ad08f079624/skills/skill-creator)：成果物・実行記録の評価、独立した比較、評価項目への批評、人のフィードバック。
-
 ## リポジトリでの検証
 
 ```sh

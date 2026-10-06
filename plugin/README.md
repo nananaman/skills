@@ -84,11 +84,9 @@ Windows / cloudで全workflowを実行した互換性試験は行っていませ
 
 日次callerが旧パスのscriptを直呼び出ししている場合は、新パスとreaderの `--repo` を更新する必要があります。skill名だけで呼び出す場合も、導入済みの正本・展開先が更新されたか確認します。新readerは対象repoを再開bindingへ含めるため、旧progressとbindingが一致しなければ停止して照合します。自動削除・再取得・古い実行契約への無断適用はしません。Mac専用条件や取得権限は引き継がれたと推測しません。
 
-## 公開内容とライセンス
+## 公開内容
 
 公開の `nananaman` / `chouge` 表記と個人用作業規約も含みます。秘密・実組織名・環境固有の実絶対path・実務ログ・stateは収録しません。`/Users/` の文字列は履歴最小化コードの正規表現であり、実端末pathではありません。example.com / example.invalidと匿名JSONは合成例です。
-
-grillingは元skillを日本語で再構成した履歴と本文の対応があるため、著作権表示・許諾全文を含む[MIT License](./skills/grilling/LICENSE)を保持します。独立したNOTICE・import履歴メモは配布物に含めません。参考資料へのリンクは同梱コードやライセンス表記とは区別します。repository全体には共通LICENSEがなく、全体をMIT等で再許諾したとは主張しません。全体の再利用ライセンスは作者の判断事項です。
 
 公開directoryでは、作者がPlatformの所有org/projectと公開identityを確定し、ZIP upload・検査解消・review・承認後のpublishを行います。skills-only packageは対応していますが、このZIPのportal検査・審査は未実施です。workspace導入・一般向けinstall linkも別途確認します。merge・実アカウント導入・公開申請はこのPRに含みません。
 
