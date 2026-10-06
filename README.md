@@ -45,43 +45,27 @@ codex plugin marketplace add .
 
 ### GUIでGit marketplaceを追加する
 
-marketplaceの追加は、プラグインの一覧を登録する操作です。
-登録後に個別のプラグインをインストールします。
-このGit marketplaceをローカルに追加するために、公開Plugins Directoryへの審査提出は必要ありません。
-
 1. 対応するdesktop appのPlugins画面で「プラグインマーケットプレイスを追加」を開きます。
-2. ソース、Git ref、スパースパスを入力して追加します。
-   次の表は報告時の入力例です。
-   `plugins/codex` で追加できたというユーザー報告はありますが、同じGUIでの再現確認は行っていません。
+2. 次の値を入力して追加します。
 
    | 入力欄 | 入力例 |
    | --- | --- |
-   | ソース（Git URL） | `git@github.com:nananaman/skills.git` |
+   | ソース（Git URL） | `https://github.com/nananaman/skills.git` |
    | Git ref | `main` |
-   | スパースパス | `plugins/codex`（追加成功の報告値。下の構成との照合が必要） |
+   | スパースパス | 空欄（repo全体を取得） |
 
-3. 追加したmarketplaceに `nananaman skills`（識別名 `nananaman-skills-local`）が表示されることを確認します。
+3. 追加したmarketplaceの `nananaman skills`（識別名 `nananaman-skills`）を選びます。
    その一覧から `nananaman-skills` を開き、インストールします。
 4. 新しい会話でプラグインのskillsが選べることを確認します。
    通常のskill検出、または対応clientの `@plugin` / `$skill` を使います。
 
-SSH形式のGit URLを使うには、アプリがGitを実行する環境でGitHubへのSSH認証とrepoの読み取りができることが前提です。
-公開repoをHTTPSで取得する場合のソース例は `https://github.com/nananaman/skills.git` です。
-このskills-only pluginにはMCP接続はありませんが、skill内で使うGitHubや各サービスの権限は実行時に別途必要です。
+SSH形式の `git@github.com:nananaman/skills.git` も使えます。
+その場合は、アプリがGitを実行する環境でGitHubへのSSH認証とrepoの読み取りができることが前提です。
 
-#### スパースパスとmanifestを照合する
-
-2026-10-06に確認した `main` では、repo rootの [`.agents/plugins/marketplace.json`](./.agents/plugins/marketplace.json) が `source.path: ./plugin` を指定し、[`plugin/plugin.json`](./plugin/plugin.json) と `plugin/skills/` を参照します。
-`plugins/codex` ディレクトリはこのcommitにはありません。
-GUIでは最初に `marketplace root does not contain a supported manifest` が表示され、その後スパースパスを `plugins/codex` にして追加できたという報告がありました。
-成功環境のアプリ版、実際に取得されたcommit、解決されたmarketplace rootは未確認のため、この値を現行mainで再現済みの設定とは扱いません。
-
-スパースパスはGitの取得範囲を指定する欄で、marketplace内の `source.path` とは別です。
-同じエラーが出る場合は、取得refとcommit、解決されたroot、上記marketplace manifestと参照先pluginが取得範囲に含まれているかを照合します。
-追加後にmarketplace一覧が表示されても、個別pluginのインストールと新しい会話での検出まで確認してください。
-
-ローカルのGit marketplace追加、別端末への導入、ChatGPT cloudでの利用やworkspace共有は、それぞれ確認が必要です。
-このGUIでの追加成功だけで、cloudや別アカウントへの共有が完了したとは扱いません。
+repo rootの [`.agents/plugins/marketplace.json`](./.agents/plugins/marketplace.json) と、参照先の [`plugin/plugin.json`](./plugin/plugin.json) および `plugin/skills/` を取得する必要があるため、スパースパスは指定しません。
+marketplaceの追加後に個別pluginのインストールが必要です。
+ローカルのGit marketplace追加には公開Plugins Directoryへの審査提出は不要です。
+別端末への導入、ChatGPT cloudでの利用、workspace共有は別途設定してください。
 仕様は[公式marketplace設定ガイド](https://developers.openai.com/plugins/build/plugins#add-a-marketplace-from-the-cli)と[プラグインのインストール手順](https://learn.chatgpt.com/docs/plugins#install-and-use-a-plugin)も参照してください。
 
 ## 分類
