@@ -14,7 +14,7 @@ from tests import test_codex_reader as reader_tests
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'meta/skill-maintenance/scripts'))
+sys.path.insert(0,str(ROOT/'plugin/skills/skill-maintenance/scripts'))
 import codex_proxy as P
 import codex_reader as R
 import codex_minimize as M
@@ -33,7 +33,7 @@ class ResumeTest(unittest.TestCase):
 
     def argv(self,action,byte_limit):
         common=['reader',action,'--state',str(self.state),'--output',str(self.output),
-                '--codex-home',str(Path.home()/'.codex'),'--max-bytes',str(byte_limit)]
+                '--repo',str(ROOT),'--codex-home',str(Path.home()/'.codex'),'--max-bytes',str(byte_limit)]
         if action=='index': return common+['--source',str(self.source),'--since',self.window['since'],'--cutoff',self.window['cutoff']]
         if action=='read': common+=['--read-completed']
         return common+['--selection',str(self.private/'selection.json')]

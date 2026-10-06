@@ -14,9 +14,9 @@ target: claude,agent-skills
 
 dependencies:
   apm:
-    - nananaman/skills/meta/apm-usage#<full-sha>
-    - nananaman/skills/engineering/implement#<full-sha>
-    - nananaman/skills/engineering/review-diff-code#<full-sha>
+    - nananaman/skills/plugin/skills/apm-usage#<full-sha>
+    - nananaman/skills/plugin/skills/implement#<full-sha>
+    - nananaman/skills/plugin/skills/review-diff-code#<full-sha>
 ```
 
 その後、対象の APM project で install します。
@@ -30,19 +30,22 @@ review-diff-codeはimplementの簡潔性基準も使うため、両方を導入�
 個別に試す場合は、full SHA を指定して install します。
 
 ```sh
-apm install -g nananaman/skills/meta/apm-usage#<full-sha>
+apm install -g nananaman/skills/plugin/skills/apm-usage#<full-sha>
 ```
 
-## ディレクトリ方針
+## 全 skills のプラグイン配布
 
-利用者が探しやすい用途別分類を主軸にします。
+`plugin/` 自体が正本の skills-only plugin です。全27 skillsは `plugin/skills/<name>/` に置き、別配置への生成・コピーは行いません。既存APM利用者は新パスへの参照更新が必要です。
 
-- `engineering/` — コード作業、設計、レビュー、PR 作成など。
-- `meta/` — skill 管理、APM 運用、skill 作成・レビューなど。
-- `personal/` — chouge 個人の運用デフォルトや作業規約。
-- `productivity/` — 汎用的な作業フロー、思考補助、引き継ぎ、学習支援など。
-- `sakura-cloud/` — さくらのクラウド関連サービスの作業ランブック。
-- `writing/` — 文章執筆、編集、技術文書の推敲など。
+```sh
+codex plugin marketplace add .
+```
+
+上のコマンドは導入時だけ実行します。[対応条件・導入・ZIP配布の手順](./plugin/README.md)を確認してください。Mac専用経路を含み、Windows / cloudで全workflowが動くことは未検証です。GitHubやローカルmarketplaceの公開だけではChatGPT cloudへの導入・同期は完了しません。
+
+## 分類
+
+物理配置は `plugin/skills/` に統一し、以下の一覧で用途別に分類します。
 
 ## Skill の種類
 
@@ -54,106 +57,106 @@ apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 
 ### Engineering
 
-- **[`prototype`](./engineering/prototype/SKILL.md)** — throwaway artifact や最小の単一 spike で設計上の問いを検証する。
+- **[`prototype`](./plugin/skills/prototype/SKILL.md)** — throwaway artifact や最小の単一 spike で設計上の問いを検証する。
   - Use when: UI・logic・HTML report・文書・diagram・可視化の比較、技術的成立性の実験
   - Type: `model-invoked`
-- **[`draft-prd`](./engineering/draft-prd/SKILL.md)** — 新機能・仕様変更の PRD draft を作成する。
+- **[`draft-prd`](./plugin/skills/draft-prd/SKILL.md)** — 新機能・仕様変更の PRD draft を作成する。
   - Use when: 一言アイデア、メモ、会話ログ、既存 issue から PRD の仮説と TODO(polish) を置く
   - Type: `model-invoked`
-- **[`polish-prd`](./engineering/polish-prd/SKILL.md)** — PRD draft を作る価値・範囲・成功条件を判断できる文書へ磨く。
+- **[`polish-prd`](./plugin/skills/polish-prd/SKILL.md)** — PRD draft を作る価値・範囲・成功条件を判断できる文書へ磨く。
   - Use when: PRD の対象ユーザー、やらないこと、作るもの、成功条件、受け入れ条件を詰める
   - Type: `model-invoked`
-- **[`draft-design-doc`](./engineering/draft-design-doc/SKILL.md)** — 技術改善・設計変更の Design Doc draft を作成する。
+- **[`draft-design-doc`](./plugin/skills/draft-design-doc/SKILL.md)** — 技術改善・設計変更の Design Doc draft を作成する。
   - Use when: 技術・設計上の問題、PRD 実現に必要な設計判断、複数案の比較検討
   - Type: `model-invoked`
-- **[`polish-design-doc`](./engineering/polish-design-doc/SKILL.md)** — Design Doc draft を設計判断と task 分割へ進める文書へ磨く。
+- **[`polish-design-doc`](./plugin/skills/polish-design-doc/SKILL.md)** — Design Doc draft を設計判断と task 分割へ進める文書へ磨く。
   - Use when: 採用案の決定、詳細設計、リスク評価、検討した案、task 分割前の設計 gate
   - Type: `model-invoked`
-- **[`task-breakdown`](./engineering/task-breakdown/SKILL.md)** — 合意済みの情報を独立実行可能な task 群へ分解する。
+- **[`task-breakdown`](./plugin/skills/task-breakdown/SKILL.md)** — 合意済みの情報を独立実行可能な task 群へ分解する。
   - Use when: Design Doc、ADR、PRD、会話上の合意、ユーザー説明から tracker 用 task を設計・作成
   - Type: `user-invoked`
-- **[`create-plan`](./engineering/create-plan/SKILL.md)** — issue、task、またはユーザーの実装依頼から、grill と調査を経て一時的な実装 plan を作成する。
+- **[`create-plan`](./plugin/skills/create-plan/SKILL.md)** — issue、task、またはユーザーの実装依頼から、grill と調査を経て一時的な実装 plan を作成する。
   - Use when: `create-plan <issue-or-task>`、個別 task やユーザー依頼の実装前設計、`plans/<task>-<slug>.md` の作成
   - Type: `user-invoked`
-- **[`review-plan`](./engineering/review-plan/SKILL.md)** — 作成済みの一時実装planをリスクに応じた独立担当が評価し、局所的な修正は影響範囲を確認する。
+- **[`review-plan`](./plugin/skills/review-plan/SKILL.md)** — 作成済みの一時実装planをリスクに応じた独立担当が評価し、局所的な修正は影響範囲を確認する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
   - Type: `model-invoked`
-- **[`implement`](./engineering/implement/SKILL.md)** — 実装・簡素化を、必要な検証と完成差分のレビューまで完了させる。
+- **[`implement`](./plugin/skills/implement/SKILL.md)** — 実装・簡素化を、必要な検証と完成差分のレビューまで完了させる。
   - Use when: コード、設定、テスト、schema、依存関係、agent指示の作成・変更、振る舞いを保つリファクタリング
   - Type: `model-invoked`
-- **[`create-pr`](./engineering/create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
+- **[`create-pr`](./plugin/skills/create-pr/SKILL.md)** — 現在の branch からレビューしやすい GitHub draft PR を作成する。
   - Use when: PR 作成、PR template 整理、diff・commit・テスト状況の要約
   - Type: `user-invoked`
-- **[`review-diff-code`](./engineering/review-diff-code/SKILL.md)** — コード差分の契約・簡潔性を専門担当が評価し、blind担当が敵対的に検証する。
+- **[`review-diff-code`](./plugin/skills/review-diff-code/SKILL.md)** — コード差分の契約・簡潔性を専門担当が評価し、blind担当が敵対的に検証する。
   - Use when: PRレビュー、実装後の独立した不具合・過剰設計・敵対的レビュー
   - Type: `model-invoked`
-- **[`nono-sandbox-maintenance`](./engineering/nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
+- **[`nono-sandbox-maintenance`](./plugin/skills/nono-sandbox-maintenance/SKILL.md)** — nono の拒否を診断し、最小権限の profile patch を作成・検証する。
   - Use when: nono 内だけで起きる filesystem・network・command denial、profile の不足権限調査、policy 修正後の回帰確認
   - Type: `model-invoked`
-- **[`tdd`](./engineering/tdd/SKILL.md)** — Red → Green → Refactor を public contract 単位で実行する。
+- **[`tdd`](./plugin/skills/tdd/SKILL.md)** — Red → Green → Refactor を public contract 単位で実行する。
   - Use when: 実行コードのロジック・状態遷移・データ変換・API・型・schemaの処理規則の変更、または明示的なTDD依頼
   - Type: `model-invoked`
-- **[`test-writing-style`](./engineering/test-writing-style/SKILL.md)** — テストを仕様として読める検証に整える。
+- **[`test-writing-style`](./plugin/skills/test-writing-style/SKILL.md)** — テストを仕様として読める検証に整える。
   - Use when: テストの新規追加・修正・レビュー、命名・AAA・1テスト1関心・mock/fake の整理
   - Type: `model-invoked`
-- **[`apple-container`](./engineering/apple-container/SKILL.md)** — Apple `container` CLI を実機 version に合わせて安全に操作する。
+- **[`apple-container`](./plugin/skills/apple-container/SKILL.md)** — Apple `container` CLI を実機 version に合わせて安全に操作する。
   - Use when: OCI image の build / run、registry、network・volume・machine 管理、障害調査
   - Type: `model-invoked`
 
 ### Meta
 
-- **[`skill-maintenance`](./meta/skill-maintenance/SKILL.md)** — 本人・所属組織が管理するスキルの定期保守で、実務入力の収集・再開と事例抽出・評価をつなぐ。
+- **[`skill-maintenance`](./plugin/skills/skill-maintenance/SKILL.md)** — 本人・所属組織が管理するスキルの定期保守で、実務入力の収集・再開と事例抽出・評価をつなぐ。
   - Use when: 日次等のスキル保守、未処理事例の持越し、評価候補の選別
   - Type: `model-invoked`
-- **[`apm-usage`](./meta/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
+- **[`apm-usage`](./plugin/skills/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`
-- **[`skill-workbench`](./meta/skill-workbench/SKILL.md)** — skill・AGENTS.md・tool 指示を、実行結果に基づく更新と候補比較・構造探索で改善する。
+- **[`skill-workbench`](./plugin/skills/skill-workbench/SKILL.md)** — skill・AGENTS.md・tool 指示を、実行結果に基づく更新と候補比較・構造探索で改善する。
   - Use when: skill 作成・改善、評価・診断・候補比較、統合・廃止、指示のレビュー・監査
   - Type: `model-invoked`
-- **[`update-skills`](./meta/update-skills/SKILL.md)** — APM skill dependency を最新化する。
+- **[`update-skills`](./plugin/skills/update-skills/SKILL.md)** — APM skill dependency を最新化する。
   - Use when: apm.yml の pin drift、local 参照先の同期漏れ、複数 skill の一括更新、source-of-truth と展開先の同期確認
   - Type: `user-invoked`
 
 ### Personal
 
-- **[`chouge-changelog`](./personal/chouge-changelog/SKILL.md)** — 既存の CHANGES.md を更新する。新規作成は明示依頼時に行う。
+- **[`chouge-changelog`](./plugin/skills/chouge-changelog/SKILL.md)** — 既存の CHANGES.md を更新する。新規作成は明示依頼時に行う。
   - Use when: CHANGES.md 更新、release note 下書き、PR / commit 内容の変更履歴化
   - Type: `model-invoked`
-- **[`chouge-git`](./personal/chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
+- **[`chouge-git`](./plugin/skills/chouge-git/SKILL.md)** — chouge 個人の Git/GitHub 運用規約を適用する。
   - Use when: commit、branch、push、PR 作成・更新
   - Type: `model-invoked`
 
 ### Productivity
 
-- **[`grilling`](./productivity/grilling/SKILL.md)** — 計画、設計、PRD、Design Doc、issue を一問ずつ詰める reusable discipline。
+- **[`grilling`](./plugin/skills/grilling/SKILL.md)** — 計画、設計、PRD、Design Doc、issue を一問ずつ詰める reusable discipline。
   - Use when: 計画や設計の明示的な検討依頼、他 skill からの曖昧さ・未決定・依存する判断の解消
   - Type: `model-invoked`
-- **[`handoff`](./productivity/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
+- **[`handoff`](./plugin/skills/handoff/SKILL.md)** — 現在の会話を別の agent が引き継げる handoff document に圧縮する。
   - Use when: セッション引き継ぎ、長い会話の圧縮、別 agent への作業移管
   - Type: `user-invoked`
 
 ### Sakura Cloud
 
-- **[`sakura-cloud-eventbus`](./sakura-cloud/eventbus/SKILL.md)** — EventBus の実行設定、スケジュール、イベントトリガーを扱う。
+- **[`sakura-cloud-eventbus`](./plugin/skills/sakura-cloud-eventbus/SKILL.md)** — EventBus の実行設定、スケジュール、イベントトリガーを扱う。
   - Use when: EventBus 設計、Schedule / Trigger 作成、SimpleMQ / シンプル通知連携
   - Type: `model-invoked`
-- **[`sakura-cloud-webaccel`](./sakura-cloud/webaccel/SKILL.md)** — ウェブアクセラレータのサイト設定・運用を扱う。
+- **[`sakura-cloud-webaccel`](./plugin/skills/sakura-cloud-webaccel/SKILL.md)** — ウェブアクセラレータのサイト設定・運用を扱う。
   - Use when: サイト追加、独自ドメイン / SSL 設定、キャッシュ削除 / オリジンガード
   - Type: `model-invoked`
-- **[`sakura-cloud-workflows`](./sakura-cloud/workflows/SKILL.md)** — Workflows の YAML 作成、デバッグ、API 操作を扱う。
+- **[`sakura-cloud-workflows`](./plugin/skills/sakura-cloud-workflows/SKILL.md)** — Workflows の YAML 作成、デバッグ、API 操作を扱う。
   - Use when: YAML 作成、式のデバッグ、実行履歴確認 / キャンセル
   - Type: `model-invoked`
 
 ### Writing
 
-- **[`chouge-writing`](./writing/chouge-writing/SKILL.md)** — 文書の読者・目的・構成を設計し、根拠と不確実性を保って執筆・レビューする個人用 writing skill。日本語の文章規範と長文の構成も含む。
+- **[`chouge-writing`](./plugin/skills/chouge-writing/SKILL.md)** — 文書の読者・目的・構成を設計し、根拠と不確実性を保って執筆・レビューする個人用 writing skill。日本語の文章規範と長文の構成も含む。
   - Use when: 文書、記事、実験・検証報告、解説、設計・判断資料の作成・推敲・レビュー
   - Type: `model-invoked`
 
 ## 運用
 
-- dotfiles 側には global skill の install 一覧として `apm/apm.yml` だけを置く。
+- dotfiles 側には global skill の install 一覧として `home/.apm/apm.yml` だけを置く。
 - skill 本体はこの repository を source of truth にする。
 - dotfiles から参照するときは、ローカルに置く正本を path、ローカルに置かない正本を full SHA で指定する。
 - skill 更新後に配布する場合は、`skill-workbench` で変更に必要な差分レビューを行ってから、この repository で commit / push し、path 参照なら参照先 repository、pin 参照なら dotfiles 側の SHA を更新する。

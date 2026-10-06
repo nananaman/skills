@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'meta/skill-maintenance/scripts'))
+sys.path.insert(0,str(ROOT/'plugin/skills/skill-maintenance/scripts'))
 import codex_proxy as PROXY
 import codex_wire as WIRE
 import codex_reader as READER
@@ -110,7 +110,7 @@ class AcquisitionTest(unittest.TestCase):
             source.write_text(json.dumps(fixture.source()))
             argv=['reader','index','--source',str(source),'--state',str(state),'--output',str(output),
                 '--since','2026-10-03T00:00:00Z','--cutoff','2026-10-04T00:00:00Z',
-                '--codex-home',str(Path.home()/'.codex'),'--codex-executable','synthetic-cli','--max-bytes','1000']
+                '--repo',str(ROOT),'--codex-home',str(Path.home()/'.codex'),'--codex-executable','synthetic-cli','--max-bytes','1000']
             with patch.object(READER,'Proxy',Fake),patch.object(READER.sys,'platform','darwin'),patch.object(sys,'argv',argv):
                 self.assertEqual(2,READER.main())
             result=json.loads(output.with_suffix('.result.json').read_text())
@@ -156,7 +156,7 @@ class AcquisitionTest(unittest.TestCase):
             state.write_text(json.dumps(dict(sources={},units={})));original=state.read_bytes()
             chosen.write_text(json.dumps(selection))
             argv=['reader','read','--read-completed','--selection',str(chosen),'--state',str(state),
-                  '--codex-home',str(Path.home()/'.codex'),'--output',str(output),'--max-bytes','1000','--max-seconds','30']
+                  '--repo',str(ROOT),'--codex-home',str(Path.home()/'.codex'),'--output',str(output),'--max-bytes','1000','--max-seconds','30']
             with patch.object(READER,'Proxy',Fake),patch.object(READER.sys,'platform','darwin'),patch.object(sys,'argv',argv):
                 self.assertEqual(2,READER.main())
             result=json.loads(output.with_suffix('.result.json').read_text())

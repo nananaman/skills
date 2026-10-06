@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "nananaman-skills",
+  "version": "0.1.0",
+  "description": "Japanese workflows for engineering, writing, skill maintenance, Git and Sakura Cloud.",
+  "author": {
+    "name": "nananaman",
+    "url": "https://github.com/nananaman"
+  },
+  "homepage": "https://github.com/nananaman/skills",
+  "repository": "https://github.com/nananaman/skills",
+  "keywords": ["engineering", "writing", "japanese", "skills"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "nananaman skills",
+        "shortDescription": "開発・文章・スキル保守の日本語ワークフロー",
+        "longDescription": "nananaman/skills の全スキルをまとめたプラグイン。個人の Git 規約とさくらのクラウド手順も含みます。CLI・端末・接続権限が必要な手順があります。Apple container と Codex 履歴取得は Mac 前提です。",
+        "developerName": "nananaman",
+        "category": "Productivity",
+        "websiteURL": "https://github.com/nananaman/skills",
+        "defaultPrompt": ["このプラグインの文章作成手順で、読者と目的に合う文書を作成して。"]
+      }
+    }
+  }
+}

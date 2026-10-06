@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'meta/skill-maintenance/scripts'))
+sys.path.insert(0, str(ROOT / 'plugin/skills/skill-maintenance/scripts'))
 import codex_index as INDEX
 import codex_reader as READER
 import codex_minimize as MINIMIZE
@@ -68,7 +68,7 @@ class ReaderRegressions(unittest.TestCase):
         ledger=dict(sources={},units={})
         with tempfile.TemporaryDirectory() as tmp:
             private=Path(tmp)
-            target=json.loads((ROOT/'meta/skill-maintenance/examples/target.json').read_text())
+            target=json.loads((ROOT/'plugin/skills/skill-maintenance/examples/target.json').read_text())
             target['source_repos']=['example/project']
             (private/'target.json').write_text(json.dumps(target))
             args=argparse.Namespace(repo=ROOT,state=private/'state.json',input=private/'export.json',target=private/'target.json',output=private/'batches',since=selection['window']['since'],cutoff=selection['window']['cutoff'],hours=24,exclude_root=[],new_evidence_only=True)
@@ -234,7 +234,7 @@ class ReaderRegressions(unittest.TestCase):
         repo=dict(id='example/app',cwd='/fixture/app',information_scope='personal:example')
         binding=dict(mode='repo-index',device_id='fixture',host_id='local',path_flavour='posix',repos=[repo])
         source=dict(version=1,source_id='synthetic',device_id='fixture',host_id='local',path_flavour='posix',repos=[repo],exclude_roots=[])
-        target=json.loads((ROOT/'meta/skill-maintenance/examples/target.json').read_text())
+        target=json.loads((ROOT/'plugin/skills/skill-maintenance/examples/target.json').read_text())
         ledger=dict(version=1,target=COLLECT.profile(target),sources={'synthetic':dict(through=window['since'],adapter_selection=binding,deferred={},excluded_roots=[])},units={},decisions={},claims={})
         row=dict(id='maintenance-one',sessionId='maintenance-one',updatedAt=start+86401,turns=[],source='cli',
             cwd=str(Path.home()/'fixture'),path=str(Path.home()/'.codex/fixture'),

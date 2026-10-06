@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / 'meta/skill-maintenance/scripts/maintenance.py'
+SCRIPT = ROOT / 'plugin/skills/skill-maintenance/scripts/maintenance.py'
 
 
 class DailyReportTest(unittest.TestCase):
@@ -25,7 +25,7 @@ class DailyReportTest(unittest.TestCase):
         self.settings = dict(version=1, report_timezone='Asia/Tokyo', information_scope='personal:example',
                              report_destination=dict(kind='host-space', reference='caller-private-parent',
                                                      information_scope='personal:example'))
-        self.document = json.loads((ROOT / 'meta/skill-maintenance/examples/daily-report.json').read_text())
+        self.document = json.loads((ROOT / 'plugin/skills/skill-maintenance/examples/daily-report.json').read_text())
 
     def run_report(self, output=None):
         self.input.write_text(json.dumps(self.document))

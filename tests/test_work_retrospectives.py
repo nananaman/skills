@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / 'meta/skill-maintenance/scripts/maintenance.py'
+SCRIPT = ROOT / 'plugin/skills/skill-maintenance/scripts/maintenance.py'
 
 
 def report(task='task-a', revision=1):
@@ -47,9 +47,9 @@ class RetrospectiveTest(unittest.TestCase):
         self.output = self.home / 'private/batches'
         self.input = self.home / 'reports.json'
         self.target_file = self.home / 'target.json'
-        self.target = json.loads((ROOT / 'meta/skill-maintenance/examples/target.json').read_text())
+        self.target = json.loads((ROOT / 'plugin/skills/skill-maintenance/examples/target.json').read_text())
         self.target_file.write_text(json.dumps(self.target))
-        self.document = json.loads((ROOT / 'meta/skill-maintenance/examples/work-retrospectives.json').read_text())
+        self.document = json.loads((ROOT / 'plugin/skills/skill-maintenance/examples/work-retrospectives.json').read_text())
 
     def cli(self, command, *args, env=None):
         return subprocess.run([sys.executable, str(SCRIPT), command, *map(str, args)],
@@ -325,7 +325,7 @@ class RetrospectiveTest(unittest.TestCase):
     def test_native_journal_checkpoints_and_unfinished_units_are_preserved(self):
         # Arrange: native collectで作ったcheckpointを含む同じ台帳。
         export = self.home / 'native-export.json'
-        export.write_text((ROOT / 'meta/skill-maintenance/examples/export.json').read_text())
+        export.write_text((ROOT / 'plugin/skills/skill-maintenance/examples/export.json').read_text())
         native = self.cli('collect', '--input', export, '--target', self.target_file, '--repo', self.repo,
                           '--state', self.state, '--output', self.home / 'private/native-batches',
                           '--cutoff', '2026-01-03T00:00:00Z')

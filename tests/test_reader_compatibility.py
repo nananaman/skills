@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'meta/skill-maintenance/scripts'))
+sys.path.insert(0, str(ROOT / 'plugin/skills/skill-maintenance/scripts'))
 from codex_compat import ReadContract, matches, METHODS
 from codex_index import source_boundary, index_page, permitted_scope
 from codex_proxy import verify_server_version, validate_read_params
@@ -161,7 +161,7 @@ class OrganizationTest(unittest.TestCase):
                     selection_path.write_text(json.dumps(selection))
                     state_path.write_text(json.dumps(ledger))
                     args = ['reader', 'read', '--selection', str(selection_path), '--state', str(state_path),
-                            '--read-completed', '--codex-home', str(Path.home()/'.codex'), '--output', str(output)]
+                            '--read-completed', '--repo',str(ROOT),'--codex-home', str(Path.home()/'.codex'), '--output', str(output)]
                     with patch.object(READER, 'Proxy') as proxy, patch.object(sys, 'platform', 'darwin'), patch.object(sys, 'argv', args):
                         self.assertEqual(2, READER.main())
                         proxy.assert_not_called()

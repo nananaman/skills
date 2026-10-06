@@ -10,7 +10,7 @@ from tests import test_codex_reader as reader_tests
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'meta/skill-maintenance/scripts'))
+sys.path.insert(0,str(ROOT/'plugin/skills/skill-maintenance/scripts'))
 import maintenance as M
 import codex_index as I
 import codex_reader as R
@@ -22,7 +22,7 @@ class InitializationTest(unittest.TestCase):
         fixture=fixture_tests.ReaderRegressions();window=fixture.selection()['window']
         start=int(R.instant(window['since']).timestamp())
         source=fixture.source();source['exclude_roots']=['known-maintenance','known-evaluation']
-        target=json.loads((ROOT/'meta/skill-maintenance/examples/target.json').read_text())
+        target=json.loads((ROOT/'plugin/skills/skill-maintenance/examples/target.json').read_text())
         target['source_repos']=['example/project']
         class Pages:
             calls=[]

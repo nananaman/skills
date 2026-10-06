@@ -11,7 +11,7 @@ from tests import test_codex_reader as reader_tests
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'meta/skill-maintenance/scripts'))
+sys.path.insert(0, str(ROOT / 'plugin/skills/skill-maintenance/scripts'))
 import codex_index as INDEX
 import codex_reader as READER
 import maintenance as COLLECT
@@ -27,7 +27,7 @@ class FeedbackTest(unittest.TestCase):
         self.fixture = fixture_tests.ReaderRegressions()
         self.window = self.fixture.selection()['window']
         self.start = int(READER.instant(self.window['since']).timestamp())
-        self.target = json.loads((ROOT/'meta/skill-maintenance/examples/target.json').read_text())
+        self.target = json.loads((ROOT/'plugin/skills/skill-maintenance/examples/target.json').read_text())
         self.target['source_repos'] = ['example/project']
         self.target_path = self.private/'target.json'
         self.target_path.write_text(json.dumps(self.target))
