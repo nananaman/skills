@@ -53,6 +53,10 @@ python3 <skill-root>/scripts/maintenance.py register-run \
 
 [Codex reader](../scripts/codex_reader.py)は公式CLI proxyで既存daemonへ接続する。元のCODEX_HOMEと実行端末を照合し、CLIの公式生成schemaと実際の応答で必要な機能・read契約を検査する。CLI/server版の完全一致では判定しない。必要なsandbox承認は各操作の正式な手続きで得る。拒否後はその対象を停止し、別host・DB・生ログ・別readerへ切り替えない。
 
+daemonへの依存を外す必要があり、既存の公式CLIによる一時的なローカルserver起動が別途明示許可されている場合だけ、index段階へ`--transport local-stdio --start-local-server`を指定できる。これは`codex app-server --listen stdio://`をowned childとして起動する方式で、daemonの起動・更新・再起動や恒久設定変更はしない。起動flag自体を許可として扱わず、server起動が保留中なら実行しない。proxyの接続失敗・拒否後に自動で選ばない。CLI起動の設定読取・初期化や既存stateとの互換性は実環境で確認する。
+
+local-stdioは同じsource/stateと公式生成schemaを使うmetadata index限定の試験経路で、turns/readはprocess起動前に保留する。別processの`notLoaded`は他writerのidleを証明しない。公式sourceにはprocess内の状態に基づきinProgressをInterruptedへ正規化する経路もあるため、同経路から完了turn・本文の取得成功を宣言しない。cross-processの進行中判定を保証する公式機能と対応版、実環境での検証が揃うまで制限を外さない。JSONL内部形式の直接解析は導入しない。owned childは段階終了・失敗・timeout時に終了させる。旧proxy progressを流用せず、同じ許可window・stateで新しい非公開出力先を使う。transport差はprogress bindingだけに持ち、source ID・adapter_selection・完了unit/revision・checkpoint・判断をリセットしない。metadata indexの完全性を本文取得やsource全体のcoverageへ転用しない。
+
 ```sh
 python3 <skill-root>/scripts/codex_reader.py index \
   --source <private/source.json> --state <private/state.json> \
@@ -70,6 +74,8 @@ python3 <skill-root>/scripts/codex_reader.py read --read-completed \
 ```
 
 過去24時間の対象を件数で打ち切らず、期間の古い境界またはcursor終端まで必要なページを取得する。APIの1ページのlimitは分割単位であり、取得総数の上限ではない。各段階の既定予算はWebSocketの受信payload 64 MiB・経過300秒、3段階を各1回なら最大192 MiB・15分（owned proxyの終了処理を除く）。予算にはinitialize・通知・捨てるreasoning等のpayloadも含め、フレーム本文を読む前に残量と照合する。改善評価の12実行とは別の予算である。
+
+local-stdioは同じbyte/time上限をJSONL transportの受信byteへ適用する。1行の読取量を残りbyteとmessage上限で制限し、完全な改行終端messageを取得できなければ解析・保存せず停止する。未完messageで予算を使い切った場合は`incomplete`となり、export・checkpointを成功扱いにしない。server再起動後の再開でも、既存のlive head確認・出所/idle確認を省略しない。
 
 `incomplete`・exit 2・`output_written:false`なら次段階とcollectへ進まない。同名の古いoutputを成功結果と誤認しない。結果JSONの`resume`に失敗段階と固定window、非公開の`*.progress.json`を残し、当該sourceのcheckpointは変えず、そのsourceの取得を停止する。検証済みの別sourceは進められる。次回は同じwindow・入力・state・出力先で失敗段階を再実行する。保存済みの最小化ページを再利用し、最初の未取得cursorから通信を再開するので、同じ有限予算でも前進できる。未取得cursorを成功したcheckpointにしない。
 

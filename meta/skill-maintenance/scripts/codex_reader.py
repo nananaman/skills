@@ -1,4 +1,4 @@
-"""Bounded Mac session reader through the official Codex CLI proxy."""
+"""Bounded Mac session reader through an authorized official Codex CLI transport."""
 import argparse
 from collections import Counter
 import json
@@ -210,8 +210,12 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--codex-home', required=True)
     parser.add_argument('--codex-executable', default='codex')
+    parser.add_argument('--transport', choices=['proxy', 'local-stdio'], default='proxy',
+                        help='local-stdio supports index only; separate startup authorization required')
+    parser.add_argument('--start-local-server', action='store_true',
+                        help='explicit local-stdio startup opt-in; does not grant permission')
     parser.add_argument('--max-bytes', type=int, default=64 * 1024 * 1024,
-                        help='maximum inbound WebSocket payload bytes for this acquisition stage')
+                        help='maximum inbound WebSocket payload or stdio line bytes for this acquisition stage')
     parser.add_argument('--max-seconds', type=int, default=300,
                         help='maximum elapsed seconds for this acquisition stage')
     args = parser.parse_args()
@@ -229,6 +233,11 @@ def main():
         private_path(progress_path, Path(__file__).resolve().parents[3])
         output_checked = True
         budget = AcquisitionBudget(args.max_bytes, args.max_seconds)
+        require((args.transport == 'proxy' and not args.start_local_server) or
+                (args.transport == 'local-stdio' and args.start_local_server),
+                'transport and explicit startup opt-in must agree')
+        require(args.transport != 'local-stdio' or args.action == 'index',
+                'local-stdio turn/body reads held: cross-process live status is unverified')
         proxy_config = {**vars(args), 'acquisition_budget': budget}
         require(sys.platform == 'darwin', 'Mac local source required')
         if args.action == 'index':
@@ -254,6 +263,8 @@ def main():
                        input_digest=digest(config if args.action == 'index' else selection),
                        state_digest=digest({k: ledger.get(k) for k in ('target', 'sources', 'units')})
                        if args.action in {'index', 'read'} else None)
+        if args.transport == 'local-stdio':
+            binding['transport'] = 'authorized-owned-local-stdio-v1'
         progress_lock = locked(progress_path)
         progress_lock.__enter__()
         progress_lock_entered = True

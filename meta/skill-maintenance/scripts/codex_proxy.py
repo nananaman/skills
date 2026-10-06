@@ -1,4 +1,4 @@
-"""Bounded official CLI connection to an existing Codex daemon.
+"""Bounded official CLI reads via existing proxy or explicitly owned stdio server.
 """
 import json, os, queue, re, shutil, subprocess, threading, time
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -151,19 +151,25 @@ def validate_metadata(params,result):
                 'unknown read-contract active thread flags')
 
 class Proxy:
-    """Use only an existing daemon. Rejections/timeouts stop this source."""
+    """No fallback or daemon startup. Owned server startup needs an explicit opt-in."""
     def __init__(self, config):
         self.process = None
         self.server_version = None
         self.budget = config.get('acquisition_budget') or AcquisitionBudget()
         self.close_lock = threading.Lock()
+        self.transport = config.get('transport', 'proxy')
+        require(self.transport in {'proxy', 'local-stdio'}, 'unknown Codex transport')
+        require((self.transport == 'proxy' and not config.get('start_local_server')) or
+                (self.transport == 'local-stdio' and config.get('start_local_server') is True),
+                'transport and explicit startup opt-in must agree; caller authorization required')
         env = dict(os.environ)
         inputs = proxy_input(config)
         env['CODEX_HOME'] = inputs['codex_home']
         executable = inputs['codex_executable']
         try:
             self.contract, self.cli_version = inspect_cli(executable, env, self.budget)
-            self.process = subprocess.Popen([executable, 'app-server', 'proxy'], env=env,
+            command = ['proxy'] if self.transport == 'proxy' else ['--listen', 'stdio://']
+            self.process = subprocess.Popen([executable, 'app-server', *command], env=env,
                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                             stderr=subprocess.DEVNULL, bufsize=0)
             self.messages = queue.Queue(maxsize=16)
@@ -173,7 +179,8 @@ class Proxy:
             self.reader = threading.Thread(target=self._read, daemon=True)
             self.reader.start()
             deadline=min(time.monotonic()+RPC_TIMEOUT, self.budget.deadline)
-            self._write(request,deadline)
+            if self.transport == 'proxy':
+                self._write(request,deadline)
             ready=self.messages.get(timeout=max(0,deadline-time.monotonic()))
             require(isinstance(ready,dict) and ready.get('transport_ready'),
                     ready.get('transport_error','WebSocket handshake unavailable') if isinstance(ready,dict)
@@ -202,6 +209,23 @@ class Proxy:
 
     def _read(self):
         try:
+            if getattr(self, 'transport', 'proxy') == 'local-stdio':
+                self.messages.put({'transport_ready': True}, timeout=1)
+                while True:
+                    self.budget.check_request()
+                    remaining = min(codex_wire.LIMIT, self.budget.max_bytes - self.budget.received_bytes)
+                    payload = self.process.stdout.readline(remaining)
+                    if not payload:
+                        break
+                    self.budget.consume(len(payload))
+                    if not payload.endswith(b'\n') and self.budget.received_bytes >= self.budget.max_bytes:
+                        raise AcquisitionIncomplete('acquisition byte budget exhausted; coverage incomplete')
+                    require(len(payload) <= codex_wire.LIMIT and payload.endswith(b'\n'),
+                            'incomplete or oversized stdio message')
+                    message = json.loads(payload.decode('utf-8'))
+                    require(isinstance(message, dict), 'unknown stdio message schema')
+                    self.messages.put(message, timeout=RPC_TIMEOUT)
+                return
             codex_wire.accept(self.process.stdout,self.handshake_key)
             self.messages.put({'transport_ready':True},timeout=1)
             fragmented=None
@@ -264,13 +288,18 @@ class Proxy:
             raise ValueError('Codex proxy send failed') from None
 
     def _send(self,payload,opcode=1,deadline=None):
-        self._write(codex_wire.frame(payload,opcode),
+        stdio = getattr(self, 'transport', 'proxy') == 'local-stdio'
+        require(not stdio or opcode == 1, 'unsupported stdio opcode')
+        self._write(payload + b'\n' if stdio else codex_wire.frame(payload,opcode),
                     min(deadline if deadline is not None else time.monotonic()+RPC_TIMEOUT, self.budget.deadline))
 
     def call(self, method, params):
         self.budget.check_request()
         require(method in {'initialize', *READ_METHODS},
                 'unsupported read method')
+        require(getattr(self, 'transport', 'proxy') != 'local-stdio' or
+                method in {'initialize', 'thread/list'},
+                'local-stdio turn/body reads held: cross-process live status is unverified')
         if method!='initialize':
             validate_read_params(method, params)
         self.contract.validate_request(method, params)
