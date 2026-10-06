@@ -19,10 +19,12 @@ source checkoutには、repo rootの `.agents/plugins/marketplace.json` があ�
 
 ```sh
 codex plugin marketplace add .
-codex plugin add nananaman-skills@nananaman-skills-local
+codex plugin add nananaman-skills@nananaman-skills
 ```
 
 対応desktop appではPlugins Directoryからmarketplaceを選んでinstallする経路もあります。導入後は新しい会話のskill一覧、descriptionによる選択、clientの `$skill` / `@plugin` 等を使います。Codexの検出名は `nananaman-skills:<skill>` です。作業対象のAGENTS.mdは通常の検出に任せ、毎回手動のSKILL読取リストを追加する必要はありません。
+
+Git URL、ref、スパースパスをGUIで入力する場合は、[GUIでGit marketplaceを追加する](../README.md#guiでgit-marketplaceを追加する)を参照してください。
 
 APMでも同じ正本を個別に参照できます。旧カテゴリパスは移動するため、manifestを変更してから、許可されたscopeでinstallしてください。全27件のpluginと既存APM展開を同時に有効にすると、同じworkflowが二重に提示されることがあります。既存展開を勝手に消さず、利用者が経路を選んでください。
 
@@ -50,7 +52,7 @@ ZIPだけを受領した場合は再build不要です。空のディレクトリ
 
 ```json
 {
-  "name": "nananaman-skills-local",
+  "name": "nananaman-skills",
   "plugins": [{
     "name": "nananaman-skills",
     "source": {"source": "local", "path": "./nananaman-skills"},
