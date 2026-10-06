@@ -39,7 +39,7 @@ helperはAdversarialのGit commandと変更path inventoryの両方からこれ�
 ## 共通の簡潔性基準
 
 専門担当にはimplementの `references/simplicity.md` を渡す。
-利用可能なskill一覧にあるimplementの実体から解決する。一覧にない場合は、展開先の兄弟 `implement/references/simplicity.md` または正本の同じengineering category内を調べる。
+利用可能なskill一覧にあるimplementの実体から解決する。一覧にない場合は、展開先の兄弟 `implement/references/simplicity.md` または正本の `plugin/skills/implement`を調べる。
 存在を確認した絶対パスを専門担当へのtask入力に添える。生成prompt自体は編集しない。
 この資料は一般的な判断基準のみを含む。個別の期待回答や実装者の説明は追加しない。
 取得できなければ必要な簡潔性評価は未実施として報告し、cleanにしない。

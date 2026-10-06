@@ -6,7 +6,7 @@ description: Design Doc草案の採用案・詳細設計・リスク評価を完
 # Design Doc の仕上げ
 
 Design Doc draft を、設計の採否を判断でき、task 分割に進める文書に仕上げる。
-対象は `TODO(draft)` が解消された draft とし、構造は [Design Doc template](../draft-design-doc/assets/design-doc-template.md)、文書設計とレビューは [`chouge-writing`](../../writing/chouge-writing/SKILL.md) に従う。
+対象は `TODO(draft)` が解消された draft とし、構造は [Design Doc template](../draft-design-doc/assets/design-doc-template.md)、文書設計とレビューは [`chouge-writing`](../chouge-writing/SKILL.md) に従う。
 
 ## 設計の確定
 

@@ -82,8 +82,9 @@ def skill_paths(root: Path) -> list[Path]:
 def validate_name(root: Path, path: Path, name: str) -> Finding | None:
     relative = path.relative_to(root)
     leaf = path.parent.name
-    category = relative.parts[0]
-    allowed = {leaf, f"{category}-{leaf}"}
+    if len(relative.parts) != 4 or relative.parts[:2] != ("plugin", "skills"):
+        return Finding("skill-layout-invalid", relative.as_posix(), "正本は plugin/skills/<name>/SKILL.md に置いてください")
+    allowed = {leaf}
     if name not in allowed:
         return Finding(
             "name-directory-mismatch",
@@ -95,11 +96,10 @@ def validate_name(root: Path, path: Path, name: str) -> Finding | None:
 
 def validate_readme_coverage(root: Path, path: Path) -> list[Finding]:
     relative = path.relative_to(root)
-    category = relative.parts[0]
     skill_directory = path.parent.name
     checks = (
         (root / "README.md", f"./{relative.as_posix()}"),
-        (root / category / "README.md", f"./{skill_directory}/SKILL.md"),
+        (root / "plugin" / "README.md", f"./skills/{skill_directory}/SKILL.md"),
     )
     findings: list[Finding] = []
     for readme, expected in checks:
@@ -208,7 +208,8 @@ def check(root: Path) -> tuple[list[Path], list[Finding]]:
 
     markdown_files = [root / "README.md"]
     markdown_files.extend(root.glob("*/README.md"))
-    markdown_files.extend(skills)
+    markdown_files.extend(path for skill in skills for path in skill.parent.rglob("*.md")
+                          if not any(part in IGNORED_ROOTS for part in path.relative_to(skill.parent).parts))
     for path in sorted(set(markdown_files)):
         if path.is_file():
             findings.extend(validate_links(root, path))

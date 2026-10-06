@@ -201,6 +201,7 @@ def read_completed(proxy, selection, ledger):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['index', 'turns', 'read'])
+    parser.add_argument('--repo', required=True, type=Path, help='target skill repository; private state/output must be outside it')
     parser.add_argument('--selection', type=Path)
     parser.add_argument('--source', type=Path)
     parser.add_argument('--state', type=Path)
@@ -223,10 +224,18 @@ def main():
     output_checked = False
     summary = {'status': 'blocked', 'body_read_calls': 0, 'checkpoint_written': False, 'output_written': False}
     try:
-        private_path(args.output, Path(__file__).resolve().parents[3])
-        private_path(args.output.with_suffix('.result.json'), Path(__file__).resolve().parents[3])
         progress_path = args.output.with_suffix('.progress.json')
-        private_path(progress_path, Path(__file__).resolve().parents[3])
+        private_files = [args.output, args.output.with_suffix('.result.json'), progress_path]
+        if args.state:
+            private_files.append(args.state)
+        distribution_root = Path(__file__).resolve().parents[3]
+        reader_checkout = next((parent for parent in (distribution_root, *distribution_root.parents)
+                                if (parent / '.git').exists()), None)
+        for path in private_files:
+            private_path(path, args.repo)
+            private_path(path, distribution_root)
+            if reader_checkout:
+                private_path(path, reader_checkout)
         output_checked = True
         budget = AcquisitionBudget(args.max_bytes, args.max_seconds)
         proxy_config = {**vars(args), 'acquisition_budget': budget}
@@ -249,7 +258,7 @@ def main():
             ledger = json.loads(args.state.read_text()) if args.state.exists() else dict(sources={}, units={})
             selection_scope(selection, ledger)
         window = dict(since=args.since, cutoff=args.cutoff) if args.action == 'index' else selection['window']
-        binding = dict(stage=args.action, window=window, codex_home=str(Path(args.codex_home).resolve()),
+        binding = dict(stage=args.action, window=window, repository=str(args.repo.resolve()), codex_home=str(Path(args.codex_home).resolve()),
                        protocol=CONTRACT, normalizer_version=4,
                        input_digest=digest(config if args.action == 'index' else selection),
                        state_digest=digest({k: ledger.get(k) for k in ('target', 'sources', 'units')})

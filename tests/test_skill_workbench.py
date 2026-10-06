@@ -11,7 +11,7 @@ import os
 from unittest.mock import patch
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "meta/skill-workbench/scripts/workbench.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "plugin/skills/skill-workbench/scripts/workbench.py"
 SPEC = importlib.util.spec_from_file_location("workbench", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = MODULE

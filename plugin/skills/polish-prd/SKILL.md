@@ -6,7 +6,7 @@ description: PRD草案の未決定要求を解消し、価値・範囲・成功�
 # PRD の仕上げ
 
 PRD draft を、作る価値・範囲・成功条件を判断できる文書に仕上げる。
-対象は `TODO(draft)` が解消された draft とし、構造は [PRD template](../draft-prd/assets/prd-template.md)、文書設計とレビューは [`chouge-writing`](../../writing/chouge-writing/SKILL.md) に従う。
+対象は `TODO(draft)` が解消された draft とし、構造は [PRD template](../draft-prd/assets/prd-template.md)、文書設計とレビューは [`chouge-writing`](../chouge-writing/SKILL.md) に従う。
 
 ## 要求の確定
 

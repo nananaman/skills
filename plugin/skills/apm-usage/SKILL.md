@@ -11,12 +11,12 @@ APM の manifest、参照方式、展開先を確認するときに使う。
 ## 正本と scope
 
 - 再利用可能な自作 skill 本体は `nananaman/skills` を正本とする。project 固有 skill はその project に置く。
-- グローバルの依存一覧は dotfiles の `apm/apm.yml`。グローバルの `apm.lock.yaml` と `apm_modules/` は commit しない。
+- グローバルの依存一覧は dotfiles の `home/.apm/apm.yml`。グローバルの `apm.lock.yaml` と `apm_modules/` は commit しない。
 - 正本 repository をローカルに置く場合は path 参照、置かない場合は full SHA pin を使う。
 
 | scope | manifest | install | 展開先 |
 |---|---|---|---|
-| グローバル | `~/.apm/apm.yml`（dotfiles の `apm/apm.yml` へのリンク） | `apm install -g` | `~/.claude/skills`, `~/.agents/skills` |
+| グローバル | `~/.apm/apm.yml`（dotfiles の `home/.apm/apm.yml` へのリンク） | `apm install -g` | `~/.claude/skills`, `~/.agents/skills` |
 | project | repository 直下の `apm.yml` | repository 直下で `apm install` | `.claude/skills`, `.agents/skills` |
 
 既存 manifest の形式と target を維持し、形式やオプションが不明ならインストール済みの `apm install --help` で確認する。
@@ -33,7 +33,7 @@ worktree の `apm/apm.yml` と install が読む実体が異なる場合、workt
 ```yaml
 dependencies:
   apm:
-    - path: ~/ghq/github.com/nananaman/skills/meta/example
+    - path: ~/ghq/github.com/nananaman/skills/plugin/skills/example
     - path: ./skills/example
     - owner/repo/path#<full-sha>
 ```
