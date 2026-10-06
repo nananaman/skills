@@ -15,7 +15,7 @@ FRONTMATTER_BOUNDARY = "---"
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 MARKDOWN_HEADING = re.compile(r"^\s{0,3}#{1,6}(?:[ \t]+|$)(.*)$")
 MARKDOWN_FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
-IGNORED_ROOTS = {".agents", ".claude", ".git", "apm_modules", "node_modules"}
+IGNORED_ROOTS = {".agents", ".claude", ".git", "_build", "apm_modules", "node_modules"}
 EXCLUDED_PROMPT_MARKDOWN = {"README.md", "NOTICE.md"}
 ENGLISH_CONTROL_HEADINGS = {
     "workflow",

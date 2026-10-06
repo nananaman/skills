@@ -33,6 +33,16 @@ review-diff-codeはimplementの簡潔性基準も使うため、両方を導入�
 apm install -g nananaman/skills/meta/apm-usage#<full-sha>
 ```
 
+## 全 skills のプラグイン配布
+
+既存 APM 利用と併存する skills-only plugin を生成できます。カテゴリ別の正本と APM 参照は維持し、生成物は Git 管理外の `_build/` に置きます。
+
+```sh
+python3 scripts/build-plugin.py
+```
+
+[全 27 skills・対応条件・導入手順](./plugin/README.md)を確認してください。Mac 専用経路を含み、Windows / cloud で全 workflows が動くことは未検証です。公開 GitHub やローカル marketplace の追加だけでは ChatGPT cloud への導入・同期は完了しません。
+
 ## ディレクトリ方針
 
 利用者が探しやすい用途別分類を主軸にします。

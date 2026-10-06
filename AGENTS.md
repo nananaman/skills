@@ -38,6 +38,13 @@ provider や product で namespace を切る場合、leaf directory は短いサ
 5. ユーザーが明示依頼した場合だけ、dotfiles の `apm/apm.yml` が使う参照方式に合わせて更新する。path 参照なら manifest の変更は不要、pin 参照なら該当 SHA を更新する。
 6. ユーザーが明示依頼した場合だけ、`apm install -g` で展開する。
 
+## プラグイン配布
+
+- カテゴリ別 skill を正本とし、プラグイン用の SKILL 正本を追加しない。
+- `plugin/plugin.json` と `plugin/README.md` は配布入力。`scripts/build-plugin.py` で全 skills を `_build/` に生成する。生成物は編集・commit しない。
+- 配布版を更新するときは manifest version を更新し、全件 inventory・リンク・resource・公開内容と対応条件を確認する。
+- ローカル marketplace、アカウントへの導入、cloud / 公開 directory への公開は別の操作。生成・push を導入成功と扱わない。
+
 ## 検証
 
 skill inventory、frontmatter、README 導線、relative link は次で検証する。
@@ -46,4 +53,5 @@ skill inventory、frontmatter、README 導線、relative link は次で検証す
 python3 scripts/check-skill-inventory.py
 python3 -m unittest tests/test_check_skill_inventory.py
 python3 -m unittest tests.test_skill_workbench
+python3 -m unittest tests.test_build_plugin
 ```
