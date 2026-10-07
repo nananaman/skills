@@ -71,8 +71,8 @@ ZIPだけを受領した場合は再build不要です。空のディレクトリ
 | 文書・計画・レビュー | 対象資料・編集先・必要なagent / subagent / toolが利用可能な環境。文章作成だけならローカルCLIが不要な経路もあります |
 | Git / PR | Git、必要時にGitHub CLI、利用者本人の認証・操作権限 |
 | APM / update-skills | APM・Git・manifest・install scope。例の `~/ghq/...` は本人の実際の配置へ読み替えます |
-| skill-workbench / skill-maintenance | Python 3.11+。モデル実行・取得には対応Codex CLIと許可済みcaller設定・入力・repo外の私的stateが必要です |
-| skill-maintenance のCodex取得 | 現行readerはMacローカルと登録済み情報scopeが必要です。`--repo`に改善対象repoを明示し、state/outputを対象repo・reader配布ツリー・reader自身のGit checkout外へ置きます。Work intakeにはhostの列挙・send/read・Mac委譲能力が別途必要です |
+| skill-workbench / skill-maintenance | Python 3.11+。workbenchのモデル実行には対応Codex CLI、maintenanceの直接読取には許可済みローカル履歴とGit外の非公開出力先が必要です |
+| skill-maintenance のCodex取得 | 許可されたMacのJSONLを直接読み、`--repo`へ改善先、`--sessions`へ許可された入力、`--output`へGit外の新しい非公開directoryを指定します。Workはhostが全対象の振り返りを依頼・回収します。旧RPC reader・collect/record CLIとは互換性がありません。既存の非公開state・結果は保持し、導入や実行版の切替は別途行います |
 | apple-container | Apple silicon Mac、macOSと `container` CLIの対応版。referenceの前提を確認します |
 | nono-sandbox-maintenance | nonoと対象sandbox / profile。macOS Seatbelt等のOS固有経路は該当OSでのみ利用します |
 | prototype | artifactに応じたbuild / UI / browser等のtool。macOS Flutterの例は他OSへそのまま適用しません |
