@@ -82,6 +82,8 @@ Windows / cloudで全workflowを実行した互換性試験は行っていませ
 
 ## 移行と日次運用
 
+`skill-maintenance`は掲載用JSONを正本に、固定rendererでHTML・Markdownを生成します。HTMLは外部fetchなしで表示でき、Pageではsandbox visualizationとして埋め込みます。[JSON形式とCLI](./skills/skill-maintenance/references/report.md)を参照してください。
+
 正本パスは旧 `engineering/` 等から `plugin/skills/<name>/` へ変わります。旧パスのコピー・symlinkは用意しません。APM利用者はmanifestとローカル正本を同じ配置へ揃えた後にinstallします。運用checkoutや実manifestの同期・installは別の許可された操作です。
 
 日次callerが旧パスのscriptを直呼び出ししている場合は、新パスとreaderの `--repo` を更新する必要があります。skill名だけで呼び出す場合も、導入済みの正本・展開先が更新されたか確認します。新readerは対象repoを再開bindingへ含めるため、旧progressとbindingが一致しなければ停止して照合します。自動削除・再取得・古い実行契約への無断適用はしません。Mac専用条件や取得権限は引き継がれたと推測しません。

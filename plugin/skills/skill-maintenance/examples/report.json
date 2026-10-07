@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "date": "2026-10-07",
+  "timezone": "Asia/Tokyo",
+  "period": "2026-10-07 00:00 JST以上、2026-10-08 00:00 JST未満（合成）",
+  "summary": "合成例：出力の読みにくさを直すdraft PRを用意しました。採用判断が残っています。",
+  "outcomes": [
+    {
+      "title": "振り返りの結果を先に表示",
+      "change": "成果とPRを先に置き、反省点・対応・検証をつなげて表示します。",
+      "status": "draft",
+      "pr_url": "https://example.com/pull/1"
+    }
+  ],
+  "reflections": [
+    {
+      "title": "最後の編集後の確認が漏れた",
+      "happened": "合成の文書編集後に確認が漏れ、検証で失敗が見つかりました。",
+      "next": "最後の編集を含む状態で検証します。",
+      "change": "最終状態の確認を追加しました。",
+      "result": "passed",
+      "evidence": "合成の回帰検証が成功しました。"
+    },
+    {
+      "title": "原因をまだ特定できていない",
+      "happened": "合成の外部サービス検証は環境制限で実行できませんでした。",
+      "next": "許可された環境で再確認します。",
+      "result": "unverified",
+      "evidence": "未確認です。成功には数えていません。"
+    }
+  ],
+  "checks": [
+    {"title": "合成の回帰検証", "result": "passed", "detail": "3件成功。実サービスでの検証は含みません。"}
+  ],
+  "remaining": [
+    {"title": "採用判断", "detail": "draft PRを確認し、採用するか判断します。"}
+  ],
+  "sessions": [
+    {"title": "合成の文書修正", "source": "Mac", "evidence": "history", "status": "read", "detail": "最終確認の漏れを観測しました。対象検証は成功し、実サービスは未確認です。"}
+  ],
+  "timing": {
+    "start": null,
+    "end": null,
+    "wall_seconds": null,
+    "scope": "合成例のため全体時間は未計測です。",
+    "stages": []
+  }
+}

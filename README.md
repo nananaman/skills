@@ -181,6 +181,8 @@ marketplaceの追加後に個別pluginのインストールが必要です。
 
 ## 運用
 
+日次振り返りの掲載用JSONから、固定templateでHTMLとMarkdownを生成できます。[表示データと生成手順](./plugin/skills/skill-maintenance/references/report.md)を参照してください。
+
 - dotfiles 側には global skill の install 一覧として `home/.apm/apm.yml` だけを置く。
 - skill 本体はこの repository を source of truth にする。
 - dotfiles から参照するときは、ローカルに置く正本を path、ローカルに置かない正本を full SHA で指定する。
