@@ -130,7 +130,7 @@ marketplaceの追加後に個別pluginのインストールが必要です。
 
 ### Meta
 
-- **[`skill-maintenance`](./plugin/skills/skill-maintenance/SKILL.md)** — 本人・所属組織が管理するスキルの定期保守で、実務入力の収集・再開と事例抽出・評価をつなぐ。
+- **[`skill-maintenance`](./plugin/skills/skill-maintenance/SKILL.md)** — 許可された実務を全件振り返り、選んだ改善候補を評価してdraft PRへ進める。
   - Use when: 日次等のスキル保守、未処理事例の持越し、評価候補の選別
   - Type: `model-invoked`
 - **[`apm-usage`](./plugin/skills/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
