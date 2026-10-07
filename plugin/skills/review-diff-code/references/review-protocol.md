@@ -1,0 +1,86 @@
+# レビュー手順
+
+`review-diff-code`を実行するときだけ読む。
+
+## レビュー担当の編成
+
+helperの`prepare`で固定されたGit targetをleadが予備調査し、主要failure domainを所有する動的reviewerを1〜2人選ぶ。
+helperが固定Adversarialを追加するため、`reviewers`へAdversarialを書かない。
+
+```json
+{
+  "reviewers": [
+    {
+      "id": "runtime-lifecycle",
+      "name": "Runtime Lifecycle",
+      "expertise": "常駐serviceの状態遷移、resource ownership、障害復旧",
+      "mission": "race、stale state、二重所有、cleanup漏れを発見する",
+      "focus": "listener reconciliationとpublish直後のversion遷移",
+      "reason": "listener管理と更新処理が変更されているため"
+    }
+  ],
+  "adversarial": {
+    "excluded_context_paths": [
+      "plans/",
+      "docs/design/"
+    ]
+  }
+}
+```
+
+`expertise`は再利用可能な専門領域、`mission`は所有するfailure class、`focus`は今回優先するhotspot、`reason`は選定根拠とする。
+主要failure domainが一つなら1人、独立した主要domainがあるなら2人を選ぶ。全専門担当は領域別のmissionに加えて簡潔性を評価する。
+万能roleや単一のyes/no質問は避ける。
+
+`excluded_context_paths`にはplan、issue、Design Docなど実装意図を含むrepository-relative pathだけを指定する。
+helperはAdversarialのGit commandと変更path inventoryの両方からこれらを除外し、reviewerもこれらを読まない。
+これはcontext-level isolationであり、filesystem access controlではない。
+
+## 共通の簡潔性基準
+
+専門担当にはimplementの `references/simplicity.md` を渡す。
+利用可能なskill一覧にあるimplementの実体から解決する。一覧にない場合は、展開先の兄弟 `implement/references/simplicity.md` または正本の `plugin/skills/implement`を調べる。
+存在を確認した絶対パスを専門担当へのtask入力に添える。生成prompt自体は編集しない。
+この資料は一般的な判断基準のみを含む。個別の期待回答や実装者の説明は追加しない。
+取得できなければ必要な簡潔性評価は未実施として報告し、cleanにしない。
+
+## 実行手順
+
+1. ユーザー指定のmode / base / commitを優先する。
+   変更のある作業ツリーは`local`、単一 commit は`commit`、それ以外は PR の実際の基点または`origin/main`に対する`branch`を使う。
+2. helperの`prepare`を実行する。
+   helperはbranchのbase/head、commit、またはlocalのHEADをfull commit IDへ固定し、変更pathとrepository stateを保存する。
+3. leadは返された固定targetに対してdiff stat、changed-file inventory、必要なdiffと周辺codeを予備調査し、rosterを作る。
+4. `route --roster-file`を実行する。
+5. 各reviewerを`spawn_agent`の`fork_turns="none"`で並列起動する。
+   専門担当とAdversarialの双方で、`model="gpt-5.6-luna"`、`reasoning_effort="max"`を既定とする。ユーザーがmodelや推論強度を指定した場合は、その指定を優先する。明示指定が非対応なら、別設定への変更が許可されていない限り未評価として理由を報告する。
+   ユーザー指定がなく、実行環境で既定のLuna maxを選択できない場合は、環境の既定model・推論強度でreviewを続け、leadがfallbackを最終ledgerに記載する。非対応のmodel IDや強度は推測して渡さない。会話履歴を分離できなければ、自己reviewで独立評価を代替せず未評価として報告する。
+   自分のprompt fileと、専門担当には上記の簡潔性基準をtask inputにし、helperが安全にquoteした`git -C <fixed-repository>` commandで固定targetとrepositoryをread-onlyで調査して、指定result fileへ結果だけを書く。
+   必要な外部contractは公式一次資料を参照できる。
+   file変更、Git状態変更、build、lint、test、nested agent、他reviewerとの通信は禁止する。
+6. `collect`を実行する。
+   `partial_failure`では成功reviewerのfindingを使えるが、clean判定は禁止する。
+   `failed`または`repository_drift`ではreview不能として停止する。
+7. 指摘候補を根拠で検証し、採用または棄却を決める。
+8. 成否にかかわらず`cleanup`を実行し、leadが作成したroster一時fileも削除してledgerを報告する。
+
+```bash
+helper=~/.agents/skills/review-diff-code/scripts/review-diff-code.py
+"$helper" prepare --mode branch --base origin/main
+"$helper" route --run-dir <run-dir> --roster-file <roster-json>
+"$helper" collect --run-dir <run-dir>
+"$helper" cleanup --run-dir <run-dir>
+```
+
+helper responseのpathを推測や書き換えなしで後続taskへ渡す。
+helperのlifecycle errorはstderrのJSON `error.code`で判断する。
+
+## レビューの根拠
+
+reviewerは最初に固定targetのdiff statとchanged-file inventoryを確認し、自分の専門性に必要なdiff、周辺code、test、型、schema、Git履歴を調査する。
+変更path inventoryはcontrol characterをescapeしたJSONとして扱う。
+local modeのuntracked symbolic linkは`lstat`でlink自体のpath、type、modeを、`readlink`でdestination文字列を確認できる。
+link targetをdereferenceまたはopenしてはならない。
+generated codeをhelperが推測で分類または除外しない。
+reviewerはinventoryから生成物の存在を認知し、generator、source schema、設定、consumer、検証codeを必要な範囲で調べる。
+実行による証明が必要なcandidate findingには未検証の前提を明記し、leadが採否判断時に必要なtestを実行する。

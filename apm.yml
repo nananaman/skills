@@ -4,4 +4,4 @@ target: claude,agent-skills
 
 dependencies:
   apm:
-    - path: ./meta/skill-workbench
+    - path: ./plugin/skills/skill-workbench

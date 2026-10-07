@@ -8,8 +8,8 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "meta/skill-maintenance/scripts/maintenance.py"
-FIXTURE = ROOT / "meta/skill-maintenance/examples/export.json"
+SCRIPT = ROOT / "plugin/skills/skill-maintenance/scripts/maintenance.py"
+FIXTURE = ROOT / "plugin/skills/skill-maintenance/examples/export.json"
 
 
 class MaintenanceTest(unittest.TestCase):

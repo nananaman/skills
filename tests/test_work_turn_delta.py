@@ -236,7 +236,7 @@ class TurnDeltaTest(unittest.TestCase):
         self.document = self.delta()
         self.assertEqual(2, self.intake().returncode)
         self.assertEqual(before, self.state.read_bytes())
-        self.document = json.loads((fixtures.ROOT / 'meta/skill-maintenance/examples/work-retrospectives.json').read_text())
+        self.document = json.loads((fixtures.ROOT / 'plugin/skills/skill-maintenance/examples/work-retrospectives.json').read_text())
         self.batch(self.intake())
         legacy_report = copy.deepcopy(self.document['reports'][0])
         self.document = self.delta(turn='old-reply', reply='old-reply')
@@ -332,7 +332,7 @@ class TurnDeltaTest(unittest.TestCase):
         self.document['reports'] = []
         self.batch(self.intake())
         before = self.state.read_bytes()
-        v1 = json.loads((fixtures.ROOT / 'meta/skill-maintenance/examples/work-retrospectives.json').read_text())
+        v1 = json.loads((fixtures.ROOT / 'plugin/skills/skill-maintenance/examples/work-retrospectives.json').read_text())
         for status in ('received', 'held'):
             with self.subTest(status=status):
                 self.document = copy.deepcopy(v1)

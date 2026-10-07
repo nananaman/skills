@@ -8,4 +8,4 @@ dependencies:
   - .agents/skills/skill-workbench
   - .claude/skills/skill-workbench
   source: local
-  local_path: ./meta/skill-workbench
+  local_path: ./plugin/skills/skill-workbench

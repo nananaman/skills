@@ -10,7 +10,7 @@ from tests import test_skill_maintenance as baseline
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TRACE = json.loads((ROOT / 'meta/skill-maintenance/examples/trace-export.json').read_text())
+TRACE = json.loads((ROOT / 'plugin/skills/skill-maintenance/examples/trace-export.json').read_text())
 
 
 class EvidenceTest(unittest.TestCase):
@@ -116,7 +116,7 @@ class EvidenceTest(unittest.TestCase):
 
 class DependencyTest(unittest.TestCase):
     def test_shared_contract_import_does_not_load_collector_or_transport(self):
-        scripts = ROOT / 'meta/skill-maintenance/scripts'
+        scripts = ROOT / 'plugin/skills/skill-maintenance/scripts'
         code = "import common,sys; assert 'maintenance' not in sys.modules; assert 'codex_export' not in sys.modules; assert 'codex_wire' not in sys.modules"
         result = subprocess.run([sys.executable, '-c', code], cwd=scripts, capture_output=True, text=True)
         self.assertEqual(0, result.returncode, result.stderr)

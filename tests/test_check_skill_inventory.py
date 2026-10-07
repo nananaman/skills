@@ -21,14 +21,14 @@ class SkillInventoryCheckTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         (self.root / "README.md").write_text("# Skills\n", encoding="utf-8")
-        (self.root / "engineering").mkdir()
-        (self.root / "engineering" / "README.md").write_text("# Engineering\n", encoding="utf-8")
+        (self.root / "plugin/skills").mkdir(parents=True)
+        (self.root / "plugin" / "README.md").write_text("# Engineering\n", encoding="utf-8")
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
     def add_skill(self, directory: str = "example", name: str = "example") -> Path:
-        skill_directory = self.root / "engineering" / directory
+        skill_directory = self.root / "plugin/skills" / directory
         skill_directory.mkdir(parents=True)
         skill = skill_directory / "SKILL.md"
         skill.write_text(
@@ -46,12 +46,12 @@ class SkillInventoryCheckTest(unittest.TestCase):
         )
         root_readme = self.root / "README.md"
         root_readme.write_text(
-            root_readme.read_text(encoding="utf-8") + f"[{name}](./engineering/{directory}/SKILL.md)\n",
+            root_readme.read_text(encoding="utf-8") + f"[{name}](./plugin/skills/{directory}/SKILL.md)\n",
             encoding="utf-8",
         )
-        category_readme = self.root / "engineering" / "README.md"
+        category_readme = self.root / "plugin" / "README.md"
         category_readme.write_text(
-            category_readme.read_text(encoding="utf-8") + f"[{name}](./{directory}/SKILL.md)\n",
+            category_readme.read_text(encoding="utf-8") + f"[{name}](./skills/{directory}/SKILL.md)\n",
             encoding="utf-8",
         )
         return skill
@@ -68,10 +68,25 @@ class SkillInventoryCheckTest(unittest.TestCase):
         self.assertEqual(1, len(skills))
         self.assertEqual([], findings)
 
-    def test_accepts_category_prefixed_name(self) -> None:
-        self.add_skill(directory="eventbus", name="engineering-eventbus")
+    def test_accepts_namespaced_skill_directory(self) -> None:
+        self.add_skill(directory="sakura-cloud-eventbus", name="sakura-cloud-eventbus")
 
         self.assertEqual(set(), self.finding_codes())
+
+    def test_reports_a_skill_outside_the_native_plugin(self) -> None:
+        old = self.root / "engineering/legacy/SKILL.md"
+        old.parent.mkdir(parents=True)
+        old.write_text("---\nname: legacy\ndescription: Example\n---\n")
+
+        self.assertIn("skill-layout-invalid", self.finding_codes())
+
+    def test_checks_links_in_supporting_references(self) -> None:
+        skill = self.add_skill()
+        reference = skill.parent / "references/contract.md"
+        reference.parent.mkdir()
+        reference.write_text("[missing](./missing.md)\n")
+
+        self.assertIn("link-missing", self.finding_codes())
 
     def test_reports_missing_required_frontmatter(self) -> None:
         skill = self.add_skill()
@@ -92,7 +107,7 @@ class SkillInventoryCheckTest(unittest.TestCase):
 
     def test_reports_missing_readme_coverage(self) -> None:
         self.add_skill()
-        (self.root / "engineering" / "README.md").write_text("# Engineering\n", encoding="utf-8")
+        (self.root / "plugin" / "README.md").write_text("# Engineering\n", encoding="utf-8")
 
         self.assertIn("readme-skill-missing", self.finding_codes())
 

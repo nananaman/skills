@@ -23,7 +23,7 @@ from unittest.mock import Mock, patch
 
 WORKTREE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WORKTREE))
-sys.path.insert(0, str(WORKTREE / "meta/skill-maintenance/scripts"))
+sys.path.insert(0, str(WORKTREE / "plugin/skills/skill-maintenance/scripts"))
 import codex_proxy as P
 import codex_reader as R
 
@@ -122,7 +122,7 @@ class StdioUnseen(unittest.TestCase):
                 "host_id": "local", "path_flavour": "posix", "exclude_roots": [], "repos": [
                     {"id": "unseen/project", "cwd": str(Path.home() / "synthetic-unseen-cwd"),
                      "information_scope": "personal:unseen"}]}))
-        args = ["reader", stage, "--transport", transport, "--codex-home", str(directory / "synthetic-home"),
+        args = ["reader", stage, "--repo", str(WORKTREE), "--transport", transport, "--codex-home", str(directory / "synthetic-home"),
                 "--output", str(directory / (stage + ".json")), "--state", str(directory / "synthetic-state.json"),
                 "--codex-executable", "unseen-synthetic-codex"]
         if startup:
@@ -208,6 +208,17 @@ class StdioUnseen(unittest.TestCase):
         reader._read()
         self.assertEqual(stream.tell(), 0)
         self.assertTrue(list(reader.messages.queue)[1]["budget_exhausted"])
+
+    def test_exact_budget_without_matching_response_remains_incomplete(self):
+        notification = b'{"method":"synthetic-notification"}\n'
+        reader, _ = self.bare_reader(notification, len(notification))
+        reader.contract = Mock()
+        reader.sequence = 0
+        reader._send = lambda *args, **kwargs: reader._read()
+        with self.assertRaises(P.AcquisitionIncomplete):
+            reader.call('thread/list', {'archived': True, 'sortKey': 'updated_at', 'sortDirection': 'desc',
+                'sourceKinds': ['cli', 'vscode', 'exec', 'appServer'], 'useStateDbOnly': True,
+                'cwd': ['/synthetic/repo'], 'limit': 50})
 
     def test_time_exhausted_during_read_stops_before_json_decode(self):
         reader, _ = self.bare_reader(b"")

@@ -5,12 +5,13 @@ import json
 import queue
 import sys
 import tempfile
+import threading
 from pathlib import Path
 from unittest.mock import patch
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'meta/skill-maintenance/scripts'))
+sys.path.insert(0, str(ROOT / 'plugin/skills/skill-maintenance/scripts'))
 import codex_proxy as P
 import codex_reader as R
 from codex_compat import ReadContract, METHODS
@@ -175,7 +176,7 @@ class StdioTest(unittest.TestCase):
             source.write_text(json.dumps({'version': 1, 'source_id': 'synthetic', 'device_id': 'fixture',
                 'host_id': 'local', 'path_flavour': 'posix', 'exclude_roots': [], 'repos': [{
                     'id': 'example/project', 'cwd': str(Path.home()/'fixture'), 'information_scope': 'personal:example'}]}))
-            common = ['--transport', 'local-stdio', '--start-local-server', '--codex-home',
+            common = ['--repo', str(ROOT), '--transport', 'local-stdio', '--start-local-server', '--codex-home',
                 str(Path.home()/'.codex'), '--codex-executable', 'synthetic-codex', '--state', str(state)]
             with patch.object(P, 'inspect_cli', return_value=(contract(), 'codex-cli 0.159.2')), \
                  patch.object(P.subprocess, 'Popen', side_effect=spawn), patch.object(R.sys, 'platform', 'darwin'):
@@ -201,6 +202,114 @@ class StdioTest(unittest.TestCase):
             self.assertTrue(all(child.terminated for child in children))
             self.assertTrue(all(request['method'] in {'initialize','thread/list'}
                 for child in children for request in child.requests))
+
+    def test_final_index_response_followed_by_byte_exhaustion_is_incomplete(self):
+        # 最後の応答より後に受信した未完通知も、取得の失敗として確定前に検出する。
+        stopped = threading.Event()
+        children = []
+        original_read, original_index = P.Proxy._read, R.index
+
+        class TrailingNotificationServer(SyntheticServer):
+            class Input(SyntheticServer.Input):
+                def write(self, data):
+                    count = super().write(data)
+                    request = json.loads(bytes(data))
+                    if request.get('method') == 'thread/list' and request['params']['archived']:
+                        self.owner.responses.put(b'{' + b' ' * 4096)
+                    return count
+
+        def spawn(*args, **kwargs):
+            child = TrailingNotificationServer(*args, **kwargs)
+            children.append(child)
+            return child
+
+        def receive(proxy):
+            try:
+                original_read(proxy)
+            finally:
+                stopped.set()
+
+        def index(*args, **kwargs):
+            result = original_index(*args, **kwargs)
+            self.assertTrue(stopped.wait(1), 'synthetic trailing input was not consumed')
+            return result
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root/'source.json'
+            source.write_text(json.dumps({'version': 1, 'source_id': 'synthetic', 'device_id': 'fixture',
+                'host_id': 'local', 'path_flavour': 'posix', 'exclude_roots': [], 'repos': [{
+                    'id': 'example/project', 'cwd': str(Path.home()/'fixture'),
+                    'information_scope': 'personal:example'}]}))
+            args = ['reader', 'index', '--repo', str(ROOT), '--transport', 'local-stdio',
+                '--start-local-server', '--codex-home', str(root/'synthetic-home'),
+                '--source', str(source), '--state', str(root/'state.json'), '--max-bytes', '4096',
+                '--since', '2026-10-03T00:00:00Z', '--cutoff', '2026-10-04T00:00:00Z',
+                '--output', str(root/'index.json')]
+            with patch.object(P, 'inspect_cli', return_value=(contract(), 'codex-cli 0.159.2')), \
+                 patch.object(P.subprocess, 'Popen', side_effect=spawn), \
+                 patch.object(P.Proxy, '_read', receive), patch.object(R, 'index', index), \
+                 patch.object(R.sys, 'platform', 'darwin'), patch.object(sys, 'argv', args), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(2, R.main())
+            result = json.loads((root/'index.result.json').read_text())
+            self.assertEqual('incomplete', result['status'])
+            self.assertFalse(result['output_written'])
+            self.assertFalse(result['checkpoint_written'])
+            self.assertFalse((root/'index.json').exists())
+            self.assertFalse((root/'state.json').exists())
+            self.assertTrue(children[0].terminated)
+
+    def test_complete_final_response_at_exact_byte_limit_commits_index(self):
+        # 完全な最終応答で上限ちょうどに達しても、追加取得が不要なら成功できる。
+        budget = P.AcquisitionBudget(4096, 10)
+        stopped = threading.Event()
+        original_read, original_index = P.Proxy._read, R.index
+
+        class ExactBudgetServer(SyntheticServer):
+            def respond(self, method, params):
+                result = super().respond(method, params)
+                if method == 'thread/list' and params['archived']:
+                    final = (json.dumps({'id': self.requests[-1]['id'], 'result': result}) + '\n').encode()
+                    budget.max_bytes = budget.received_bytes + len(final)
+                return result
+
+        def receive(proxy):
+            try:
+                original_read(proxy)
+            finally:
+                stopped.set()
+
+        def index(*args, **kwargs):
+            result = original_index(*args, **kwargs)
+            self.assertTrue(stopped.wait(1), 'synthetic receiver did not reach exact limit')
+            return result
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root/'source.json'
+            source.write_text(json.dumps({'version': 1, 'source_id': 'synthetic', 'device_id': 'fixture',
+                'host_id': 'local', 'path_flavour': 'posix', 'exclude_roots': [], 'repos': [{
+                    'id': 'example/project', 'cwd': str(Path.home()/'fixture'),
+                    'information_scope': 'personal:example'}]}))
+            args = ['reader', 'index', '--repo', str(ROOT), '--transport', 'local-stdio',
+                '--start-local-server', '--codex-home', str(root/'synthetic-home'),
+                '--source', str(source), '--state', str(root/'state.json'),
+                '--since', '2026-10-03T00:00:00Z', '--cutoff', '2026-10-04T00:00:00Z',
+                '--output', str(root/'index.json')]
+            with patch.object(P, 'inspect_cli', return_value=(contract(), 'codex-cli 0.159.2')), \
+                 patch.object(P.subprocess, 'Popen', side_effect=ExactBudgetServer), \
+                 patch.object(P.Proxy, '_read', receive), patch.object(R, 'index', index), \
+                 patch.object(R, 'AcquisitionBudget', return_value=budget), \
+                 patch.object(R.sys, 'platform', 'darwin'), patch.object(sys, 'argv', args), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(0, R.main())
+            result = json.loads((root/'index.result.json').read_text())
+            self.assertEqual('index-selection-verified', result['status'])
+            self.assertTrue(result['output_written'])
+            self.assertFalse(result['checkpoint_written'])
+            self.assertEqual(budget.max_bytes, budget.received_bytes)
+            self.assertTrue((root/'index.json').exists())
 
 
 if __name__ == '__main__': unittest.main()

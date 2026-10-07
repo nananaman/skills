@@ -8,13 +8,84 @@ import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'meta/skill-maintenance/scripts'))
+sys.path.insert(0, str(ROOT / 'plugin/skills/skill-maintenance/scripts'))
 import codex_reader as READER
 import maintenance as COLLECT
 from common import validate_evidence
 
 
 class ReaderTest(unittest.TestCase):
+    def test_rejects_private_output_inside_the_requested_repository_before_connecting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory) / 'source'
+            repo.mkdir()
+            output = repo / 'outside-plugin.json'
+            with patch.object(sys, 'argv', ['reader', 'turns', '--repo', str(repo),
+                    '--codex-home', str(Path.home()/'.codex'), '--output', str(output)]), \
+                    patch.object(READER, 'Proxy') as proxy:
+                result = READER.main()
+
+            self.assertEqual(result, 2)
+            proxy.assert_not_called()
+            self.assertEqual(list(repo.iterdir()), [])
+
+    def test_rejects_state_inside_the_requested_repository_before_connecting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory) / 'source'
+            repo.mkdir()
+            state = repo / 'state.json'
+            state.write_text('{}')
+            output = Path(directory) / 'private/export.json'
+            with patch.object(sys, 'argv', ['reader', 'read', '--repo', str(repo),
+                    '--state', str(state), '--read-completed',
+                    '--codex-home', str(Path.home()/'.codex'), '--output', str(output)]), \
+                    patch.object(READER, 'Proxy') as proxy:
+                result = READER.main()
+
+            self.assertEqual(result, 2)
+            proxy.assert_not_called()
+            self.assertEqual(state.read_text(), '{}')
+            self.assertFalse(output.with_suffix('.result.json').exists())
+
+
+    def test_rejects_private_files_inside_reader_checkout_for_another_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            checkout = root / 'reader-checkout'
+            checkout.mkdir()
+            (checkout / '.git').write_text('gitdir: elsewhere')
+            reader = checkout / 'plugin/skills/skill-maintenance/scripts/codex_reader.py'
+            target = root / 'another-repository'
+            for field in ('--output', '--state'):
+                with self.subTest(field=field):
+                    output = checkout / 'private/export.json' if field == '--output' else root / 'private/export.json'
+                    argv = ['reader', 'turns', '--repo', str(target), '--codex-home', str(root / '.codex'),
+                            '--output', str(output)]
+                    if field == '--state':
+                        argv.extend(['--state', str(checkout / 'private/state.json')])
+                    with patch.object(READER, '__file__', str(reader)), patch.object(sys, 'argv', argv), \
+                            patch.object(READER, 'Proxy') as proxy:
+                        result = READER.main()
+                    self.assertEqual(result, 2)
+                    proxy.assert_not_called()
+                    self.assertFalse((checkout / 'private').exists())
+
+    def test_installed_reader_does_not_protect_unrelated_parent_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            reader = root / 'cache/plugin/skills/skill-maintenance/scripts/codex_reader.py'
+            output = root / 'private/export.json'
+            argv = ['reader', 'turns', '--repo', str(root / 'another-repository'),
+                    '--selection', str(root / 'missing.json'), '--codex-home', str(root / '.codex'),
+                    '--output', str(output)]
+            with patch.object(READER, '__file__', str(reader)), patch.object(sys, 'argv', argv), \
+                    patch.object(READER, 'Proxy') as proxy:
+                result = READER.main()
+            self.assertEqual(result, 2)
+            proxy.assert_not_called()
+            self.assertTrue(output.with_suffix('.result.json').exists())
+            self.assertFalse(output.exists())
+
     def metadata(self, **overrides):
         return {**dict(id='root', sessionId='root', updatedAt=1, turns=[], source='cli',
             cwd=str(Path.home()/'fixture'), path=str(Path.home()/'.codex/fixture'),
@@ -109,17 +180,17 @@ class ReaderEntryTest(unittest.TestCase):
                 for action,extra in [('index',['--source',str(config),'--state',str(state),'--since',start,'--cutoff',cutoff]),
                         ('turns',['--selection',str(private/'index.json')]),
                         ('read',['--selection',str(private/'turns.json'),'--state',str(state),'--read-completed'])]:
-                    with patch.object(sys,'argv',['reader',action,*extra,'--codex-home',str(Path.home()/'.codex'),'--output',str(private/(action+'.json'))]):
+                    with patch.object(sys,'argv',['reader',action,*extra,'--repo',str(ROOT),'--codex-home',str(Path.home()/'.codex'),'--output',str(private/(action+'.json'))]):
                         self.assertEqual(0,READER.main())
                     self.assertFalse(state.exists())
                 target=private/'target.json'
-                target.write_bytes((ROOT/'meta/skill-maintenance/examples/target.json').read_bytes())
+                target.write_bytes((ROOT/'plugin/skills/skill-maintenance/examples/target.json').read_bytes())
                 COLLECT.collect(argparse.Namespace(repo=ROOT,state=state,input=private/'read.json',target=target,
                     output=private/'batches',since=start,cutoff=cutoff,hours=24,exclude_root=[],new_evidence_only=True))
                 original=state.read_bytes()
                 source['repos'][0]['cwd']='/fixture/changed';config.write_text(json.dumps(source))
                 with patch.object(sys,'argv',['reader','index','--source',str(config),'--state',str(state),
-                        '--since',start,'--cutoff',cutoff,'--codex-home',str(Path.home()/'.codex'),'--output',str(private/'changed.json')]):
+                        '--since',start,'--cutoff',cutoff,'--repo',str(ROOT),'--codex-home',str(Path.home()/'.codex'),'--output',str(private/'changed.json')]):
                     self.assertEqual(2,READER.main())
                 self.assertFalse((private/'changed.json').exists())
                 self.assertEqual(original,state.read_bytes())
