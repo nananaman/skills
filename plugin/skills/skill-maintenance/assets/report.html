@@ -3,12 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>$date スキル振り返り</title>
 <style>
-:root { color-scheme: light; --ink:#183632; --muted:#5e716d; --line:#dce5e1; --accent:#176b5a; }
+:root {
+ color-scheme:light dark;
+ --page:#f4f7f4; --surface:#fff; --metric:#e7f0eb;
+ --ink:#183632; --muted:#566963; --line:#6f897c; --accent:#176b5a;
+ --focus:#176b5a;
+ --badge-bg:#edf0ef; --badge-ink:#4c615c;
+ --success-bg:#e1f2e9; --success-ink:#216246;
+ --failure-bg:#fce9e6; --failure-ink:#9c3329;
+ --warning-bg:#fff1d8; --warning-ink:#815512;
+ --draft-bg:#e8ecfc; --draft-ink:#445693;
+}
+@media screen and (prefers-color-scheme:dark) {
+ :root {
+  --page:#0f1a16; --surface:#172822; --metric:#203c30;
+  --ink:#e4eee7; --muted:#adc2b4; --line:#719780; --accent:#8bdab1;
+  --focus:#8bdab1;
+  --badge-bg:#2b3b32; --badge-ink:#c3d0c5;
+  --success-bg:#193d2b; --success-ink:#a9e9bd;
+  --failure-bg:#4a2728; --failure-ink:#ffc0b6;
+  --warning-bg:#44361c; --warning-ink:#f4d18d;
+  --draft-bg:#293451; --draft-ink:#c0cdf9;
+ }
+}
 * { box-sizing:border-box; }
-body { margin:0; color:var(--ink); background:#f4f7f4; font:15px/1.7 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif; }
+body { margin:0; color:var(--ink); background:var(--page); font:15px/1.7 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif; }
 main { max-width:1080px; margin:auto; padding:38px 28px 52px; }
 .eyebrow { color:var(--accent); font-size:12px; font-weight:700; letter-spacing:.1em; }
 header { margin-bottom:26px; }
@@ -16,33 +39,33 @@ h1 { margin:10px 0; font-size:clamp(24px,4vw,36px); line-height:1.35; letter-spa
 .date { font-size:13px; color:var(--muted); }
 .summary { margin-top:16px; max-width:76ch; white-space:pre-wrap; overflow-wrap:anywhere; }
 .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:24px; }
-.metrics div { background:#e7f0eb; padding:14px 18px; border-radius:12px; }
+.metrics div { background:var(--metric); padding:14px 18px; border-radius:12px; }
 .metrics span { color:var(--muted); font-size:12px; display:block; }
 .metrics strong { font-size:25px; font-weight:650; }
 section { margin-top:30px; }
 .section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
 h2 { font-size:20px; line-height:1.45; margin:0; }
 .cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-.card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; height:100%; min-width:0; }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:20px; height:100%; min-width:0; }
 section[aria-labelledby="outcomes"] .cards { grid-template-columns:1fr; }
 .card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 h3 { font-size:16px; line-height:1.5; margin:0; overflow-wrap:anywhere; }
 p { margin:12px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
-.badge { display:inline-block; flex-shrink:0; border-radius:20px; background:#edf0ef; color:#4c615c; padding:3px 9px; font-size:11px; font-weight:650; }
-.badge.passed,.badge.adopted,.badge.read { background:#e1f2e9; color:#216246; }
-.badge.failed { background:#fce9e6; color:#9c3329; }
-.badge.partial,.badge.unverified,.badge.proposed,.badge.uncollected,.badge.in_progress,.badge.held { background:#fff1d8; color:#815512; }
-.badge.draft { background:#e8ecfc; color:#445693; }
+.badge { display:inline-block; flex-shrink:0; border-radius:20px; background:var(--badge-bg); color:var(--badge-ink); padding:3px 9px; font-size:11px; font-weight:650; }
+.badge.passed,.badge.adopted,.badge.read { background:var(--success-bg); color:var(--success-ink); }
+.badge.failed { background:var(--failure-bg); color:var(--failure-ink); }
+.badge.partial,.badge.unverified,.badge.proposed,.badge.uncollected,.badge.in_progress,.badge.held { background:var(--warning-bg); color:var(--warning-ink); }
+.badge.draft { background:var(--draft-bg); color:var(--draft-ink); }
 .pr-link { display:inline-block; margin-top:16px; text-decoration:none; font-weight:650; color:var(--accent); }
 a:hover { text-decoration:underline; }
-a:focus-visible,select:focus-visible { outline:3px solid #599c8d; outline-offset:3px; }
+a:focus-visible,select:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
 dl { margin:16px 0 0; }
 dt { color:var(--muted); font-size:11px; font-weight:650; margin-top:14px; }
 dd { margin:3px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
 .filter { color:var(--muted); font-size:11px; }
-select { display:block; margin-top:3px; font:inherit; font-size:13px; border:1px solid #b9cbc3; padding:6px 24px 6px 9px; border-radius:7px; background:white; color:var(--ink); }
+select { display:block; margin-top:3px; font:inherit; font-size:13px; border:1px solid var(--line); padding:6px 24px 6px 9px; border-radius:7px; background:var(--surface); color:var(--ink); }
 .muted,.empty { color:var(--muted); font-size:13px; }
-.empty { background:#fff; border:1px dashed var(--line); padding:18px; border-radius:12px; }
+.empty { background:var(--surface); border:1px dashed var(--line); padding:18px; border-radius:12px; }
 .reflection[hidden] { display:none; }
 footer { margin-top:32px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
 @media(max-width:620px) {
@@ -55,7 +78,7 @@ footer { margin-top:32px; padding-top:16px; border-top:1px solid var(--line); co
  .card-heading { flex-wrap:wrap; }
  h2 { font-size:18px; }
 }
-@media print { body { background:#fff; } main { padding:0; } .filter { display:none; } .reflection[hidden] { display:block; } .card { break-inside:avoid; } }
+@media print { :root { color-scheme:light; } body { background:#fff; } main { padding:0; } .filter { display:none; } .reflection[hidden] { display:block; } .card { break-inside:avoid; } }
 </style>
 </head>
 <body>

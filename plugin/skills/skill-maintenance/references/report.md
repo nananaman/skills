@@ -31,6 +31,8 @@ python3 <skill-root>/scripts/render_report.py \
 
 HTMLの256 KiB UTF-8上限はPage visualizationの制約。超過時は切り詰めず表示生成を失敗として返し、正本JSONと取得・振り返り結果を保持する。表示生成失敗を取得失敗へ置換しない。説明をnative本文に保持したうえで表示要点を整え直す。型の修正や再生成のために実務を再収集しない。
 
+HTMLはlight/darkの表示設定に応じて文字と背景を対で切り替え、ブラウザー標準のcolor-schemeでiframeのthemeにも追従する。フォーム・状態バッジ・リンク・境界も同じ配色に揃え、印刷時はlightで表示する。
+
 ## hostへの保存
 
 hostの送信容量に応じてMarkdownを行境界で順序付きpartへ分ける。固定件数で内容を省略しない。全partとreport.json・report.htmlを保存し、UTF-8 byte列のsha256を計算する。簡単なhandoff JSONへreport_date・timezone・information_scope・destination（configの保存先）・parts（order/path/sha256）・artifacts（JSON/HTMLのpath・bytes・sha256）・未完成partや未完了作業・delivery_statusを記録する。本文生成時のdelivery_statusはhost-handoff-pending。薄い表示用JSONの型検査を、取得・分析・評価や台帳完成のgateにしない。
