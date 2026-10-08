@@ -4,108 +4,58 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>$date スキル振り返り</title>
 <style>
-:root {
- color-scheme:light dark;
- --page:#f4f7f4; --surface:#fff; --metric:#e7f0eb;
- --ink:#183632; --muted:#566963; --line:#6f897c; --accent:#176b5a;
- --focus:#176b5a;
- --badge-bg:#edf0ef; --badge-ink:#4c615c;
- --success-bg:#e1f2e9; --success-ink:#216246;
- --failure-bg:#fce9e6; --failure-ink:#9c3329;
- --warning-bg:#fff1d8; --warning-ink:#815512;
- --draft-bg:#e8ecfc; --draft-ink:#445693;
-}
-@media screen and (prefers-color-scheme:dark) {
- :root {
-  --page:#0f1a16; --surface:#172822; --metric:#203c30;
-  --ink:#e4eee7; --muted:#adc2b4; --line:#719780; --accent:#8bdab1;
-  --focus:#8bdab1;
-  --badge-bg:#2b3b32; --badge-ink:#c3d0c5;
-  --success-bg:#193d2b; --success-ink:#a9e9bd;
-  --failure-bg:#4a2728; --failure-ink:#ffc0b6;
-  --warning-bg:#44361c; --warning-ink:#f4d18d;
-  --draft-bg:#293451; --draft-ink:#c0cdf9;
- }
-}
+:root { color-scheme:light dark; --page:#f4f7f4; --surface:#fff; --ink:#183632; --muted:#566963; --line:#8b9d92; --head:#e7f0eb; --focus:#176b5a; }
+@media(prefers-color-scheme:dark) { :root { --page:#0f1a16; --surface:#172822; --ink:#e4eee7; --muted:#adc2b4; --line:#719780; --head:#203c30; --focus:#8bdab1; } }
 * { box-sizing:border-box; }
-body { margin:0; color:var(--ink); background:var(--page); font:15px/1.7 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif; }
-main { max-width:1080px; margin:auto; padding:38px 28px 52px; }
-.eyebrow { color:var(--accent); font-size:12px; font-weight:700; letter-spacing:.1em; }
-header { margin-bottom:26px; }
-h1 { margin:10px 0; font-size:clamp(24px,4vw,36px); line-height:1.35; letter-spacing:-.035em; }
-.date { font-size:13px; color:var(--muted); }
-.summary { margin-top:16px; max-width:76ch; white-space:pre-wrap; overflow-wrap:anywhere; }
-.metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:24px; }
-.metrics div { background:var(--metric); padding:14px 18px; border-radius:12px; }
-.metrics span { color:var(--muted); font-size:12px; display:block; }
-.metrics strong { font-size:25px; font-weight:650; }
-section { margin-top:30px; }
-.section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
-h2 { font-size:20px; line-height:1.45; margin:0; }
-.cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-.card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:20px; height:100%; min-width:0; }
-section[aria-labelledby="outcomes"] .cards { grid-template-columns:1fr; }
-.card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
-h3 { font-size:16px; line-height:1.5; margin:0; overflow-wrap:anywhere; }
-p { margin:12px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
-.badge { display:inline-block; flex-shrink:0; border-radius:20px; background:var(--badge-bg); color:var(--badge-ink); padding:3px 9px; font-size:11px; font-weight:650; }
-.badge.passed,.badge.adopted,.badge.read { background:var(--success-bg); color:var(--success-ink); }
-.badge.failed { background:var(--failure-bg); color:var(--failure-ink); }
-.badge.partial,.badge.unverified,.badge.proposed,.badge.uncollected,.badge.in_progress,.badge.held { background:var(--warning-bg); color:var(--warning-ink); }
-.badge.draft { background:var(--draft-bg); color:var(--draft-ink); }
-.pr-link { display:inline-block; margin-top:16px; text-decoration:none; font-weight:650; color:var(--accent); }
-a:hover { text-decoration:underline; }
-a:focus-visible,select:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
-dl { margin:16px 0 0; }
-dt { color:var(--muted); font-size:11px; font-weight:650; margin-top:14px; }
-dd { margin:3px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
-.filter { color:var(--muted); font-size:11px; }
-select { display:block; margin-top:3px; font:inherit; font-size:13px; border:1px solid var(--line); padding:6px 24px 6px 9px; border-radius:7px; background:var(--surface); color:var(--ink); }
-.muted,.empty { color:var(--muted); font-size:13px; }
-.empty { background:var(--surface); border:1px dashed var(--line); padding:18px; border-radius:12px; }
-.reflection[hidden] { display:none; }
-footer { margin-top:32px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
-@media(max-width:620px) {
- main { padding:24px 16px 36px; }
- .cards { grid-template-columns:1fr; }
- .metrics { grid-template-columns:repeat(2,1fr); gap:8px; }
- .metrics div { padding:12px 14px; }
- .card { padding:17px; }
- .section-heading { align-items:flex-start; }
- .card-heading { flex-wrap:wrap; }
- h2 { font-size:18px; }
-}
-@media print { :root { color-scheme:light; } body { background:#fff; } main { padding:0; } .filter { display:none; } .reflection[hidden] { display:block; } .card { break-inside:avoid; } }
+body { margin:0; color:var(--ink); background:var(--page); font:14px/1.65 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif; }
+main { max-width:1120px; margin:auto; padding:24px 20px 36px; }
+header { margin-bottom:24px; }
+h1 { margin:0 0 6px; font-size:24px; line-height:1.4; }
+h2 { margin:0 0 10px; font-size:18px; line-height:1.4; }
+p { margin:7px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.date,.period { color:var(--muted); font-size:12px; }
+.period { margin-top:10px; }
+.metrics { margin-top:12px; padding:10px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); font-weight:600; font-variant-numeric:tabular-nums; }
+section { margin:24px 0; }
+.table-scroll { width:100%; overflow-x:auto; }
+.table-scroll:focus-visible,summary:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
+table { width:100%; border-collapse:collapse; table-layout:fixed; background:var(--surface); }
+caption { text-align:left; color:var(--muted); padding:0 0 8px; font-size:12px; }
+th,td { text-align:left; vertical-align:top; padding:10px 12px; border-bottom:1px solid var(--line); white-space:pre-wrap; overflow-wrap:anywhere; }
+th { background:var(--head); font-weight:600; }
+th:first-child:nth-last-child(3) { width:25%; }
+th:first-child:nth-last-child(3)~th { width:37.5%; }
+th:first-child:nth-last-child(2) { width:27%; }
+th:first-child:nth-last-child(2)~th { width:73%; }
+details th:nth-child(2):nth-last-child(2) { width:15%; }
+details th:nth-child(3):last-child { width:60%; }
+table.decisions th:first-child { width:15%; }
+table.decisions th:nth-child(2) { width:35%; }
+table.decisions th:nth-child(3) { width:50%; }
+a { color:var(--focus); }
+a:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
+strong { font-weight:600; }
+details { margin:18px 0; }
+summary { cursor:pointer; font-weight:600; padding:10px 0; border-top:1px solid var(--line); }
+details[open] summary { margin-bottom:8px; }
+details p { margin-bottom:12px; }
+footer { margin-top:26px; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+@media(max-width:620px) { main { padding:18px 12px 28px; } th,td { padding:8px 7px; } h1 { font-size:21px; } }
+@media print { :root { color-scheme:light; } body { background:#fff; } main { padding:0; } details>* { display:block; } tr { break-inside:avoid; } }
 </style>
 </head>
-<body>
-<main>
+<body><main>
 <header>
-<div class="eyebrow">DAILY REVIEW</div>
-<h1>今日のスキル振り返り</h1>
-<div class="date">$date · $timezone</div>
-<p class="date">対象期間：$period</p>
-<p class="summary">$summary</p>
-<div class="metrics" aria-label="概観">$metrics</div>
+<h1>$date スキル振り返り</h1>
+<div class="date">日付基準　$timezone</div>
+<p>$summary</p>
+<div class="metrics" aria-label="今回の評価と実測">$metrics</div>
+<p class="period">履歴の取得対象期間　$period</p>
 </header>
 $sections
-<footer>検証の成功と採用、取得完了と実務の成功は別々に記録しています。</footer>
-</main>
-<script>
-const filter = document.getElementById('result-filter');
-if (filter) {
-  const cards = Array.from(document.querySelectorAll('.reflection'));
-  const count = document.getElementById('filter-count');
-  function applyFilter() {
-    for (const card of cards) card.hidden = filter.value !== 'all' && card.dataset.result !== filter.value;
-    count.textContent = cards.filter(card => !card.hidden).length + ' / ' + cards.length + '件を表示';
-  }
-  filter.addEventListener('change', applyFilter);
-  applyFilter();
-}
-</script>
-</body>
+<footer>取得状態と精読の完了、検証の成功と採用を分けて記録しています。</footer>
+</main></body>
 </html>

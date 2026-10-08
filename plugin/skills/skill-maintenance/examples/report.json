@@ -19,14 +19,22 @@
       "next": "最後の編集を含む状態で検証します。",
       "change": "最終状態の確認を追加しました。",
       "result": "passed",
-      "evidence": "合成の回帰検証が成功しました。"
+      "evidence": "合成の回帰検証が成功しました。",
+      "decision": "proposed",
+      "overview": {
+        "title": "最終編集後の確認",
+        "change": "編集後の確認を手順へ追加する案。",
+        "evaluation": "合成の回帰検証3件成功。実サービスは未確認。",
+        "reason": "draft PRを用意し、採用判断を待っています。"
+      }
     },
     {
       "title": "原因をまだ特定できていない",
       "happened": "合成の外部サービス検証は環境制限で実行できませんでした。",
       "next": "許可された環境で再確認します。",
       "result": "unverified",
-      "evidence": "未確認です。成功には数えていません。"
+      "evidence": "未確認です。成功には数えていません。",
+      "decision": "held"
     }
   ],
   "checks": [
