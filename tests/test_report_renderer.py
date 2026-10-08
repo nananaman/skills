@@ -17,6 +17,45 @@ spec.loader.exec_module(renderer)
 
 
 class ReportRendererTest(unittest.TestCase):
+    def test_decision_table_keeps_explicit_judgment_and_full_evidence_separate_from_test_result(self):
+        reflection = {'title': '元の案', 'happened': '長い経緯', 'next': '追加の入力を用意する',
+                      'change': '実装候補', 'result': 'passed', 'evidence': '限定した確認は成功',
+                      'decision': 'held', 'overview': {'title': '短い案名', 'change': '変更の要点',
+                                                     'evaluation': '比較0実行', 'reason': '因果関係は未確認'}}
+        report = {'version': 1, 'date': '2026-10-07', 'timezone': 'Asia/Tokyo', 'reflections': [reflection]}
+
+        result = renderer.render_report(report)
+
+        self.assertIn('<table', result['html'])
+        self.assertIn('<details', result['html'])
+        for document in result.values():
+            self.assertIn('成果はありません', document)
+            for value in ['保留', '短い案名', '変更の要点', '比較0実行', '因果関係は未確認',
+                          '長い経緯', '追加の入力を用意する', '実装候補', '限定した確認は成功']:
+                self.assertIn(value, document)
+        del reflection['decision']
+        self.assertIn('判断未記載', renderer.render_report(report)['html'])
+        for invalid in [{'decision': 'unknown'}, {'overview': {'title': '不足'}},
+                        {'overview': {**reflection['overview'], 'reason': 1}}]:
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                renderer.render_report({**report, 'reflections': [{**reflection, **invalid}]})
+
+    def test_durations_use_minutes_and_seconds_without_mutating_precise_input(self):
+        report = {'version': 1, 'date': '2026-10-07', 'timezone': 'Asia/Tokyo',
+                  'timing': {'wall_seconds': 1471.333666, 'stages': [
+                      {'title': '秒未満', 'seconds': 0.9, 'detail': '端数は表示で切り捨て'},
+                      {'title': '一分', 'seconds': 60, 'detail': '境界'},
+                      {'title': '未計測', 'seconds': None, 'detail': '未知'}]}}
+        original = copy.deepcopy(report)
+
+        result = renderer.render_report(report)
+
+        self.assertEqual(report, original)
+        for document in result.values():
+            for value in ['24分31秒', '0分0秒', '1分0秒', '未計測']:
+                self.assertIn(value, document)
+            self.assertNotIn('1471.333666秒', document)
+
     def test_period_counts_and_reader_hold_reasons_are_preserved_without_success_inference(self):
         period = '2026-10-05 03:51:53 JST以上、2026-10-07 17:40 JST未満'
         counts = '発見3・対象2・取得1・振り返り1・保留1・期間外1'
@@ -63,13 +102,15 @@ class ReportRendererTest(unittest.TestCase):
 
     def test_html_and_markdown_escape_untrusted_text_without_embedding_executable_json(self):
         attack = '</script><img src="https://example.com/tracker" onerror="alert(1)">\n[click](javascript:alert(1)) $sections'
-        report = {'version': 1, 'date': '2026-10-07', 'timezone': 'Asia/Tokyo', 'summary': attack}
+        report = {'version': 1, 'date': '2026-10-07', 'timezone': 'Asia/Tokyo', 'summary': attack,
+                  'reflections': [{'title': attack, 'happened': attack, 'next': attack, 'result': 'unverified', 'evidence': attack,
+                                   'decision': 'held', 'overview': dict.fromkeys(['title', 'change', 'evaluation', 'reason'], attack)}]}
 
         result = renderer.render_report(report)
 
         self.assertNotIn('<img', result['html'])
         self.assertIn('&lt;/script&gt;', result['html'])
-        self.assertEqual(result['html'].count('<script>'), 1)
+        self.assertNotIn('<script>', result['html'])
         self.assertIn('$sections', result['html'])
         self.assertNotIn('<img', result['markdown'])
         self.assertNotIn('[click](javascript:', result['markdown'])
@@ -165,7 +206,7 @@ class ReportRendererTest(unittest.TestCase):
 
         self.assertEqual(result, renderer.render_report(report))
         for document in result.values():
-            positions = [document.index(title) for title in ['今日の成果', '反省点と次の対応', '検証結果', '残件・判断待ち', '対象一覧', '時間']]
+            positions = [document.index(title) for title in ['今日の成果', '採用と判断', '検証結果', '残件・判断待ち', '対象一覧', '時間']]
             self.assertEqual(positions, sorted(positions))
             for text in ['最後の確認が漏れた', '最終編集後に確認する', '確認手順を更新', '合成の確認が成功']:
                 self.assertIn(text, document)

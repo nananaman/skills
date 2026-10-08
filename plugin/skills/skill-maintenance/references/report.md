@@ -13,13 +13,17 @@ callerのreport-config.jsonからtimezone・information_scope・保存先を解�
 | 項目 | 内容 |
 | --- | --- |
 | outcomes | title、change、status（draft / adopted / proposed / no_change / failed）、任意のpr_url |
-| reflections | title、happened、next、result、evidence、任意のchange。起きたこと→次の対応→変更→検証を同じ項目に保つ |
+| reflections | title、happened、next、result、evidence、任意のchange・decision・overview。起きたこと→次の対応→変更→検証を同じ項目に保つ |
 | checks | title、result、detail |
 | remaining | title、detail。保留理由と必要な判断もdetailに書く |
 | sessions | title、source、evidence（history / self_report）、status（read / partial / failed / uncollected / in_progress / held / outside_period / excluded）、detail。結果・学び・未知をdetailに書く。heldは進行中・終端不明・変更検出などの理由を保持する |
 | timing | 任意のstart・end（timezone付きISO時刻またはnull）、wall_seconds（秒またはnull）、scope（計測範囲と再利用条件）、stages（title・seconds・detailの配列） |
 
 resultはpassed / failed / partial / unverified。未計測を0にせずnullにする。未知のfieldは受付けない。内部handoff情報をこのJSONへ混ぜない。採用状態は各outcomeへ明示し、テスト成功から推定しない。
+
+decisionはadopted（採用）/ rejected（見送り）/ held（保留）/ no_change（変更不要）/ proposed（提案）。検証のresultとは独立し、省略時は「判断未記載」と表示する。overviewは任意の表示要点で、title・change・evaluation・reasonの4つのplain textをすべて含める。比較の実行数・範囲・限界をevaluationへ、採否の理由をreasonへ書く。省略時は既存fieldを表示する。全文のhappened・next・change・result・evidenceはHTMLの詳細とMarkdownにも保持する。
+
+保留は判断に必要な証拠や仮説などが未充足の状態、見送りは当該案の評価を終えて不採用を判断した状態として、reasonとnextに具体的な理由・再選定条件を残す。保留という表示だけで翌日の再評価を予約しない。保存済み台帳からの再開・新しい証拠・実行予算の扱いはメンテナンス本体の手順に従う。
 
 ```sh
 python3 <skill-root>/scripts/render_report.py \
@@ -31,7 +35,8 @@ python3 <skill-root>/scripts/render_report.py \
 
 HTMLの256 KiB UTF-8上限はPage visualizationの制約。超過時は切り詰めず表示生成を失敗として返し、正本JSONと取得・振り返り結果を保持する。表示生成失敗を取得失敗へ置換しない。説明をnative本文に保持したうえで表示要点を整え直す。型の修正や再生成のために実務を再収集しない。
 
-HTMLはlight/darkの表示設定に応じて文字と背景を対で切り替え、ブラウザー標準のcolor-schemeでiframeのthemeにも追従する。フォーム・状態バッジ・リンク・境界も同じ配色に揃え、印刷時はlightで表示する。
+HTMLはlight/darkの表示設定に応じて文字と背景を対で切り替え、ブラウザー標準のcolor-schemeでiframeのthemeにも追従する。表・リンク・境界も同じ配色に揃え、印刷時はlightで表示する。
+採否の概要は「判断／案と変更内容／実評価と判断理由」の表にし、検証・残件・対象・時間も表で表示する。全文と対象一覧は標準のdetailsで開ける。取得状態を精読完了とみなさず、残件の件数を採否の件数と混ぜない。ヘッダーの採用済み成果数はoutcomesのadoptedだけを数える。時間は分秒表示とし、秒未満は表示だけ切り捨て、JSONの秒数精度を保つ。未計測は「未計測」のまま表示する。
 
 ## hostへの保存
 
