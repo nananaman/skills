@@ -35,7 +35,7 @@ apm install -g nananaman/skills/plugin/skills/apm-usage#<full-sha>
 
 ## 全 skills のプラグイン配布
 
-`plugin/` 自体が正本の skills-only plugin です。全27 skillsは `plugin/skills/<name>/` に置き、別配置への生成・コピーは行いません。既存APM利用者は新パスへの参照更新が必要です。
+`plugin/` 自体が正本の skills-only plugin です。全28 skillsは `plugin/skills/<name>/` に置き、別配置への生成・コピーは行いません。既存APM利用者は新パスへの参照更新が必要です。
 
 ```sh
 codex plugin marketplace add .
@@ -82,6 +82,9 @@ marketplaceの追加後に個別pluginのインストールが必要です。
 
 ### Engineering
 
+- **[`excalidraw`](./plugin/skills/excalidraw/SKILL.md)** — 公式 CLI を使い、手描き図を編集可能な Excalidraw とローカル PNG にする。
+  - Use when: アーキテクチャ図・データフロー・処理フローの作成や編集、根拠確認と PNG の実画像 QA
+  - Type: `model-invoked`
 - **[`prototype`](./plugin/skills/prototype/SKILL.md)** — throwaway artifact や最小の単一 spike で設計上の問いを検証する。
   - Use when: UI・logic・HTML report・文書・diagram・可視化の比較、技術的成立性の実験
   - Type: `model-invoked`

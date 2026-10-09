@@ -2,11 +2,11 @@
 
 日本語の開発・文書作成・レビュー・スキル保守・Git運用・さくらのクラウド手順を含む skills-only plugin です。`plugin/` 自体を正本とし、全skillと付属resourceを `skills/<name>/` に置きます。MCP・app接続・hooksは同梱しません。installだけではCLIやサービスへのアクセス権は追加されません。
 
-## 全27 skills
+## 全28 skills
 
 | 分類 | skills |
 | --- | --- |
-| Engineering (15) | [apple-container](./skills/apple-container/SKILL.md), [create-plan](./skills/create-plan/SKILL.md), [create-pr](./skills/create-pr/SKILL.md), [draft-design-doc](./skills/draft-design-doc/SKILL.md), [draft-prd](./skills/draft-prd/SKILL.md), [implement](./skills/implement/SKILL.md), [nono-sandbox-maintenance](./skills/nono-sandbox-maintenance/SKILL.md), [polish-design-doc](./skills/polish-design-doc/SKILL.md), [polish-prd](./skills/polish-prd/SKILL.md), [prototype](./skills/prototype/SKILL.md), [review-diff-code](./skills/review-diff-code/SKILL.md), [review-plan](./skills/review-plan/SKILL.md), [task-breakdown](./skills/task-breakdown/SKILL.md), [tdd](./skills/tdd/SKILL.md), [test-writing-style](./skills/test-writing-style/SKILL.md) |
+| Engineering (16) | [apple-container](./skills/apple-container/SKILL.md), [create-plan](./skills/create-plan/SKILL.md), [create-pr](./skills/create-pr/SKILL.md), [draft-design-doc](./skills/draft-design-doc/SKILL.md), [draft-prd](./skills/draft-prd/SKILL.md), [excalidraw](./skills/excalidraw/SKILL.md), [implement](./skills/implement/SKILL.md), [nono-sandbox-maintenance](./skills/nono-sandbox-maintenance/SKILL.md), [polish-design-doc](./skills/polish-design-doc/SKILL.md), [polish-prd](./skills/polish-prd/SKILL.md), [prototype](./skills/prototype/SKILL.md), [review-diff-code](./skills/review-diff-code/SKILL.md), [review-plan](./skills/review-plan/SKILL.md), [task-breakdown](./skills/task-breakdown/SKILL.md), [tdd](./skills/tdd/SKILL.md), [test-writing-style](./skills/test-writing-style/SKILL.md) |
 | Meta (4) | [apm-usage](./skills/apm-usage/SKILL.md), [skill-maintenance](./skills/skill-maintenance/SKILL.md), [skill-workbench](./skills/skill-workbench/SKILL.md), [update-skills](./skills/update-skills/SKILL.md) |
 | Personal (2) | [chouge-changelog](./skills/chouge-changelog/SKILL.md), [chouge-git](./skills/chouge-git/SKILL.md) |
 | Productivity (2) | [grilling](./skills/grilling/SKILL.md), [handoff](./skills/handoff/SKILL.md) |
@@ -26,7 +26,7 @@ codex plugin add nananaman-skills@nananaman-skills
 
 Git URL、ref、スパースパスをGUIで入力する場合は、[GUIでGit marketplaceを追加する](../README.md#guiでgit-marketplaceを追加する)を参照してください。
 
-APMでも同じ正本を個別に参照できます。旧カテゴリパスは移動するため、manifestを変更してから、許可されたscopeでinstallしてください。全27件のpluginと既存APM展開を同時に有効にすると、同じworkflowが二重に提示されることがあります。既存展開を勝手に消さず、利用者が経路を選んでください。
+APMでも同じ正本を個別に参照できます。旧カテゴリパスは移動するため、manifestを変更してから、許可されたscopeでinstallしてください。全28件のpluginと既存APM展開を同時に有効にすると、同じworkflowが二重に提示されることがあります。既存展開を勝手に消さず、利用者が経路を選んでください。
 
 ```yaml
 dependencies:
@@ -43,7 +43,7 @@ source checkoutのrepo rootで、commit済みの正本だけをそのまま固�
 
 ```sh
 git archive --format=zip --prefix=nananaman-skills/ HEAD:plugin \
-  > /tmp/nananaman-skills-0.1.0.zip
+  > /tmp/nananaman-skills-0.2.0.zip
 ```
 
 ZIPは一つのpluginフォルダを含みます。作成前に全件inventory・リンク・resource・秘密を検査します。`git archive` は未追跡のstate・キャッシュ・credentialsを収録しませんが、追跡済みファイルの公開可否は別途確認します。
@@ -69,6 +69,7 @@ ZIPだけを受領した場合は再build不要です。空のディレクトリ
 | 範囲 | 必要な環境・制約 |
 | --- | --- |
 | 文書・計画・レビュー | 対象資料・編集先・必要なagent / subagent / toolが利用可能な環境。文章作成だけならローカルCLIが不要な経路もあります |
+| Excalidraw | 公式 `@excalidraw/cli`、Node.js 22+、既存 Chrome / Edge / Chromium / Firefox。日本語の手描きフォントは初回取得・キャッシュが必要です |
 | Git / PR | Git、必要時にGitHub CLI、利用者本人の認証・操作権限 |
 | APM / update-skills | APM・Git・manifest・install scope。例の `~/ghq/...` は本人の実際の配置へ読み替えます |
 | skill-workbench / skill-maintenance | Python 3.11+。workbenchのモデル実行には対応Codex CLI、maintenanceの直接読取には許可済みローカル履歴とGit外の非公開出力先が必要です |
