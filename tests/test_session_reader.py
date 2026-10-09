@@ -104,6 +104,114 @@ class SessionReaderTest(unittest.TestCase):
             self.assertFalse(list((root / 'private').glob('session-*')))
             self.assertNotIn('Unfinished private task', (root / 'private/manifest.json').read_text())
 
+    def test_all_repositories_reads_git_context_without_assigning_unknown_information_scope(self):
+        spec = importlib.util.spec_from_file_location('session_reader', SCRIPT)
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            sessions = root / 'sessions'
+            sessions.mkdir()
+            for name, git in [
+                ('listed', {'repository_url': 'https://github.com/example/app.git'}),
+                ('new', {'repository_url': 'https://github.com/example/new.git'}),
+                ('other-host', {'repository_url': 'https://gitlab.example/team/app.git'}),
+                ('local', {'commit_hash': 'a' * 40}),
+            ]:
+                records = [
+                    {'type': 'session_meta', 'payload': {'id': name, 'cwd': str(root / name), 'git': git}},
+                    {'type': 'response_item', 'payload': {'type': 'message', 'role': 'user', 'content': [{'type': 'text', 'text': 'Development request'}]}},
+                    {'type': 'event_msg', 'payload': {'type': 'task_complete'}},
+                ]
+                (sessions / (name + '.jsonl')).write_text(''.join(json.dumps(item) + '\n' for item in records))
+            source = {'repository_scope': 'all', 'development_roots': ['listed', 'new', 'other-host', 'local'], 'repos': [{'id': 'example/app', 'information_scope': 'personal:example'}]}
+
+            result = reader.collect(sessions, root / 'private', root / 'repo', source=source)
+
+            self.assertEqual(result['counts']['read'], 4)
+            entries = {item['metadata']['id']: item for item in result['sessions']}
+            self.assertEqual(entries['listed']['information_scope'], 'personal:example')
+            self.assertEqual(entries['new']['repository'], 'example/new')
+            self.assertTrue(all(entries[name]['information_scope'] is None for name in ('new', 'other-host', 'local')))
+            self.assertTrue(all('Development request' in Path(item['transcript']).read_text() for item in entries.values()))
+
+    def test_all_repositories_does_not_inherit_registered_scope_from_reused_cwd(self):
+        spec = importlib.util.spec_from_file_location('session_reader', SCRIPT)
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            sessions = root / 'sessions'
+            sessions.mkdir()
+            for name, remote in [('different', 'https://github.com/other/private.git'), ('other-host', 'https://gitlab.example/team/private.git'), ('missing', '')]:
+                records = [
+                    {'type': 'session_meta', 'payload': {'id': name, 'cwd': str(root / 'registered'), 'git': {'repository_url': remote}}},
+                    {'type': 'response_item', 'payload': {'type': 'message', 'role': 'user', 'content': [{'type': 'text', 'text': 'Development request'}]}},
+                    {'type': 'event_msg', 'payload': {'type': 'task_complete'}},
+                ]
+                (sessions / (name + '.jsonl')).write_text(''.join(json.dumps(item) + '\n' for item in records))
+            source = {'repository_scope': 'all', 'development_roots': ['different', 'other-host', 'missing'], 'repos': [{'id': 'example/app', 'cwd': str(root / 'registered'), 'information_scope': 'personal:example'}]}
+
+            result = reader.collect(sessions, root / 'private', root / 'repo', source=source)
+
+            entries = {item['metadata']['id']: item for item in result['sessions']}
+            self.assertEqual(result['counts']['read'], 3)
+            self.assertIsNone(entries['different']['information_scope'])
+            self.assertIsNone(entries['other-host']['information_scope'])
+            self.assertEqual(entries['missing']['information_scope'], 'personal:example')
+
+    def test_all_repositories_still_excludes_non_repository_children_and_caller_exclusions(self):
+        spec = importlib.util.spec_from_file_location('session_reader', SCRIPT)
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            sessions = root / 'sessions'
+            sessions.mkdir()
+            for name, git, parent in [
+                ('non-development', {'repository_url': 'https://github.com/example/app.git'}, None),
+                ('empty-git', {}, None),
+                ('unknown-git', {'unrecognized': 'value'}, None),
+                ('child', {'repository_url': 'https://github.com/example/app.git'}, 'parent'),
+                ('maintenance', {'commit_hash': 'a' * 40}, None),
+            ]:
+                metadata = {'id': name, 'git': git, 'parent_thread_id': parent}
+                (sessions / (name + '.jsonl')).write_text(json.dumps({'type': 'session_meta', 'payload': metadata}) + '\n{unread corrupt body\n')
+
+            result = reader.collect(sessions, root / 'private', root / 'repo', source={'repository_scope': 'all', 'development_roots': ['empty-git', 'unknown-git', 'child', 'maintenance'], 'exclude_roots': ['maintenance']})
+
+            self.assertEqual(result['counts']['excluded'], 5)
+            self.assertEqual(result['counts']['failed'], 0)
+            self.assertFalse(list((root / 'private').glob('session-*')))
+
+    def test_all_repositories_requires_explicit_development_classification(self):
+        spec = importlib.util.spec_from_file_location('session_reader', SCRIPT)
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            sessions = root / 'sessions'
+            sessions.mkdir()
+            for roots in (None, '*', [7]):
+                source = {'repository_scope': 'all'}
+                if roots is not None:
+                    source['development_roots'] = roots
+                with self.subTest(roots=roots), self.assertRaisesRegex(ValueError, 'development_roots'):
+                    reader.collect(sessions, root / 'private', root / 'repo', source=source)
+                self.assertFalse((root / 'private').exists())
+
+    def test_invalid_repository_scope_fails_before_output_creation(self):
+        spec = importlib.util.spec_from_file_location('session_reader', SCRIPT)
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            sessions = root / 'sessions'
+            sessions.mkdir()
+            with self.assertRaisesRegex(ValueError, 'repository_scope'):
+                reader.collect(sessions, root / 'private', root / 'repo', source={'repository_scope': '*', 'repos': []})
+            self.assertFalse((root / 'private').exists())
+
     def test_symlink_does_not_expand_authorized_directory(self):
         spec = importlib.util.spec_from_file_location('session_reader', SCRIPT)
         reader = importlib.util.module_from_spec(spec)

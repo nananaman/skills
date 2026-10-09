@@ -111,6 +111,8 @@ def scope_reason(path, source):
         return 'caller-excluded root'
     if metadata.get('parent_thread_id') or isinstance(metadata.get('source'), dict):
         return 'child session; correlate with parent, not independent evidence'
+    if source.get('repository_scope') == 'all' and metadata.get('id') not in source['development_roots']:
+        return 'development task classification required from caller'
     git = metadata.get('git')
     remote = git.get('repository_url') if isinstance(git, dict) else ''
     remote = remote if isinstance(remote, str) else ''
@@ -123,13 +125,23 @@ def scope_reason(path, source):
     for repository in source.get('repos', []):
         if slug and slug == repository['id']:
             return repository
-        if cwd and repository.get('cwd') and Path(cwd).resolve() == Path(repository['cwd']).resolve():
+        if (source.get('repository_scope') != 'all' or not remote) and cwd and repository.get('cwd') and Path(cwd).resolve() == Path(repository['cwd']).resolve():
             return repository
+    if source.get('repository_scope') == 'all':
+        if isinstance(git, dict) and any(isinstance(git.get(key), str) and git[key].strip() for key in ('repository_url', 'commit_hash', 'branch')):
+            return {'id': slug or None, 'information_scope': None}
+        return 'repository context unknown; caller classification required'
     return 'outside configured source repositories or unresolved ownership'
 
 
 def collect(sessions, output, repo, since=None, until=None, source=None):
     start = time.monotonic()
+    if source is not None and source.get('repository_scope', 'listed') not in ('listed', 'all'):
+        raise ValueError('repository_scope must be listed or all')
+    if source is not None and source.get('repository_scope') == 'all':
+        roots = source.get('development_roots')
+        if not isinstance(roots, list) or any(not isinstance(root, str) or not root.strip() for root in roots):
+            raise ValueError('all requires development_roots classified by caller')
     lower, upper = instant(since) if since else None, instant(until) if until else None
     if lower and upper and lower >= upper:
         raise ValueError('since must precede until')
@@ -209,7 +221,7 @@ def main():
     parser.add_argument('--sessions', type=Path, required=True, help='explicitly authorized file or directory')
     parser.add_argument('--output', type=Path, required=True, help='new private directory outside Git')
     parser.add_argument('--repo', type=Path, required=True, help='improvement repository, never a history scope grant')
-    parser.add_argument('--source', type=Path, help='caller source.json: allowed repo IDs/cwds and excluded roots')
+    parser.add_argument('--source', type=Path, help='caller source.json: listed/all repository selection, scope annotations and excluded roots')
     parser.add_argument('--since', help='inclusive activity timestamp with timezone')
     parser.add_argument('--until', help='exclusive activity timestamp with timezone')
     args = parser.parse_args()
