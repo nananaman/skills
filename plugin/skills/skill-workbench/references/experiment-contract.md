@@ -86,7 +86,7 @@ python3 /path/to/skill-workbench/scripts/workbench.py report \
 ```
 
 例の ordinary は train である。候補選択を確認するときは counterexample を実行し、そのチェックで採点して `--split validation` を指定する。
-run は一ケースずつ実行する。agent が予算内で候補・ケース・反復を選び、同じ反復番号の対を揃える。
+run は一ケースずつ実行する。agent は指定された評価予算がある場合だけ、その範囲で候補・ケース・反復を選び、同じ反復番号の対を揃える。未指定なら候補数・実行数・総時間の固定上限を推定せず、必要な成果を満たす、追加比較で判断に必要な情報が増えない、実際の利用枠や環境制約に達する、のいずれで終了したかを記録する。
 run は記録を保存できれば終了コード 0 を返す。評価実行の成功は `run.json` の `status` で判断する。
 `status: completed` は CLI が正常終了し最終応答を取得したという意味だけであり、課題の合格ではない。
 採点担当は run folder を読んで grading を作る。採点の変更は元の grading を消さず、別の評価実験で行う。
