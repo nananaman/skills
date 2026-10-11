@@ -52,7 +52,7 @@ case/check/run の ID は英数字・`_`・`-`。候補と suite の比較には
 diagnosis は採点済みで正常終了した train 実行だけを根拠にでき、validation/test の結果を momentum へ流し込めない。
 否定された仮説は `refuted` として新しく保存する。同じ仮説の古い active 記録も残るため、更新担当は反証側も検索する。
 
-agent が書く proposal には親 ID、診断 ID、編集予算、対象パス・層・操作・理由、検証すべき仮説を記録する。
+agent が書く proposal には親 ID、診断 ID、一度に検証する診断数と変更範囲、対象パス・層・操作・理由、検証すべき仮説を記録する。
 decision には候補 ID、比較レポート、採用・保留・棄却、理由、未確認事項を記録する。これらの意味的判断は CLI が代行しない。
 
 ## 実行例
@@ -86,7 +86,7 @@ python3 /path/to/skill-workbench/scripts/workbench.py report \
 ```
 
 例の ordinary は train である。候補選択を確認するときは counterexample を実行し、そのチェックで採点して `--split validation` を指定する。
-run は一ケースずつ実行する。agent が予算内で候補・ケース・反復を選び、同じ反復番号の対を揃える。
+run は一ケースずつ実行し、同じ反復番号の対を揃える。候補・ケース・反復を選ぶときの上限と終了条件は[評価と更新の手順](eval-loop.md)に従う。
 run は記録を保存できれば終了コード 0 を返す。評価実行の成功は `run.json` の `status` で判断する。
 `status: completed` は CLI が正常終了し最終応答を取得したという意味だけであり、課題の合格ではない。
 採点担当は run folder を読んで grading を作る。採点の変更は元の grading を消さず、別の評価実験で行う。
