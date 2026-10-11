@@ -23,7 +23,7 @@ resultはpassed / failed / partial / unverified。未計測を0にせずnullに�
 
 decisionはadopted（採用）/ rejected（見送り）/ held（保留）/ no_change（変更不要）/ proposed（提案）。検証のresultとは独立し、省略時は「判断未記載」と表示する。overviewは任意の表示要点で、title・change・evaluation・reasonの4つのplain textをすべて含める。比較の実行数・範囲・限界をevaluationへ、採否の理由をreasonへ書く。省略時は既存fieldを表示する。全文のhappened・next・change・result・evidenceはHTMLの詳細とMarkdownにも保持する。
 
-保留は判断に必要な証拠や仮説などが未充足の状態、見送りは当該案の評価を終えて不採用を判断した状態として、reasonとnextに具体的な理由・再選定条件を残す。保留という表示だけで翌日の再評価を予約しない。保存済み台帳からの再開・新しい証拠・実行予算の扱いはメンテナンス本体の手順に従う。
+判断に必要な証拠や仮説が足りなければ保留、比較を終えて採用しないと決めたら見送りとし、reasonとnextに理由・再選定条件を残す。保留だけで翌日の再評価を予約しない。再開・新しい証拠・試す回数などの上限はメンテナンス本体の手順に従う。
 
 ```sh
 python3 <skill-root>/scripts/render_report.py \
