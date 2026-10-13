@@ -133,13 +133,13 @@ marketplaceの追加後に個別pluginのインストールが必要です。
 
 ### Meta
 
-- **[`skill-maintenance`](./plugin/skills/skill-maintenance/SKILL.md)** — 許可された実務を全件振り返り、選んだ改善候補を評価してdraft PRへ進める。
+- **[`skill-maintenance`](./plugin/skills/skill-maintenance/SKILL.md)** — 許可された実務の振り返りと公式ガイドの確認から、選んだ改善候補を評価してdraft PRへ進める。
   - Use when: 日次等のスキル保守、未処理事例の持越し、評価候補の選別
   - Type: `model-invoked`
 - **[`apm-usage`](./plugin/skills/apm-usage/SKILL.md)** — APM で agent skill を管理・更新する手順を確認する。
   - Use when: apm.yml 更新、参照方式（path / SHA pin）の確認、global install / dotfiles 連携
   - Type: `model-invoked`
-- **[`skill-workbench`](./plugin/skills/skill-workbench/SKILL.md)** — skill・AGENTS.md・tool 指示を、実行結果に基づく更新と候補比較・構造探索で改善する。
+- **[`skill-workbench`](./plugin/skills/skill-workbench/SKILL.md)** — skill・AGENTS.md・tool 指示を、実務の結果や公式ガイドに基づく候補比較・構造探索で改善する。
   - Use when: skill 作成・改善、評価・診断・候補比較、統合・廃止、指示のレビュー・監査
   - Type: `model-invoked`
 - **[`update-skills`](./plugin/skills/update-skills/SKILL.md)** — APM skill dependency を最新化する。
