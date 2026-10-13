@@ -64,7 +64,7 @@ value: ${Math.floor(num)}
 代替する。
 
 ```yaml
-# ✅ 条件分岐は && / ||
+# ✅ 真側の値がtruthyと確認できる単純選択は && / ||
 value: ${(condition) && trueVal || falseVal}
 
 # ✅ 文字列→数値
@@ -73,6 +73,8 @@ num: ${+str}
 # ✅ 数値→文字列
 str: ${"" + num}
 ```
+
+`condition && trueVal || falseVal` は、真側の値が `0`、`false`、空文字、`null` の場合にはその値を保持しない。そうした値を選ぶ場合は `switch` などで分岐する。分岐後も使う値は前のステップで初期化し、`switch` 内で更新して後続から参照する。
 
 さらに、同じ `assign` ブロックで定義した変数はその場で参照できない。ステップを分ける。
 
