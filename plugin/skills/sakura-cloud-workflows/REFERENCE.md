@@ -43,7 +43,7 @@ step2:
 
 ## 条件分岐
 
-三項演算子は使わず、単純な値選択は `&&` / `||` で表す。
+三項演算子は使わず、真側の値がtruthyと確認できる単純な値選択だけ `&&` / `||` で表す。真側が `0`、`false`、空文字、`null` の場合は、この式で値を保持できない。
 
 ```yaml
 calc:
@@ -51,7 +51,23 @@ calc:
     label: ${(count > 0) && "has-items" || "empty"}
 ```
 
-`switch` 内で assign した変数は外側で期待どおり使えないことがある。後続ステップで使う値は、可能なら `&&` / `||` パターンで同一スコープに作る。
+真側にfalsy値を選ぶ場合は `switch` で分岐する。後続ステップでも使う変数は、前のステップで初期化し、分岐内で更新してから参照する。
+
+```yaml
+steps:
+  initial:
+    assign:
+      result: 1
+  choose:
+    switch:
+      - condition: ${args.condition}
+        steps:
+          selected:
+            assign:
+              result: 0
+  done:
+    return: ${result}
+```
 
 ## HTTP 呼び出し
 
@@ -256,7 +272,7 @@ HTTP response body が JSON 文字列のまま。`json.decode(response.body)` �
 
 ### `Unable to tokenize the rest of the input: ? ...`
 
-三項演算子を使っている。`&&` / `||` に置き換える。
+三項演算子を使っている。真側がtruthyと確認できる単純な値選択は `&&` / `||` に置き換える。それ以外は「条件分岐」の初期化と `switch` の例を使う。
 
 ### `Unable to tokenize the rest of the input: | 0`
 
