@@ -103,8 +103,8 @@ marketplaceの追加後に個別pluginのインストールが必要です。
 - **[`task-breakdown`](./plugin/skills/task-breakdown/SKILL.md)** — 合意済みの情報を独立実行可能な task 群へ分解する。
   - Use when: Design Doc、ADR、PRD、会話上の合意、ユーザー説明から tracker 用 task を設計・作成
   - Type: `user-invoked`
-- **[`create-plan`](./plugin/skills/create-plan/SKILL.md)** — issue、task、またはユーザーの実装依頼から、grill と調査を経て一時的な実装 plan を作成する。
-  - Use when: `create-plan <issue-or-task>`、個別 task やユーザー依頼の実装前設計、`plans/<task>-<slug>.md` の作成
+- **[`create-plan`](./plugin/skills/create-plan/SKILL.md)** — 計画作成を依頼されたとき、issue・task から調査と独立レビューを経て一時的な実装 plan を作成する。
+  - Use when: `create-plan <issue-or-task>`、次の実行に引き継ぐ一時的な実装計画の作成依頼、`plans/<task>-<slug>.md` の作成。通常の実装依頼や永続 Design Doc の作成には使わない
   - Type: `user-invoked`
 - **[`review-plan`](./plugin/skills/review-plan/SKILL.md)** — 作成済みの一時実装planをリスクに応じた独立担当が評価し、局所的な修正は影響範囲を確認する。
   - Use when: `create-plan`の完了gate、実装着手前のplan review、別contextでのreadiness判定
