@@ -72,7 +72,7 @@ ZIPだけを受領した場合は再build不要です。空のディレクトリ
 | Excalidraw | 公式 `@excalidraw/cli`、Node.js 22+、既存 Chrome / Edge / Chromium / Firefox。日本語の手描きフォントは初回取得・キャッシュが必要です |
 | Git / PR | Git、必要時にGitHub CLI、利用者本人の認証・操作権限 |
 | APM / update-skills | APM・Git・manifest・install scope。例の `~/ghq/...` は本人の実際の配置へ読み替えます |
-| skill-workbench / skill-maintenance | Python 3.11+。workbenchのモデル実行には対応Codex CLI、maintenanceの直接読取には許可済みローカル履歴とGit外の非公開出力先が必要です |
+| skill-workbench / skill-maintenance | Python 3.11+。workbenchのモデル実行には対応Codex CLI、maintenanceの実務の直接読取には許可済みローカル履歴とGit外の非公開出力先が必要です。公式ガイド由来の検討は履歴取得と独立して進めます |
 | skill-maintenance のCodex取得 | 許可されたMacのJSONLを直接読み、`--repo`へ改善先、`--sessions`へ許可された入力、`--output`へGit外の新しい非公開directoryを指定します。Workはhostが全対象の振り返りを依頼・回収します。旧RPC reader・collect/record CLIとは互換性がありません。既存の非公開state・結果は保持し、導入や実行版の切替は別途行います |
 | apple-container | Apple silicon Mac、macOSと `container` CLIの対応版。referenceの前提を確認します |
 | nono-sandbox-maintenance | nonoと対象sandbox / profile。macOS Seatbelt等のOS固有経路は該当OSでのみ利用します |
