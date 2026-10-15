@@ -14,7 +14,7 @@ import unittest
 import yaml
 
 
-SCRIPT = Path(__file__).resolve().parent.parent / 'scripts/check-apm-deployment.py'
+SCRIPT = Path(__file__).resolve().parent.parent / 'plugin/skills/apm-usage/scripts/check-apm-deployment.py'
 
 
 class ApmDeploymentTest(unittest.TestCase):
@@ -54,13 +54,13 @@ class ApmDeploymentTest(unittest.TestCase):
     def git(self, *args: str) -> str:
         return subprocess.check_output(['git', '-C', str(self.repo), *args], text=True)
 
-    def audit(self, *args: str) -> tuple[int, dict]:
+    def audit(self, *args: str, script: Path = SCRIPT) -> tuple[int, dict]:
         for path, value in ((self.apm / 'apm.yml', self.manifest), (self.apm / 'apm.lock.yaml', self.lock)):
             content = yaml.safe_dump(value)
             if not path.exists() or path.read_text() != content:
                 path.write_text(content)
         result = subprocess.run(
-            [sys.executable, str(SCRIPT), '--scope', 'global', '--home', str(self.home),
+            [sys.executable, str(script), '--scope', 'global', '--home', str(self.home),
              '--source-repo', str(self.repo), '--json', *args], capture_output=True, text=True,
             env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'},
         )
@@ -407,3 +407,12 @@ class ApmDeploymentTest(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn('deployment-content-mismatch', self.codes(report))
         self.assertNotIn('lock-content-mismatch', self.codes(report))
+
+    def test_copied_skill_runs_without_repository_level_scripts_or_docs(self) -> None:
+        deployed_skill = self.root / 'standalone-skill'
+        shutil.copytree(SCRIPT.parent.parent, deployed_skill)
+
+        code, report = self.audit(script=deployed_skill / 'scripts/check-apm-deployment.py')
+
+        self.assertEqual(0, code, report)
+        self.assertEqual('match', report['skills'][0]['status'])

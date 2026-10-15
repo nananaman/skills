@@ -52,6 +52,7 @@ commit / push は別途明示依頼がある場合だけ行う。
 追加・更新した manifest の参照先、SHA、scope、target を実際の差分で確認する。
 レビューの規模は `skill-workbench` の変更リスクに合わせ、依存更新だけで全 skill 本文の再監査を必須にしない。
 install 後は展開先を確認する。特に path 参照はコマンドの成功表示だけで反映済みと判断しない。
+`nananaman/skills` の反映確認や版差調査では、必要に応じて [読み取り専用の照合手順](references/deployment-audit.md) と同梱 CLI を使う。
 
 content hash mismatch が出たら manifest の実体と意図した SHA を再確認する。
 `--update` は lock 内容の受け入れを伴うため、変更内容を説明し、ユーザーが受け入れた場合だけ同じ scope の install に付ける。既に当該変更への受け入れがあれば再確認しない。

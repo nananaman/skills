@@ -1,15 +1,21 @@
 # APM の展開状態を照合する
 
-`scripts/check-apm-deployment.py` は manifest、lock、正本の Git commit、ローカル参照または APM cache、Codex と Claude の展開内容を読み取り専用で照合する。ネットワークアクセス、fetch、install、update、ファイル修正は行わない。Python 3、PyYAML、`--no-lazy-fetch` に対応する Git が必要。依存ライブラリも自動導入しない。
+[同梱 CLI](../scripts/check-apm-deployment.py) は manifest、lock、正本の Git commit、ローカル参照または APM cache、Codex と Claude の展開内容を読み取り専用で照合する。ネットワークアクセス、fetch、install、update、ファイル修正は行わない。Python 3、PyYAML、`--no-lazy-fetch` に対応する Git が必要。依存ライブラリも自動導入しない。複数の Python がある場合は、`python3 -c 'import yaml'` が通る既存の interpreter を使う。ない場合は依存不足として報告する。
+
+更新後の反映確認や、manifest・lock・Codex/Claude が異なる版に見えるときに読む。対象 scope と期待する commit を、依頼・manifest の path / SHA pin から確認して実行する。差分だけを理由に pin 更新や再 install へ進まない。
+
+`apm_usage_dir` には、実際に読んだ `apm-usage/SKILL.md` のあるディレクトリを指定する。この `references/` の親にあたる。正本 checkout なら `<checkout>/plugin/skills/apm-usage`、APM 展開先なら `~/.agents/skills/apm-usage` または `~/.claude/skills/apm-usage`、plugin cache でも同じ skill 内の配置を使う。
+`--source-repo` はスキル正本のローカル Git checkout。CLI の配置先とは別に指定し、未取得なら自動で clone / fetch しない。
 
 ```sh
-python3 scripts/check-apm-deployment.py --scope global \
+apm_usage_dir=/path/to/apm-usage
+python3 "$apm_usage_dir/scripts/check-apm-deployment.py" --scope global \
   --source-repo /path/to/skills --commit <full-sha> --json
-python3 scripts/check-apm-deployment.py --scope project --root /path/to/project \
+python3 "$apm_usage_dir/scripts/check-apm-deployment.py" --scope project --root /path/to/project \
   --source-repo /path/to/skills --commit <full-sha>
 ```
 
-`--commit` の既定値は `--source-repo` の HEAD。固定版を確認するときは、その版の commit を明示する。最新版や remote の HEAD を推測しない。必要な commit や blob がローカル Git にない場合は照合不能になる。Git の [lazy fetch を禁止するオプション](https://git-scm.com/docs/git#Documentation/git.txt---no-lazy-fetch)も明示する。
+`--commit` の既定値は `--source-repo` の HEAD。固定版を確認するときは、その版の commit を明示する。一度の実行は同じ期待 commit と比較するため、path 参照と別 SHA pin が混在する場合は、pin の SHA を指定した照合も行い、意図的な固定版と最新版への未追従を区別する。最新版や remote の HEAD を推測しない。必要な commit や blob がローカル Git にない場合は照合不能になる。Git の [lazy fetch を禁止するオプション](https://git-scm.com/docs/git#Documentation/git.txt---no-lazy-fetch)も明示する。
 
 ## 確認する範囲
 
@@ -48,4 +54,4 @@ APM 0.29 の[公式ハッシュ実装](https://github.com/microsoft/apm/blob/v0.
 python3 -m unittest tests.test_check_apm_deployment
 ```
 
-一時 Git repository と展開ディレクトリを使い、旧版、片側更新、別 worktree、変更なし、SHA pin、scope 分離、記録不足、改行ハッシュ、partial clone、読み取り拒否、入力不備などを確認する。全体の inventory と回帰テストの実行は root の `AGENTS.md` にある既存コマンドを使う。
+一時 Git repository と展開ディレクトリを使い、旧版、片側更新、別 worktree、変更なし、SHA pin、scope 分離、記録不足、改行ハッシュ、partial clone、読み取り拒否、入力不備などを確認する。このテストは正本 checkout で実行する。全体の inventory と回帰テストは、その checkout の `AGENTS.md` にある既存コマンドを使う。
