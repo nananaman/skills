@@ -4,24 +4,43 @@
 
 ## 初回の設定
 
-テンプレートを見て、対象月を入力する**日付セル**、確認する日付と金額、印刷対象シートを選ぶ。設定と実ファイルは repo 外の private な作業フォルダへ置く。以下のシート名とセルは合成例であり、実際のテンプレートに合わせて置き換える。
+テンプレートを見て、日付を設定するセル、確認する日付と金額、印刷対象シートを選ぶ。設定と実ファイルは repo 外の private な作業フォルダへ置く。以下のシート名とセルは合成例であり、実際のテンプレートに合わせて置き換える。
 
 ```json
 {
-  "month_cell": {"sheet": "Invoice", "cell": "B2"},
+  "date_inputs": [
+    {"sheet": "Invoice", "cell": "G3", "value": "issue_date"},
+    {"sheet": "Invoice", "cell": "B7", "value": "due_date"}
+  ],
   "date_checks": [
-    {"sheet": "Invoice", "cell": "B3", "day": "last", "month_offset": 0}
+    {"sheet": "Invoice", "cell": "B7", "day": "last", "month_offset": 0}
   ],
   "amount_cells": [
     {"sheet": "Invoice", "cell": "B6"}
   ],
-  "print_sheets": ["Invoice"]
+  "print_sheets": ["Invoice"],
+  "print_areas": {"Invoice": "A1:G40"}
 }
 ```
 
-`month_cell` は日付書式を持つ、数式ではない既存セルにする。指定月の初日を設定する。年・月の分割入力や文字列による月入力のテンプレートには未対応。
+`date_inputs` は既存の日付書式セルを指定する。`value` は `issue_date`（`--issue-date`）、`due_date`（`--due-date`）、`month_start`（`--month` の初日）のいずれか。発行日・期日は明示した値を使い、対象月から推測しない。`TODAY()` 等の数式セルも指定でき、列挙したセルだけ数式を除去してその日付へ置換する。発行日に `month_start` を選ぶと初日になるため、実際の発行日は `issue_date` を使う。共有数式グループ内のセルは、グループを壊さないよう日付固定の対象外として停止する。年・月の分割入力や文字列による月入力には未対応。旧 draft の `month_cell` は `date_inputs` へ置き換える。
 
-`date_checks` は `first`（初日）または `last`（末日）を検査する。`month_offset` は対象月からの月数で、翌月なら `1`。日付セルは Excel の日付として読む。日付検査が不要なら空配列にできるが、対象月自体の照合は常に行う。
+`date_checks` は `first`（初日）または `last`（末日）を対象月に対して検査する。`month_offset` は対象月からの月数で、翌月なら `1`。不要なら空配列にできるが、`date_inputs` に指定した日付の照合は常に行う。シート名の末尾空白も保持して指定する。
+
+`print_areas` は印刷プレビューで確認する範囲を明示する設定。上の範囲は合成例であり、実物の行数・列数から推測する既定値ではない。未設定なら既存の印刷範囲を維持し、それもなければ `export` は停止する。範囲を指定してもページ数・文字切れの検証完了にはならない。
+
+日付が `###` 表示になる場合は、確認した必要箇所だけ private な profile の `layout` で調整できる。以下の幅と結合も合成例であり、自動的には適用しない。
+
+```json
+"layout": {
+  "Invoice": {
+    "column_widths": {"G": 18},
+    "merge_ranges": ["B7:C7"]
+  }
+}
+```
+
+指定列の幅だけを変更する。結合は左上以外が空白の範囲に限り、既存結合と部分的に重なる場合や非空セルがあれば停止する。自動幅調整やフォント変更は行わない。調整後も最終出力の印刷プレビューを確認する。
 
 `amount_cells` は一つ以上指定する。各セルが有限の数値か確認する。金額を独立に照合できる場合は、そのセルに `"expected": "129.6"` のような期待値を追加できる。期待値を省略した検査は数値型の確認だけであり、請求金額の正しさを保証しない。税率・宛先・金額をスクリプトが決定することはない。
 
@@ -31,7 +50,8 @@
 # repo のルートから実行。private の部分は手元の作業先へ変更する。
 python3 scripts/invoice_xlsx.py prepare \
   /private/invoice/template.xlsx /private/invoice/prepared.xlsx \
-  --profile /private/invoice/profile.json --month 2026-10
+  --profile /private/invoice/profile.json --month 2026-10 \
+  --issue-date 2026-10-15 --due-date 2026-10-31
 ```
 
 1. 作成された `prepared.xlsx` を Excel 等で開き、**ブック全体を再計算**する。内容・金額を確認して `recalculated.xlsx` という別のコピーに保存する。元の `prepared.xlsx` は変更しない。テンプレートを更新したい場合は、先にテンプレートを更新して `prepare` からやり直す。
@@ -41,7 +61,8 @@ python3 scripts/invoice_xlsx.py prepare \
 python3 scripts/invoice_xlsx.py export \
   /private/invoice/prepared.xlsx /private/invoice/recalculated.xlsx \
   /private/invoice/invoice-202610.xlsx \
-  --profile /private/invoice/profile.json --month 2026-10
+  --profile /private/invoice/profile.json --month 2026-10 \
+  --issue-date 2026-10-15 --due-date 2026-10-31
 ```
 
 3. 出力を Excel 等で開き、対象月・請求日／期限・税率・宛先・請求金額・振込先を照合する。印刷プレビューで用紙、ページ数、改ページ、文字切れ、欠落、金額欄の読みやすさを確認する。印刷・送付・アップロードは手動の別操作。
@@ -50,11 +71,11 @@ python3 scripts/invoice_xlsx.py export \
 
 ## 自動確認の範囲
 
-- `prepare` は全ワークシートの数式キャッシュを削除して再計算を要求する。`export` は未計算の準備済みブックとの入力値・セル型・数式・定義名の一致を確認する。再計算ソフトが数式を書き換えた場合も停止する。
+- `prepare` は指定日付・明示的な印刷範囲・レイアウトだけを設定し、残りの全ワークシート数式キャッシュと古い計算チェーンを削除して再計算を要求する。`export` は未計算の準備済みブックとの入力値・セル型・数式・定義名の一致を確認する。再計算ソフトが数式を書き換えた場合も停止する。
 - 隠しシートを含む数式セルの計算キャッシュが欠けていたら停止する。欠落を `0` に置換しない。実際に計算された `0` は保持する。Excel エラー、非有限値、未対応の数式形式も拒否する。
 - 全セル数式を値へ置換し、不要になった計算チェーンを除去する。文字列・数値・日付・真偽値のキャッシュに対応する。
-- 指定した日付・金額を確認する。印刷対象が表示シートで、印刷範囲・用紙・向きを持ち、再計算前後で印刷設定が変わっていないことを確認する。
-- OOXML の必要な部分だけを書き換え、他のパーツはそのままコピーする。画像・書式の再生成はしない。外部リンク、マクロ、配列数式、データテーブル、構造化テーブルの計算列・集計行数式は対象外。
+- 指定した日付・金額を確認する。印刷対象が表示シートで、印刷範囲・用紙・向きを持ち、prepared と最終出力で印刷設定が変わっていないことを確認する。
+- 再計算コピーからは検証済みセルキャッシュだけを取り込み、prepared の OOXML に値固定する。印刷・書式・フォント・画像等の他パーツは prepared から維持し、再計算ソフトが変更した書式を採用しない。日付基準や入力値・数式・定義名が異なる場合は停止する。外部リンク、マクロ、配列数式、データテーブル、構造化テーブルの計算列・集計行数式は対象外。
 
 標準出力は検査件数などの JSON のみ。`print_preview: "manual_required"` は、実際の描画・印刷結果が未確認であることを示す。自動検査はキャッシュの内容の有無を検査し、計算エンジンの数学的な正しさや、人による全再計算の実施自体は証明しない。
 
