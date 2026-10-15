@@ -1,0 +1,29 @@
+{
+  "run_id": "REPLACE_WITH_RUN_ID",
+  "candidate_id": "REPLACE_WITH_CANDIDATE_ID",
+  "suite_digest": "REPLACE_WITH_SUITE_DIGEST",
+  "environment_digest": "REPLACE_WITH_ENVIRONMENT_DIGEST",
+  "case_id": "REPLACE_WITH_CASE_ID",
+  "repeat": 1,
+  "status": "not_measured",
+  "selection": {
+    "verdict": "unknown",
+    "evidence": "未採点"
+  },
+  "quality": {
+    "verdict": "unknown",
+    "evidence": "原票の必須品質checkにfailがあればfail、次にunknownがあればunknown、全passならpass。任意checkは別記"
+  },
+  "duration_seconds": null,
+  "tokens": null,
+  "rework_cycles": null,
+  "rework_evidence": "完了後の修正依頼を観測できていない",
+  "missing_reason": "未実行。取得できた値だけrun.jsonとtraceから転記する",
+  "grading_file": "REPLACE_WITH_PRIVATE_GRADING_JSON_PATH",
+  "selection_check_ids": [
+    "REPLACE_WITH_SELECTION_CHECK_ID"
+  ],
+  "quality_check_ids": [
+    "REPLACE_WITH_EACH_QUALITY_CHECK_ID"
+  ]
+}
