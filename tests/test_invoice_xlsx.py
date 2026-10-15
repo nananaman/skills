@@ -502,5 +502,73 @@ class InvoiceCliTests(unittest.TestCase):
             self.assertNotIn(b'calcChain', archive.read('xl/_rels/workbook.xml.rels'))
 
 
+    def change_defined_name_attributes(self, path, updates):
+        def change(name, data):
+            if name == 'xl/workbook.xml':
+                xml = ET.fromstring(data)
+                nodes = xml.findall('.//s:definedName', NS)
+                self.assertTrue(nodes)
+                for node in nodes:
+                    for key, value in updates.items():
+                        if value is None:
+                            node.attrib.pop(key, None)
+                        else:
+                            node.set(key, value)
+                return ET.tostring(xml)
+            return data
+        self.rewrite_zip(path, change)
+
+    def test_export_accepts_default_false_defined_name_flags_added_by_recalculation(self):
+        self.prepare()
+        for false_value in ('false', '0'):
+            with self.subTest(false_value=false_value):
+                self.output.unlink(missing_ok=True)
+                self.recalculate()
+                self.change_defined_name_attributes(self.recalculated, dict.fromkeys(('function', 'hidden', 'vbProcedure'), false_value))
+
+                result = self.export()
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                with ZipFile(self.prepared) as source, ZipFile(self.output) as output:
+                    self.assertEqual(source.read('xl/workbook.xml'), output.read('xl/workbook.xml'))
+
+    def test_export_accepts_explicit_false_defined_name_flags_becoming_unspecified(self):
+        self.change_defined_name_attributes(self.template, {'function': 'false', 'hidden': '0', 'vbProcedure': 'false'})
+        self.prepare()
+        self.recalculate()
+        self.change_defined_name_attributes(self.recalculated, dict.fromkeys(('function', 'hidden', 'vbProcedure'), None))
+
+        result = self.export()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_export_still_rejects_true_flags_and_other_defined_name_attribute_changes(self):
+        self.prepare()
+        for key, value in [('function', 'true'), ('hidden', '1'), ('vbProcedure', 'true'), ('name', 'ChangedName'), ('comment', 'false')]:
+            with self.subTest(attribute=key):
+                self.recalculate()
+                self.change_defined_name_attributes(self.recalculated, {key: value})
+
+                result = self.export()
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('入力値・数式', result.stderr)
+                self.assertFalse(self.output.exists())
+
+    def test_export_still_rejects_defined_name_scope_changes(self):
+        wb = load_workbook(self.template)
+        wb.create_sheet('Other')
+        wb.save(self.template)
+        self.prepare()
+        self.recalculate()
+        self.change_defined_name_attributes(self.recalculated, {'localSheetId': '1'})
+
+        result = self.export()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('入力値・数式', result.stderr)
+        self.assertFalse(self.output.exists())
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -290,7 +290,13 @@ def signature(book):
 def defined_names(path):
     with ZipFile(path) as archive:
         doc = minidom.parseString(archive.read('xl/workbook.xml'))
-    return sorted((tuple(sorted(node.attributes.items())), text_value(node)) for node in doc.getElementsByTagNameNS(MAIN, 'definedName'))
+    result = []
+    for node in doc.getElementsByTagNameNS(MAIN, 'definedName'):
+        # 確認済みの既定 false 属性だけ、未指定と明示 false/0 を同値にする。
+        attributes = tuple(sorted((name, value) for name, value in node.attributes.items()
+                                  if not (name in {'function', 'hidden', 'vbProcedure'} and value in {'false', '0'})))
+        result.append((attributes, text_value(node)))
+    return sorted(result)
 
 
 def print_settings(sheet):
