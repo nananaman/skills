@@ -15,7 +15,7 @@
 
 ## ローカル導入と通常の検出
 
-source checkoutには、repo rootの `.agents/plugins/marketplace.json` があり、その `source.path` は `./plugin` を指します。buildは不要です。導入を決めた利用者はrepo rootで実行します。
+source checkoutには、repo rootの `.agents/plugins/marketplace.json` があり、その `source.path` は `./plugin` を指します。plugin の導入・検出には build は不要です。同梱 Go CLI を使うときは、各 skill の手順で binary を build します。導入を決めた利用者はrepo rootで実行します。
 
 ```sh
 codex plugin marketplace add .
@@ -43,12 +43,12 @@ source checkoutのrepo rootで、commit済みの正本だけをそのまま固�
 
 ```sh
 git archive --format=zip --prefix=nananaman-skills/ HEAD:plugin \
-  > /tmp/nananaman-skills-0.2.0.zip
+  > /tmp/nananaman-skills-0.3.0.zip
 ```
 
 ZIPは一つのpluginフォルダを含みます。作成前に全件inventory・リンク・resource・秘密を検査します。`git archive` は未追跡のstate・キャッシュ・credentialsを収録しませんが、追跡済みファイルの公開可否は別途確認します。
 
-ZIPだけを受領した場合は再build不要です。空のディレクトリへ展開し、そのディレクトリに `.agents/plugins/marketplace.json` を次の内容で作成して、展開先を `codex plugin marketplace add <展開先>` で追加します。ZIP自体は単一pluginであり、marketplace catalogは含みません。
+ZIP はソースを含み、plugin の導入・検出には build は不要です。同梱 Go CLI を使うときは、展開した各 skill から binary を build します。空のディレクトリへ展開し、そのディレクトリに `.agents/plugins/marketplace.json` を次の内容で作成して、展開先を `codex plugin marketplace add <展開先>` で追加します。ZIP自体は単一pluginであり、marketplace catalogは含みません。
 
 ```json
 {
@@ -71,8 +71,8 @@ ZIPだけを受領した場合は再build不要です。空のディレクトリ
 | 文書・計画・レビュー | 対象資料・編集先・必要なagent / subagent / toolが利用可能な環境。文章作成だけならローカルCLIが不要な経路もあります |
 | Excalidraw | 公式 `@excalidraw/cli`、Node.js 22+、既存 Chrome / Edge / Chromium / Firefox。日本語の手描きフォントは初回取得・キャッシュが必要です |
 | Git / PR | Git、必要時にGitHub CLI、利用者本人の認証・操作権限 |
-| APM / update-skills | APM・Git・manifest・install scope。例の `~/ghq/...` は本人の実際の配置へ読み替えます |
-| skill-workbench / skill-maintenance | Python 3.11+。workbenchのモデル実行には対応Codex CLI、maintenanceの実務の直接読取には許可済みローカル履歴とGit外の非公開出力先が必要です。公式ガイド由来の検討は履歴取得と独立して進めます |
+| APM / update-skills | APM・Git・manifest・install scope。同梱の配置確認 CLI の build には Go 1.27.0 以降。例の `~/ghq/...` は本人の実際の配置へ読み替えます |
+| review-diff-code / skill-workbench / skill-maintenance | 同梱 CLI の build に Go 1.27.0 以降。各 skill 内の module から build し、binary は作業用ディレクトリへ置きます。workbenchのモデル実行には対応Codex CLI、maintenanceの実務の直接読取には許可済みローカル履歴とGit外の非公開出力先が必要です。公式ガイド由来の検討は履歴取得と独立して進めます |
 | skill-maintenance のCodex取得 | 許可されたMacのJSONLを直接読み、`--repo`へ改善先、`--sessions`へ許可された入力、`--output`へGit外の新しい非公開directoryを指定します。Workはhostが全対象の振り返りを依頼・回収します。旧RPC reader・collect/record CLIとは互換性がありません。既存の非公開state・結果は保持し、導入や実行版の切替は別途行います |
 | apple-container | Apple silicon Mac、macOSと `container` CLIの対応版。referenceの前提を確認します |
 | nono-sandbox-maintenance | nonoと対象sandbox / profile。macOS Seatbelt等のOS固有経路は該当OSでのみ利用します |

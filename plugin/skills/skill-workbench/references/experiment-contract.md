@@ -1,6 +1,6 @@
 # 実験データと CLI
 
-Python 3.11+ と Codex CLI を使う。補助コードは[workbench.py](../scripts/workbench.py)、入力例は[examples](../examples/)にある。
+Go 1.27.0 と Codex CLI を使う。補助コードは[workbench](../cmd/workbench/main.go)、入力例は[examples](../examples/)にある。
 診断と編集の生成、匿名比較、採否判断は agent が担当する。CLI は snapshot・実行・採点保存・比較・診断保存・閲覧を担当し、自動でモデルを改善し続けたり、正本を書き換えたりしない。
 
 ## 保存単位
@@ -57,30 +57,33 @@ decision には候補 ID、比較レポート、採用・保留・棄却、理�
 
 ## 実行例
 
+保存先の実験ディレクトリを作成してから build する。単体配布した skill もそのディレクトリを `-C` に指定できる。build の再実行は Go 標準の cache を使い、実行には生成した binary を使う。
 次の値は利用する絶対パスへ置き換える。`CANDIDATE_ID` と `RUN_PATH` は各コマンドの出力をそのまま使う。
 `config.json` のモデルは利用環境で実際に使う ID に置き換え、推論設定と context を記入する。
 
 ```sh
-python3 /path/to/skill-workbench/scripts/workbench.py snapshot \
+GOWORK=off go -C /path/to/skill-workbench build -mod=readonly -o /private/experiment/workbench ./cmd/workbench
+
+/private/experiment/workbench snapshot \
   --archive /private/experiment --source /private/bundle --metadata /private/candidate.json
 
-python3 /path/to/skill-workbench/scripts/workbench.py run \
+/private/experiment/workbench run \
   --archive /private/experiment --candidate CANDIDATE_ID \
   --suite /private/suite.json --case ordinary --fixture /private/fixture \
   --config /private/config.json --repeat 1 --timeout 600
 
-python3 /path/to/skill-workbench/scripts/workbench.py grade \
+/private/experiment/workbench grade \
   --run RUN_PATH --grading /private/grading.json
 
-python3 /path/to/skill-workbench/scripts/workbench.py remember \
+/private/experiment/workbench remember \
   --archive /private/experiment --diagnosis /private/diagnosis.json
 
-python3 /path/to/skill-workbench/scripts/workbench.py compare \
+/private/experiment/workbench compare \
   --suite /private/suite.json --runs BASELINE_RUN CANDIDATE_RUN \
   --baseline BASELINE_ID --candidate CANDIDATE_ID --split train \
   --output /private/comparison.json
 
-python3 /path/to/skill-workbench/scripts/workbench.py report \
+/private/experiment/workbench report \
   --runs BASELINE_RUN CANDIDATE_RUN --comparison /private/comparison.json \
   --output /private/review.html
 ```
@@ -110,11 +113,11 @@ HTML は応答・記録・比較結果を表示し、成果物フォルダへの
 
 ## 実行環境と限界
 
-Codex CLI 0.154.0 のローカル help にある `exec --json --ephemeral --ignore-user-config --skip-git-repo-check` を使用する。
+Mac 上の Codex CLI 0.154.0 のローカル help にある `exec --json --ephemeral --ignore-user-config --skip-git-repo-check` を使用する。
 モデル・推論設定を明示し、`workspace-write` と `approval_policy="never"` で新しいプロセスを起動する。
 ユーザー設定を読み込まないため、この adapter は任意の MCP・profile を使った評価には対応しない。必要なら adapter を明示的に拡張し、別環境として比較する。
 
-fixture、CLI version、adapter のソース digest、disabled_skills は自動記録する。`context` には適用される上位指示、global skill catalogue、tools、外部状態の版または digest を記入する。
+fixture、CLI version、binary に埋め込んだ adapter の Go ソース digest、disabled_skills は自動記録する。配置先のソースファイルは実行時に参照しない。`context` には適用される上位指示、global skill catalogue、tools、外部状態の版または digest を記入する。
 `disabled_skills` は [公式の skills.config](https://learn.chatgpt.com/docs/build-skills#enable-or-disable-local-codex-skills) を `-c` で評価プロセスだけへ渡し、ユーザーの設定を書き換えない。重複した配置先があれば各パスを指定する。
 ignore-user-config は全 skill・上位指示・環境変数の隔離を保証しない。グローバルで入った対象 skill が baseline に混入していないか、実行 trace と catalogue を確認する。
 変更対象 skill を除いた専用環境を使えない Discovery は未検証と報告する。同じ context 文字列を書くだけで実際の同条件が保証されるわけではない。
