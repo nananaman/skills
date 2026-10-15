@@ -9,6 +9,59 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'plugin/skills/skill-maintenance/
 
 
 class SessionReaderTest(unittest.TestCase):
+    def test_large_collection_streams_past_total_and_item_sizes_without_losing_tail(self):
+        spec = importlib.util.spec_from_file_location('session_reader', SCRIPT)
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source = root / 'large.jsonl'
+            # 総量64MiB・単一結果8MiBを超えても末尾と元の省略状態を保持する。
+            with source.open('w') as stream:
+                def emit(record):
+                    stream.write(json.dumps(record) + '\n')
+                emit({'type': 'session_meta', 'payload': {'id': 'large'}})
+                for number in range(57):
+                    size = (9 if number == 0 else 1) * 1024 * 1024
+                    emit({'type': 'response_item', 'payload': {
+                        'type': 'function_call_output', 'output': f'{number}:' + 'x' * size}})
+                emit({'type': 'response_item', 'payload': {
+                    'type': 'function_call_output', 'output': 'Output truncated by source'}})
+                emit({'type': 'response_item', 'payload': {
+                    'type': 'reasoning', 'encrypted_content': 'opaque-private'}})
+                emit({'type': 'response_item', 'payload': {'type': 'message', 'role': 'user',
+                    'content': [{'type': 'text', 'text': 'Tail after the large outputs'}]}})
+                emit({'type': 'event_msg', 'payload': {'type': 'task_complete'}})
+            self.assertGreater(source.stat().st_size, 64 * 1024 * 1024)
+            read = reader.read_session
+            streaming_results = []
+
+            def observe(*args, **kwargs):
+                result = read(*args, **kwargs)
+                if kwargs.get('sink') is not None:
+                    streaming_results.append(result)
+                return result
+
+            with patch.object(reader, 'read_session', side_effect=observe):
+                result = reader.collect(source, root / 'private', root / 'repo')
+            self.assertTrue(streaming_results)
+            self.assertTrue(all(not item['items'] for item in streaming_results))
+            entry = result['sessions'][0]
+            self.assertEqual(entry['status'], 'partial')
+            self.assertEqual(entry['source_gaps'], [59])
+            self.assertEqual(entry['visible_items'], 59)
+            with Path(entry['transcript']).open() as stream:
+                for number in range(57):
+                    item = json.loads(next(stream))
+                    self.assertEqual(item['line'], number + 2)
+                    self.assertEqual(item['payload']['output'],
+                                     f'{number}:' + 'x' * ((9 if number == 0 else 1) * 1024 * 1024))
+                self.assertEqual(json.loads(next(stream))['payload']['output'], 'Output truncated by source')
+                tail = json.loads(next(stream))
+                self.assertEqual(tail['line'], 61)
+                self.assertEqual(tail['payload']['content'][0]['text'], 'Tail after the large outputs')
+                self.assertEqual(stream.read(), '')
+
     def test_visible_context_preserves_calls_results_and_order_without_reasoning(self):
         spec = importlib.util.spec_from_file_location('session_reader', SCRIPT)
         reader = importlib.util.module_from_spec(spec)
