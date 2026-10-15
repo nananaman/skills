@@ -6,7 +6,7 @@
 ## 設計方針
 
 - 実行結果から原因仮説を作り、編集範囲を絞って候補を比較する。関連する過去の診断と反証を参照し、同じ追記を繰り返さない。
-- agent が診断・編集を行い、Python が候補保存、Codex 実行、採点保存、比較、診断の根拠検査を行う。モデル呼出しを内包した自動 optimizer ではない。
+- agent が診断・編集を行い、Go CLI が候補保存、Codex 実行、採点保存、比較、診断の根拠検査を行う。モデル呼出しを内包した自動 optimizer ではない。
 - 改善を主張する前に実行比較する。比較基盤のテスト成功は、skill の有効性の証明ではない。
 - 探索用アーカイブと採用版を分ける。現行 skill の廃止・統合・コード化も探索できる。
 - 評価器と task の成果を切り離さない。合格条件の誤りや実行環境の混入も確認する。
@@ -15,9 +15,7 @@
 ## リポジトリでの検証
 
 ```sh
-python3 -m unittest tests.test_skill_workbench
-python3 scripts/check-skill-inventory.py
-python3 -m unittest tests/test_check_skill_inventory.py
+GOWORK=off go -C plugin/skills/skill-workbench test ./...
 ```
 
 実行 adapter は Codex CLI を必要とする。単体・結合テストでは CLI 境界に fake executable を使い、保存・採点・比較は実物で確認する。

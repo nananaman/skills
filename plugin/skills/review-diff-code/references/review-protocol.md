@@ -65,7 +65,10 @@ helperはAdversarialのGit commandと変更path inventoryの両方からこれ�
 8. 成否にかかわらず`cleanup`を実行し、leadが作成したroster一時fileも削除してledgerを報告する。
 
 ```bash
-helper=~/.agents/skills/review-diff-code/scripts/review-diff-code.py
+skill_root=~/.agents/skills/review-diff-code
+# task_dir はリポジトリ外の作業用ディレクトリ。Go の標準 build cache を利用する。
+helper=<task-dir>/review-diff-code
+GOWORK=off go -C "$skill_root" build -mod=readonly -o "$helper" ./cmd/review-diff-code
 "$helper" prepare --mode branch --base origin/main
 "$helper" route --run-dir <run-dir> --roster-file <roster-json>
 "$helper" collect --run-dir <run-dir>

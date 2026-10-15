@@ -1,6 +1,8 @@
 # APM の展開状態を照合する
 
-[同梱 CLI](../scripts/check-apm-deployment.py) は manifest、lock、正本の Git commit、ローカル参照または APM cache、Codex と Claude の展開内容を読み取り専用で照合する。ネットワークアクセス、fetch、install、update、ファイル修正は行わない。Python 3、PyYAML、`--no-lazy-fetch` に対応する Git が必要。依存ライブラリも自動導入しない。複数の Python がある場合は、`python3 -c 'import yaml'` が通る既存の interpreter を使う。ない場合は依存不足として報告する。
+[同梱 CLI](../cmd/check-apm-deployment/main.go) は manifest、lock、正本の Git commit、ローカル参照または APM cache、Codex と Claude の展開内容を読み取り専用で照合する。監査 binary はネットワークアクセス、fetch、install、update、ファイル修正を行わない。build には Go 1.27.0 以降、監査には `--no-lazy-fetch` に対応する Git が必要。Mac で検証している。
+
+build は監査の準備として別に行う。YAML ライブラリの版と checksum は skill 内の `go.mod`・`go.sum` で固定し、初回 build では未取得の依存を取得する場合がある。Go の標準 module / build cache を使い、binary は照合対象の checkout・skill・展開先に入れず、作業用ディレクトリへ置く。監査中は準備済み binary を直接実行する。`go run` は binary の終了値 `2` をそのまま返さないため、終了値を判定する監査には使わない。
 
 更新後の反映確認や、manifest・lock・Codex/Claude が異なる版に見えるときに読む。対象 scope と期待する commit を、依頼・manifest の path / SHA pin から確認して実行する。差分だけを理由に pin 更新や再 install へ進まない。
 
@@ -9,9 +11,12 @@
 
 ```sh
 apm_usage_dir=/path/to/apm-usage
-python3 "$apm_usage_dir/scripts/check-apm-deployment.py" --scope global \
+task_dir=$(mktemp -d)
+GOWORK=off go -C "$apm_usage_dir" build -mod=readonly -o "$task_dir/check-apm-deployment" ./cmd/check-apm-deployment
+# build 成功後、今回の skill から作った binary を使う。
+"$task_dir/check-apm-deployment" --scope global \
   --source-repo /path/to/skills --commit <full-sha> --json
-python3 "$apm_usage_dir/scripts/check-apm-deployment.py" --scope project --root /path/to/project \
+"$task_dir/check-apm-deployment" --scope project --root /path/to/project \
   --source-repo /path/to/skills --commit <full-sha>
 ```
 
@@ -51,7 +56,7 @@ APM 0.29 の[公式ハッシュ実装](https://github.com/microsoft/apm/blob/v0.
 ## 合成テスト
 
 ```sh
-python3 -m unittest tests.test_check_apm_deployment
+GOWORK=off go -C /path/to/apm-usage test -mod=readonly ./...
 ```
 
-一時 Git repository と展開ディレクトリを使い、旧版、片側更新、別 worktree、変更なし、SHA pin、scope 分離、記録不足、改行ハッシュ、partial clone、読み取り拒否、入力不備などを確認する。このテストは正本 checkout で実行する。全体の inventory と回帰テストは、その checkout の `AGENTS.md` にある既存コマンドを使う。
+一時 Git repository と展開ディレクトリを使い、旧版、片側更新、別 worktree、変更なし、SHA pin、scope 分離、記録不足、改行ハッシュ、partial clone、読み取り拒否、入力不備などを確認する。skill 単体にもテストを同梱している。全体の inventory と回帰テストは、その checkout の `AGENTS.md` にあるコマンドを使う。
