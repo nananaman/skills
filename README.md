@@ -68,6 +68,16 @@ marketplaceの追加後に個別pluginのインストールが必要です。
 別端末への導入、ChatGPT cloudでの利用、workspace共有は別途設定してください。
 仕様は[公式marketplace設定ガイド](https://developers.openai.com/plugins/build/plugins#add-a-marketplace-from-the-cli)と[プラグインのインストール手順](https://learn.chatgpt.com/docs/plugins#install-and-use-a-plugin)も参照してください。
 
+## 実行補助 CLI
+
+実行用スクリプトは Go 1.27.0 以降を使います。`apm-usage`、`review-diff-code`、`skill-maintenance`、`skill-workbench` は、それぞれの skill 内に独立した Go module を同梱しています。plugin 全体・APM の単一 skill のどちらでも同じソースから build します。実行方法は各 skill の参照資料に記載しています。
+
+呼出では `GOWORK=off` を指定し、配布先の別 project の `go.work` に依存させません。Go 標準の module / build cache を使い、生成した binary は repo・skill・監査対象の外にある作業ディレクトリへ置きます。初回 build に依存取得が必要な場合は準備として行い、終了値を使う処理は build 成功後の binary を直接呼び出します。Python・PyYAML はこれらの CLI の実行に不要です。検証対象は Mac です。
+
+0.3.0 で旧 `.py` CLI を置き換えています。既存の導入済みコピーはマージだけでは切り替わりません。plugin / APM の更新と、旧 script を直呼び出しする caller の切替は、依頼された環境・scope で別途行ってください。JSON・終了値・既存保存データの契約を保ち、旧実装への wrapper は設けません。
+
+repo の inventory は root から `GOWORK=off go run -mod=readonly ./scripts/check-skill-inventory --root .` で確認します。binary を別の場所で実行する場合も `--root` へ正本 checkout を明示します。テストは [AGENTS.md](./AGENTS.md) のコマンドを使います。
+
 ## 分類
 
 物理配置は `plugin/skills/` に統一し、以下の一覧で用途別に分類します。

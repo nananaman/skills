@@ -10,10 +10,11 @@
 
 本人が許可した端末と履歴pathだけを使う。通常は元CODEX_HOMEのsessions。特定fileだけの許可をdirectoryへ広げず、拒否を別端末・DB・reader・権限拡大で迂回しない。callerが許可したrepo選択、指定期間、回収済み対象、除外対象を確認して今回の対象を決める。metadataだけで絞れるscope外の本文は読まない。
 
-明示的に許可されたfileまたはdirectoryへ直接readerを使う。各実行で改善先を--repoへ渡す。これは出力境界の検査であり、入力scopeを許可する引数ではない。
+Go 1.27.0以降を使い、作業用directoryへCLIをbuildしてから実行する。標準のbuild cacheを使うため独自の導入処理は不要。明示的に許可されたfileまたはdirectoryへ直接readerを使う。各実行で改善先を--repoへ渡す。これは出力境界の検査であり、入力scopeを許可する引数ではない。
 
 ```sh
-python3 <skill-root>/scripts/session_reader.py \
+GOWORK=off go -C <skill-root> build -mod=readonly -o <task-dir>/session-reader ./cmd/session-reader
+<task-dir>/session-reader \
   --sessions <authorized-file-or-directory> --repo <improvement-checkout> \
   --source <private-source.json> \
   --output <new-private-directory-outside-git> \

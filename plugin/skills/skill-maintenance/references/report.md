@@ -29,8 +29,11 @@ decisionはadopted（採用）/ rejected（見送り）/ held（保留）/ no_ch
 
 判断に必要な証拠や仮説が足りなければ保留、比較を終えて採用しないと決めたら見送りとし、reasonとnextに理由・再選定条件を残す。保留だけで翌日の再評価を予約しない。再開・新しい証拠・試す回数などの上限はメンテナンス本体の手順に従う。
 
+Go 1.27.0以降で作業用directoryへbuildして実行する。HTMLテンプレートとtimezoneデータはbinaryへ同梱されるため、build後の実行にsource checkoutは不要。
+
 ```sh
-python3 <skill-root>/scripts/render_report.py \
+GOWORK=off go -C <skill-root> build -mod=readonly -o <task-dir>/render-report ./cmd/render-report
+<task-dir>/render-report \
   --input <sanitized-report.json> --repo <improvement-checkout> \
   --output <new-private-directory-outside-git>
 ```
