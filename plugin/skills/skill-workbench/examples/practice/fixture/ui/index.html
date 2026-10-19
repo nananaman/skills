@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>通知先ごとの配送数</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 20px; font: 16px/1.5 system-ui, sans-serif; }
+main { max-width: 900px; margin: auto; }
+.row { display: grid; grid-template-columns: 300px 1fr 48px; gap: 12px; margin: 20px 0; align-items: center; }
+.label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track { height: 24px; min-width: 180px; background: #eee; }
+.bar { height: 100%; background: #176b5b; }
+button { font: inherit; }
+</style>
+<main>
+<h1>通知先ごとの配送数</h1>
+<p>配送が完了した件数。数値は右端にも表示しています。</p>
+<div class="row"><span class="label">開発</span><div class="track"><div class="bar" style="width:80%"></div></div><span>80件</span></div>
+<div class="row"><span class="label">東京本社の夜間障害対応と翌営業日の引き継ぎを担当する通知先グループ</span><div class="track"><div class="bar" style="width:60%"></div></div><span>60件</span></div>
+<div class="row"><span class="label">OperationsEscalationNotificationDestinationForRegionalHandoverWithoutAnySpaces</span><div class="track"><div class="bar" style="width:40%"></div></div><span>40件</span></div>
+<button type="button" onclick="window.print()">この集計を印刷</button>
+</main>
+</html>
