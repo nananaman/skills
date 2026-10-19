@@ -20,7 +20,7 @@ description: Excalidraw の手描き図を編集可能な .excalidraw とロー�
 `excalidraw --version` と `excalidraw render --help` で利用可能な版・オプションを確認する。必要に応じて公式 README と照合する。
 ローカル描画には Node.js 22 以上と、既存の Chrome / Edge / Chromium / Firefox が必要。CLI はブラウザをダウンロードしない。未検出なら実在する binary を `--browser-path` で指定する。
 
-この環境の CLI pin は dotfiles の `home/.config/mise/config.toml` にある `npm:@excalidraw/cli`。CLI が未導入なら、依頼の許可範囲で管理された版を導入する。ホストへの適用が依頼範囲にない場合は、作業ディレクトリ内の一時導入で確認する。単に作図するために pin やグローバル設定を更新しない。
+CLI の管理元と pin は、その環境の実際の設定で確認する。未導入なら、管理された pin があればその版を使い、依頼の許可範囲で導入する。ホストへの適用が依頼範囲にない場合は、作業ディレクトリ内の一時導入で確認する。単に作図するために pin やグローバル設定を更新しない。
 
 `render` はローカル実行であり、アカウントや API キーを要求しない。Excalidraw+ の login、scene upload、外部共有は作図依頼から推測しない。
 
