@@ -166,7 +166,7 @@ def compare(suite: dict, records: list, baseline: str, proposed: str, split: str
     rows = []
     counts = dict.fromkeys(("improved", "regressed", "unchanged", "unknown"), 0)
     required_regression = False
-    deltas = {"duration_seconds": [], "tokens": []}
+    deltas = {"duration_seconds": [], "tokens": [], "cost_usd": []}
     for case_id, case in cases.items():
         repeats = sorted({key[2] for key in indexed if key[1] == case_id} or {1})
         for repeat in repeats:
@@ -298,7 +298,7 @@ def execute(archive, ident, suite, case_id, fixture, config, repeat=1, timeout=6
     record = {"id": folder.name, "candidate": ident, "suite": digest(suite), "case": case_id, "repeat": repeat,
               "entrypoint": None if candidate_record["without_skill"] else entry,
               "environment": digest(environment), "status": status, "returncode": returncode,
-              "checks": {}, "metrics": {"duration_seconds": duration, "tokens": tokens if measured else None},
+              "checks": {}, "metrics": {"duration_seconds": duration, "tokens": tokens if measured else None, "cost_usd": None},
               "artifacts": artifact_digests(folder)}
     write_new(folder / "run.json", record)
     write_new(folder / "run-digest.json", digest(record))
