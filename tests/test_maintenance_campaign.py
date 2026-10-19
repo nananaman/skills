@@ -22,19 +22,53 @@ class CampaignTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.folder = self.root / 'campaign'
 
+    def test_new_campaign_cannot_reserve_uncontracted_legacy_cases(self):
+        # Arrange: old results stay v1, but a new campaign must fix its contract first.
+        plan = self.plan()
+        plan['suite']['version'] = 1
+        for case in plan['suite']['cases']:
+            del case['contract']
+        # Act / Assert
+        with self.assertRaisesRegex(ValueError, 'contract'):
+            MODULE.create(self.folder, plan)
+        self.assertFalse(self.folder.exists())
+
+    def test_legacy_campaign_remains_readable_but_cannot_claim_or_gain_a_new_gate(self):
+        # Arrange: construct a historical v1 ledger without upgrading its cases.
+        plan = self.plan(); plan['suite']['version'] = 1
+        for case in plan['suite']['cases']:
+            del case['contract']
+        self.folder.mkdir()
+        MODULE.wb.write_new(self.folder / 'plan.json', plan)
+        MODULE.save(self.folder, {'version': 1, 'plan_digest': MODULE.wb.digest(plan),
+                                 'attempts': [], 'selection': None})
+        # Act / Assert
+        self.assertEqual(0, MODULE.summarize(self.folder)['attempts'])
+        with self.assertRaisesRegex(ValueError, 'legacy'):
+            MODULE.claim(self.folder, 'old', 'broken', 1, 1)
+        with self.assertRaisesRegex(ValueError, 'legacy'):
+            MODULE.gate(self.folder, 'reviewer', 'unused', 'do not rescore')
+        summary = MODULE.summarize(self.folder)
+        with self.assertRaisesRegex(ValueError, 'legacy'):
+            MODULE.select(self.folder, 'reviewer', 'hold', summary['evidence_digest'], 'keep old results')
+        self.assertEqual([], MODULE.status(self.folder)['attempts'])
+        self.assertIsNone(MODULE.status(self.folder)['selection'])
+
     def recorded_run(self, attempt, verdict='pass', environment='frozen', seconds=1):
         wb = MODULE.wb
         plan = self.plan()
         folder = self.root / ('run' + attempt['id'])
         folder.mkdir()
         wb.write_new(folder / 'suite.json', plan['suite'])
+        case = next(c for c in plan['suite']['cases'] if c['id'] == attempt['case'])
+        wb.write_new(folder / 'grading-contract.json', wb.grading_contract(case))
         record = {'id': folder.name, 'candidate': attempt['candidate'], 'case': attempt['case'],
                   'repeat': attempt['repeat'], 'suite': wb.digest(plan['suite']), 'environment': environment,
                   'status': 'completed', 'metrics': {'duration_seconds': seconds, 'tokens': None, 'cost_usd': None},
                   'checks': {}, 'artifacts': wb.artifact_digests(folder)}
         wb.write_new(folder / 'run.json', record)
         wb.write_new(folder / 'run-digest.json', wb.digest(record))
-        wb.grade(folder, {'grader': 'independent', 'checks': {
+        wb.grade(folder, {'grader': 'independent', 'contract_digest': wb.grading_input(folder)['contract_digest'], 'checks': {
             key: {'verdict': verdict, 'evidence': 'fixture observation'} for key in ('outcome','honesty')}})
         return folder
 
@@ -176,9 +210,9 @@ class CampaignTest(unittest.TestCase):
 
     @staticmethod
     def plan():
-        return {'version': 1, 'baseline': 'old', 'candidate': 'new',
+        plan = {'version': 1, 'baseline': 'old', 'candidate': 'new',
                 'proposer': 'editor', 'environment': 'frozen', 'budget': {'max_runs': 2, 'max_seconds': 60},
-                'suite': {'version': 1, 'mode': 'execution', 'entrypoint': 'SKILL.md',
+                'suite': {'version': 2, 'mode': 'execution', 'entrypoint': 'SKILL.md',
                           'cases': [{'id': name, 'prompt': 'Verify the output', 'split': split,
                                      'checks': [{'id': 'outcome', 'criterion': 'Correct output', 'required': True},
                                                 {'id': 'honesty', 'criterion': 'No false success', 'required': True}]
@@ -186,3 +220,8 @@ class CampaignTest(unittest.TestCase):
                 'cases': {name: {'family': name, 'origin': 'synthetic', 'normal': name == 'ordinary',
                                  'false_success_check': 'honesty', 'evidence': 'sanitized example'}
                           for name in ('broken','ordinary','fresh')}}
+        for case in plan['suite']['cases']:
+            case['contract'] = {'source_prompt': case['prompt'], 'requirements': [
+                {'text': case['prompt'], 'checks': [c['id'] for c in case['checks']],
+                 'surfaces': ['artifact', 'tool_stdout', 'final_answer']}], 'reviewed_by': 'case-owner', 'review_note': 'Synthetic ledger test.'}
+        return plan

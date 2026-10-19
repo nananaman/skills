@@ -82,12 +82,15 @@ Executionだけを調べる場合は、suiteを実験領域へ複製し `mode` �
 
 ## 採点と同条件比較
 
-新しい文脈の採点担当へ課題、suiteのcheck、最終成果物、必要なtraceを渡す。
+実行前に、合成例のcontractを対象ケースの元依頼・条件句・観測範囲へ合わせてレビューする。
+新しい文脈の採点担当へ `grading-input` が取り出した凍結済みの採点入力、最終成果物、必要なtraceを渡す。観測範囲を別の委任文で広げない。
 編集意図、候補の新旧、期待する勝者は渡さない。主担当だけで確認した場合は自己確認と明記する。
 [grading例](../grading.json) と同じ構造で、このcaseの全checkに `pass | fail | unknown` と
-具体的なファイル・trace上の証拠を付けて `$EXP/grading.json` に保存する。
+具体的なファイル・trace上の証拠と、採点入力のcontract_digestを付けて `$EXP/grading.json` に保存する。
 
 ```sh
+python3 "$WORKBENCH" grading-input --run "$RUN_PATH" --output "$EXP/grading-input.json"
+# この凍結済み入力を採点担当へ渡してから、返された採点を保存する。
 python3 "$WORKBENCH" grade --run "$RUN_PATH" --grading "$EXP/grading.json"
 ```
 

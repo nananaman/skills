@@ -106,9 +106,41 @@ def snapshot(archive: Path, source: Path, metadata: dict) -> str:
     return ident
 
 
+OBSERVATION_SURFACES = {"artifact", "tool_stdout", "tool_arguments", "assistant_message", "final_answer"}
+
+
+def validate_contract(case):
+    contract = case["contract"]
+    require(isinstance(contract, dict) and set(contract) == {
+        "source_prompt", "requirements", "reviewed_by", "review_note"}, "invalid case contract")
+    for key in ("source_prompt", "review_note"):
+        require(isinstance(contract[key], str) and contract[key].strip(), f"contract {key} required")
+    identifier(contract["reviewed_by"])
+    requirements = contract["requirements"]
+    require(isinstance(requirements, list) and requirements, "contract requirements required")
+    checks = {check["id"] for check in case["checks"]}
+    covered = set()
+    for requirement in requirements:
+        require(isinstance(requirement, dict) and set(requirement) == {"text", "checks", "surfaces"},
+                "invalid requirement fields")
+        require(isinstance(requirement["text"], str) and requirement["text"].strip(), "requirement text required")
+        require(requirement["text"] in contract["source_prompt"], "requirement missing from source")
+        require(requirement["text"] in case["prompt"], "requirement missing from replay")
+        targets = requirement["checks"]
+        require(isinstance(targets, list) and targets and all(isinstance(c, str) for c in targets) and
+                len(set(targets)) == len(targets), "invalid requirement checks")
+        require(set(targets) <= checks, "requirement check is unknown")
+        surfaces = requirement["surfaces"]
+        require(isinstance(surfaces, list) and surfaces and all(isinstance(s, str) for s in surfaces) and
+                len(set(surfaces)) == len(surfaces) and set(surfaces) <= OBSERVATION_SURFACES,
+                "invalid observation surfaces")
+        covered.update(targets)
+    require(covered == checks, "every check needs an observation scope")
+
+
 def validate_suite(suite: dict):
     require(set(suite) == {"version", "mode", "entrypoint", "cases"}, "invalid suite fields")
-    require(suite["version"] == 1, "unsupported suite version")
+    require(type(suite["version"]) is int and suite["version"] in {1, 2}, "unsupported suite version")
     require(suite["mode"] in {"execution", "discovery"}, "invalid mode")
     entry = suite["entrypoint"]
     require(entry is None or (isinstance(entry, str) and entry and not Path(entry).is_absolute()
@@ -116,7 +148,8 @@ def validate_suite(suite: dict):
     require(isinstance(suite["cases"], list) and suite["cases"], "cases are required")
     ids = set()
     for case in suite["cases"]:
-        require(set(case) == {"id", "prompt", "split", "checks"}, "invalid case fields")
+        fields = {"id", "prompt", "split", "checks"} | ({"contract"} if suite["version"] == 2 else set())
+        require(set(case) == fields, "invalid case fields")
         identifier(case["id"])
         require(case["id"] not in ids, "duplicate case id")
         ids.add(case["id"])
@@ -131,6 +164,8 @@ def validate_suite(suite: dict):
             checks.add(check["id"])
             require(isinstance(check["criterion"], str) and check["criterion"].strip(), "criterion is required")
             require(type(check["required"]) is bool, "required must be boolean")
+        if suite["version"] == 2:
+            validate_contract(case)
 
 
 def validate_checks(checks: dict, case: dict):
@@ -141,6 +176,15 @@ def validate_checks(checks: dict, case: dict):
         require(set(check) == {"verdict", "evidence"}, "invalid grading fields")
         require(check["verdict"] in {"pass", "fail", "unknown"}, "invalid verdict")
         require(isinstance(check["evidence"], str) and check["evidence"].strip(), "evidence is required")
+
+
+def grading_contract(case):
+    payload = {
+        "instructions": "Grade each check using its registered requirement and observation surfaces only. "
+                        "Treat tool_stdout and tool_arguments as distinct surfaces; preserve source qualifiers. "
+                        "Keep missing evidence unknown. Do not redefine requirements after seeing results.",
+        "case": case}
+    return {**payload, "contract_digest": digest(payload)}
 
 
 def compare(suite: dict, records: list, baseline: str, proposed: str, split: str) -> dict:
@@ -209,6 +253,7 @@ def compare(suite: dict, records: list, baseline: str, proposed: str, split: str
 
 def execute(archive, ident, suite, case_id, fixture, config, repeat=1, timeout=600):
     validate_suite(suite)
+    require(suite["version"] == 2, "new execution requires a version 2 case contract")
     candidate_record = candidate(archive, ident)
     require(type(repeat) is int and repeat > 0, "repeat must be positive")
     require(type(timeout) in {int, float} and math.isfinite(timeout) and timeout > 0, "invalid timeout")
@@ -249,6 +294,7 @@ def execute(archive, ident, suite, case_id, fixture, config, repeat=1, timeout=6
     folder = archive.resolve() / "runs" / uuid.uuid4().hex
     folder.mkdir(parents=True)
     write_new(folder / "suite.json", suite)
+    write_new(folder / "grading-contract.json", grading_contract(case))
     write_new(folder / "environment.json", environment)
     with tempfile.TemporaryDirectory(prefix="skill-eval-") as temporary:
         temporary = Path(temporary)
@@ -257,6 +303,14 @@ def execute(archive, ident, suite, case_id, fixture, config, repeat=1, timeout=6
         require(file_digests(work) == fixture_files, "fixture changed during copy")
         shutil.copytree(archive / "candidates" / ident / "files", work, dirs_exist_ok=True)
         prompt = case["prompt"]
+        if suite["version"] == 2:
+            scope = []
+            for requirement in case["contract"]["requirements"]:
+                item = {"requirement": requirement["text"], "surfaces": requirement["surfaces"]}
+                if item not in scope:
+                    scope.append(item)
+            # Only source requirements and observation boundaries enter execution, never the rubric.
+            prompt += "\n\nObservation scope for these requirements (fixed before execution):\n" + json.dumps(scope, ensure_ascii=False)
         entry = suite["entrypoint"]
         if suite["mode"] == "execution" and entry:
             if candidate_record["without_skill"]:
@@ -360,22 +414,54 @@ def load_run(folder):
     require(record["id"] == folder.name, "run id mismatch")
     require(digest(record) == read(folder / "run-digest.json"), "run digest mismatch")
     require(artifact_digests(folder) == record["artifacts"], "artifact digest mismatch")
+    packet = _grading_input(folder, record) if read(folder / "suite.json")["version"] == 2 else None
     if (folder / "grading.json").exists():
         grading = read(folder / "grading.json")
         require(grading["run_digest"] == digest(record), "grading run digest mismatch")
+        if packet is not None:
+            require(grading.get("contract_digest") == packet["contract_digest"],
+                    "grading contract mismatch")
         record["checks"] = grading["checks"]
     return record
 
 
 def grade(folder, grading):
+    require(isinstance(grading, dict), "grading must be an object")
     record = load_run(folder)
-    require(set(grading) == {"grader", "checks"}, "invalid grading fields")
-    require(isinstance(grading["grader"], str) and grading["grader"].strip(), "grader is required")
     suite = read(folder / "suite.json")
+    validate_suite(suite)
+    fields = {"grader", "checks"}
+    if suite["version"] == 2:
+        require(grading.get("contract_digest") == grading_input(folder)["contract_digest"],
+                "grading contract mismatch; use the frozen grading-input packet")
+        fields.add("contract_digest")
+    require(set(grading) == fields, "invalid grading fields")
+    require(isinstance(grading["grader"], str) and grading["grader"].strip(), "grader is required")
     case = next(case for case in suite["cases"] if case["id"] == record["case"])
     validate_checks(grading["checks"], case)
     require(set(grading["checks"]) == {check["id"] for check in case["checks"]}, "all checks must be graded")
     write_new(folder / "grading.json", {**grading, "run_digest": digest(record)})
+
+
+def grading_input(folder):
+    """Export the run's frozen case for a grader, without candidate names or proposed changes."""
+    return _grading_input(folder, load_run(folder))
+
+
+def _grading_input(folder, record):
+    suite = read(folder / "suite.json")
+    validate_suite(suite)
+    require(suite["version"] == 2, "legacy run has no pre-execution contract")
+    require(record["suite"] == digest(suite), "suite digest mismatch")
+    case = next(case for case in suite["cases"] if case["id"] == record["case"])
+    require((folder / "grading-contract.json").is_file(), "missing frozen grading contract")
+    packet = read(folder / "grading-contract.json")
+    require(set(packet) == {"instructions", "case", "contract_digest"} and packet["case"] == case,
+            "frozen grading contract mismatch")
+    require(isinstance(packet["instructions"], str) and packet["instructions"].strip() and
+            packet["contract_digest"] == digest({k: v for k, v in packet.items() if k != "contract_digest"}),
+            "frozen grading contract digest mismatch")
+    return packet
 
 
 def report(folders, comparison):
@@ -464,6 +550,9 @@ def main():
     grading = commands.add_parser("grade", help="attach independent, evidence-backed grading")
     grading.add_argument("--run", type=Path, required=True)
     grading.add_argument("--grading", type=Path, required=True)
+    packet = commands.add_parser("grading-input", help="export frozen requirements and observation scopes")
+    packet.add_argument("--run", type=Path, required=True)
+    packet.add_argument("--output", type=Path, required=True)
     comp = commands.add_parser("compare", help="compare paired runs; never promotes a candidate")
     comp.add_argument("--suite", type=Path, required=True)
     comp.add_argument("--runs", nargs="+", type=Path, required=True)
@@ -488,6 +577,11 @@ def main():
         elif args.command == "grade":
             grade(args.run, read(args.grading))
             print(args.run / "grading.json")
+        elif args.command == "grading-input":
+            require(not args.output.resolve().is_relative_to(args.run.resolve()),
+                    "grading-input output must be outside the run archive")
+            write_new(args.output, grading_input(args.run))
+            print(args.output)
         elif args.command == "compare":
             result = compare(read(args.suite), [load_run(path) for path in args.runs],
                              args.baseline, args.candidate, args.split)

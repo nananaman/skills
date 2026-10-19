@@ -57,6 +57,7 @@ def locked(folder):
 
 def create(folder, plan):
     wb.validate_suite(plan['suite'])
+    require(plan['suite']['version'] == 2, 'new campaign requires version 2 case contracts')
     require(plan['version'] == 1 and plan['baseline'] != plan['candidate'], 'invalid candidates/version')
     for key in ('baseline', 'candidate', 'proposer'):
         wb.identifier(plan[key])
@@ -100,6 +101,7 @@ def claim(folder, candidate, case_id, repeat, timeout):
     with locked(folder) as state:
         require('gate' not in state, 'campaign frozen after gate')
         plan = wb.read(folder / 'plan.json')
+        require(plan['suite']['version'] == 2, 'legacy campaign cannot claim without pre-execution contracts')
         require(candidate in (plan['baseline'], plan['candidate']), 'unknown candidate')
         case = next((c for c in plan['suite']['cases'] if c['id'] == case_id), None)
         require(case is not None, 'unknown case')
@@ -237,6 +239,7 @@ def review_input(plan, state, reviewer, evidence_digest, reason):
 def select(folder, reviewer, decision, evidence_digest, reason):
     with locked(folder) as state:
         plan = wb.read(folder / 'plan.json')
+        require(plan['suite']['version'] == 2, 'legacy campaign cannot gain a new selection after execution')
         require(state['selection'] is None, 'selection is immutable; create new campaign')
         require(not any(a['case'] in {c['id'] for c in plan['suite']['cases'] if c['split'] == 'test'}
                         for a in state['attempts']), 'holdout already used')
@@ -253,6 +256,7 @@ def select(folder, reviewer, decision, evidence_digest, reason):
 def gate(folder, reviewer, evidence_digest, reason):
     with locked(folder) as state:
         plan = wb.read(folder / 'plan.json')
+        require(plan['suite']['version'] == 2, 'legacy campaign cannot gain a new contract after execution')
         summary = review_input(plan, state, reviewer, evidence_digest, reason)
         require(state['selection'] is not None and state['selection']['decision'] == 'approve', 'not selected')
         for split in ('train', 'validation', 'test'):

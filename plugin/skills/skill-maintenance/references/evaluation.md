@@ -14,6 +14,7 @@
 成功例と失敗例、通常処理を壊さないケース、誤った成功報告を検出する必須 check を含める。
 チェックは正解の語句への一致ではなく、成果物・模擬外部ツールの状態・実行記録と報告の一致を判定する。
 採点器は既知の良い出力、悪い出力、証拠不足の出力で校正する。
+新規実行にはworkbenchの[版2 contract](../../skill-workbench/references/experiment-contract.md#再現条件と観測範囲を実行前に固定する)を使う。匿名化した元依頼から保持する条件句と、stdout・コマンドpayload・応答・成果物のどこを採点するかを、再現promptと採点入力で一致させてから起動する。収集不足や転記・採点条件の不整合を、実行担当の失敗へ置き換えない。
 
 提案・編集担当には train の必要な観測だけを渡す。採点用正解・validation/test の詳細は渡さない。
 最終確認は、選択済みの候補に対し、その候補の編集・選択に使わなかった family で行う。
@@ -26,6 +27,7 @@
 [plan の合成例](../examples/campaign.json) を非公開領域へコピーし、候補 ID、suite、family、根拠、
 実際の環境 digest、今回許可された予算を記入する。過去候補の予算を流用せず、未指定なら budget は `{}`。
 CLI は新しい campaign directory を作る。既存の target/source/state/report-config は変更しない。
+新規campaignは版2のsuiteだけを受け付ける。旧版のcampaignは記録の読込・比較・回収を続けられるが、新しいclaim・select・採用gateは拒否する。過去の採点へ事後contractを追加しない。
 
 実行 host は、本番の鍵・元ログ・採点用正解が実行側から読めない限定環境を用意し、
 模擬外部ツールだけを接続する。モデル・推論設定・fixture・上位指示・tool・評価器を固定し、
@@ -98,10 +100,21 @@ gate 確定後は追加試行を凍結する。正常終了・gate 成功は採�
 合成例か実環境か・独立判断・停止理由・未実施範囲を記す。生 trace を添付せず、固定 renderer へ渡す。
 日次の対象全数・取得・振り返り・残件は既存台帳から別に集計する。
 
-## Harness² から採る範囲
+## Harness² の考え方と独自実装の対応
 
 [公式 README（固定 commit）](https://github.com/google-research/harness2/blob/1cfe254e8d25b15f37048c3730134686abe60335/README.md)
-の Propose–Probe–Compose と、採用済みの観測を次の改善へ戻す考え方を、既存 workbench の
-候補 snapshot・比較・train 診断へ接続する。新しい optimizer や依存 package は導入しない。
-公式 CLI は既定ベンチマーク向けで、Codex executor は sandbox 無効と明記されているため使用しない。
-上流の deterministic demo・upstream tests・scripted adapter の成功は、この接続や LLM 改善の実証に流用しない。
+の Propose–Probe–Compose と、根拠のある観測を次の改訂へ戻す考え方を、独自のスキル改善・評価手順へ取り入れる。
+Harness²本体のimport・公式CLI起動・公式optimizerの呼出しはない。既存workbenchへの運用上の対応づけであり、公式アルゴリズムの再実装や同等性の主張ではない。
+
+| 考え方 | 現在の手順とコード根拠 | 未実装・差異 |
+| --- | --- | --- |
+| Propose：変更仮説を候補にする | agentが編集し、[workbench.py](../../skill-workbench/scripts/workbench.py)の`snapshot`に渡すmetadataで親・仮説・構造を指定し、ファイルを固定する | 提案生成をCLIは自動化しない。snapshotはこのPR以前から存在する |
+| Probe：同じ課題で行動差を確かめる | 同ファイルの`execute`・`compare`で同じsuite・環境・case・repeatの対を要求する。[campaign.py](../scripts/campaign.py)の`claim`・`finish`で予算、重複、証跡との対応を保持する | 公式probe executorは使わない。公式は正解フィードバックなしの対比を中心にするが、この手順は独立採点も使うため同じ方法ではない |
+| Compose：対比をもとに組み合わせを作る | [workbenchの構造探索](../../skill-workbench/SKILL.md#外側の構造探索)でagentが変更を組み合わせ、`snapshot`の複数`parents`で由来を保存し、組合せ全体を再比較する | parentsの記録自体は合成処理ではない。複数変更を自動合成・競合解決するコードはない |
+| 観測を次の改訂へ戻す | 既存`remember`が採点済みtrain実行のdigest・根拠・反証・更新方向を保存し、担当が関連する診断だけを取り出す | 診断生成・検索・反映はagentが担い、永続improvement harnessを自動更新する再帰schedulerはない |
+
+このPRで新しく加えたのは比較台帳・独立gate・制限付きrunnerと事前contractであり、既存snapshot・compare・rememberをHarness²由来の新機能とは数えない。
+単に名称を対応づけたことを改善効果の根拠にせず、実際の候補・行動差・独立採点・次の診断まで記録できた範囲を報告する。
+公式の[再帰処理](https://github.com/google-research/harness2/blob/1cfe254e8d25b15f37048c3730134686abe60335/harness2/core/recursion.py)を自動実行する機能は含めない。
+公式のnetwork unrestricted／sandbox disabled設定を流用せず、既存のsandbox・承認・通信制約を維持する。
+上流の deterministic demo・upstream tests・scripted adapter の成功は、この独自基盤や LLM 改善の実証に流用しない。

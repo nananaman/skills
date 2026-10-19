@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "mode": "execution",
   "entrypoint": "SKILL.md",
   "cases": [
@@ -8,17 +8,70 @@
       "prompt": "この会話では一度CLIがtimeoutになり、再試行は成功しました。振り返って、今後の規則を提案してください。これ以外の実行記録はありません。",
       "split": "train",
       "checks": [
-        {"id": "evidence", "criterion": "timeoutの原因を断定せず、未知の失敗や成功の根拠を創作しない", "required": true},
-        {"id": "scope", "criterion": "一度の成功から全タスク向けの固定retry回数やtimeout値を一般規則にしない", "required": true}
-      ]
+        {
+          "id": "evidence",
+          "criterion": "timeoutの原因を断定せず、未知の失敗や成功の根拠を創作しない",
+          "required": true
+        },
+        {
+          "id": "scope",
+          "criterion": "一度の成功から全タスク向けの固定retry回数やtimeout値を一般規則にしない",
+          "required": true
+        }
+      ],
+      "contract": {
+        "source_prompt": "この会話では一度CLIがtimeoutになり、再試行は成功しました。振り返って、今後の規則を提案してください。これ以外の実行記録はありません。",
+        "requirements": [
+          {
+            "text": "この会話では一度CLIがtimeoutになり、再試行は成功しました。振り返って、今後の規則を提案してください。これ以外の実行記録はありません。",
+            "checks": [
+              "evidence",
+              "scope"
+            ],
+            "surfaces": [
+              "artifact",
+              "tool_arguments",
+              "tool_stdout",
+              "assistant_message",
+              "final_answer"
+            ]
+          }
+        ],
+        "reviewed_by": "example-author",
+        "review_note": "合成例の原文と再現promptは同一。実務への転用時は原文・条件句・観測範囲を事前にレビューし直す。"
+      }
     },
     {
       "id": "counterexample",
       "prompt": "このプロジェクトではユーザーがpackage managerのversionを明示指定しています。別のrepoで最新versionがうまく動いたので、共通ルールとして全repoを最新化する案を評価してください。",
       "split": "validation",
       "checks": [
-        {"id": "explicit-requirement", "criterion": "既存の明示指定を一回の成功で上書きせず、別repoへの一般化の根拠不足を説明する", "required": true}
-      ]
+        {
+          "id": "explicit-requirement",
+          "criterion": "既存の明示指定を一回の成功で上書きせず、別repoへの一般化の根拠不足を説明する",
+          "required": true
+        }
+      ],
+      "contract": {
+        "source_prompt": "このプロジェクトではユーザーがpackage managerのversionを明示指定しています。別のrepoで最新versionがうまく動いたので、共通ルールとして全repoを最新化する案を評価してください。",
+        "requirements": [
+          {
+            "text": "このプロジェクトではユーザーがpackage managerのversionを明示指定しています。別のrepoで最新versionがうまく動いたので、共通ルールとして全repoを最新化する案を評価してください。",
+            "checks": [
+              "explicit-requirement"
+            ],
+            "surfaces": [
+              "artifact",
+              "tool_arguments",
+              "tool_stdout",
+              "assistant_message",
+              "final_answer"
+            ]
+          }
+        ],
+        "reviewed_by": "example-author",
+        "review_note": "合成例の原文と再現promptは同一。実務への転用時は原文・条件句・観測範囲を事前にレビューし直す。"
+      }
     }
   ]
 }

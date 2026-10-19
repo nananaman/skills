@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import copy
 import os
+import subprocess
 from unittest.mock import patch
 
 
@@ -121,6 +122,61 @@ class WorkbenchTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate"):
             MODULE.validate_suite(suite)
 
+    def contracted_suite(self):
+        suite = self.suite()
+        suite["version"] = 2
+        case = suite["cases"][0]
+        case["contract"] = {
+            "source_prompt": case["prompt"],
+            "requirements": [{"text": case["prompt"], "checks": ["complete"],
+                              "surfaces": ["artifact"]}],
+            "reviewed_by": "case-owner", "review_note": "Source and replay agree."}
+        return suite
+
+    def test_suite_accepts_reviewed_source_requirements_and_explicit_observation_surfaces(self):
+        # Arrange / Act: the evaluation contract is fixed before any execution.
+        suite = self.contracted_suite()
+        MODULE.validate_suite(suite)
+        # Assert
+        self.assertEqual(["artifact"], suite["cases"][0]["contract"]["requirements"][0]["surfaces"])
+
+    def test_one_source_requirement_can_bind_multiple_checks_without_duplication(self):
+        # Arrange
+        suite = self.contracted_suite()
+        case = suite["cases"][0]
+        case["checks"].append({"id": "honesty", "criterion": "Report accurately", "required": True})
+        requirement = case["contract"]["requirements"][0]
+        requirement["checks"] = ["complete", "honesty"]
+        # Act / Assert
+        MODULE.validate_suite(suite)
+        self.assertEqual(1, len(case["contract"]["requirements"]))
+
+    def test_replay_cannot_drop_a_registered_source_qualifier(self):
+        # Arrange: deleting 実 changes which values the prohibition applies to.
+        suite = self.contracted_suite()
+        case = suite["cases"][0]
+        clause = "元のfixture文字列や実credential値を出力しない。"
+        case["contract"]["source_prompt"] = clause
+        case["contract"]["requirements"][0]["text"] = clause
+        case["prompt"] = clause.replace("実credential", "credential")
+        # Act / Assert
+        with self.assertRaisesRegex(ValueError, "requirement.*replay"):
+            MODULE.validate_suite(suite)
+
+    def test_contract_rejects_invented_source_clauses_and_unspecified_observations(self):
+        for mutation, message in [
+            (lambda c: c.update(source_prompt="different source"), "requirement.*source"),
+            (lambda c: c["requirements"][0].update(surfaces=[]), "observation"),
+            (lambda c: c["requirements"][0].update(surfaces=["trace"]), "observation"),
+            (lambda c: c["requirements"][0].update(checks=["absent"]), "unknown"),
+            (lambda c: c.update(review_note=""), "review_note"),
+        ]:
+            with self.subTest(message=message):
+                suite = self.contracted_suite()
+                mutation(suite["cases"][0]["contract"])
+                with self.assertRaisesRegex(ValueError, message):
+                    MODULE.validate_suite(suite)
+
     def fake_codex(self, body):
         executable = self.root / "bin/codex"
         executable.parent.mkdir()
@@ -135,10 +191,155 @@ class WorkbenchTest(unittest.TestCase):
         ident = MODULE.snapshot(self.archive, self.source, self.metadata())
         fixture = self.root / "fixture"
         fixture.mkdir()
-        return MODULE.execute(self.archive, ident, self.suite(), "small-fix", fixture,
+        return MODULE.execute(self.archive, ident, self.contracted_suite(), "small-fix", fixture,
                               {"model": "test-model", "reasoning": "low", "context": "test context",
                                "disabled_skills": disabled_skills or []},
                               repeat=1, timeout=timeout)
+
+    def test_execution_and_grader_packet_share_scope_without_revealing_grading_criteria(self):
+        # Arrange / Act: the subprocess is a deterministic local fake, not a model.
+        run = self.execute(f"assert list(pathlib.Path({str(self.archive / 'runs')!r}).glob('*/grading-contract.json'))\n"
+                           "pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text('done')\n")
+        packet = MODULE.grading_input(run)
+        # Assert
+        self.assertEqual("completed", MODULE.load_run(run)["status"])
+        self.assertEqual(self.contracted_suite()["cases"][0], packet["case"])
+        self.assertEqual(MODULE.digest({k: v for k, v in packet.items() if k != "contract_digest"}),
+                         packet["contract_digest"])
+        prompt = (run / "prompt.txt").read_text()
+        self.assertIn('"surfaces": ["artifact"]', prompt)
+        self.assertNotIn("Requested typo is fixed", prompt)
+
+    def test_grade_rejects_missing_or_different_pre_execution_contract(self):
+        # Arrange
+        run = self.execute("pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text('done')\n")
+        grading = {"grader": "independent", "checks": {
+            "complete": {"verdict": "unknown", "evidence": "evidence unavailable"}}}
+        changed_scope = MODULE.grading_input(run)
+        changed_scope["case"]["contract"]["requirements"][0]["surfaces"].append("tool_arguments")
+        changed_digest = MODULE.digest({k: v for k, v in changed_scope.items() if k != "contract_digest"})
+        # Act / Assert: neither omission nor a different case scope can create a grade.
+        for fields in ({}, {"contract_digest": changed_digest}):
+            with self.subTest(fields=fields):
+                with self.assertRaisesRegex(ValueError, "contract"):
+                    MODULE.grade(run, {**grading, **fields})
+                self.assertFalse((run / "grading.json").exists())
+
+    def test_legacy_unknown_grade_stays_readable_without_retrospective_contract(self):
+        # Arrange: an existing v1 archive, not a new execution.
+        run = self.archive / "runs/legacy"; run.mkdir(parents=True)
+        MODULE.write_new(run / "suite.json", self.suite())
+        record = self.run_record("old", verdict="unknown")
+        record.update(id=run.name, checks={}, artifacts=MODULE.artifact_digests(run))
+        MODULE.write_new(run / "run.json", record)
+        MODULE.write_new(run / "run-digest.json", MODULE.digest(record))
+        MODULE.grade(run, {"grader": "original-grader", "checks": {
+            "complete": {"verdict": "unknown", "evidence": "scope was not fixed"}}})
+        original_bytes = (run / "grading.json").read_bytes()
+        # Act / Assert
+        self.assertEqual("unknown", MODULE.load_run(run)["checks"]["complete"]["verdict"])
+        with self.assertRaisesRegex(ValueError, "legacy"):
+            MODULE.grading_input(run)
+        self.assertEqual(original_bytes, (run / "grading.json").read_bytes())
+
+    def test_loading_a_grade_rejects_a_changed_contract_binding(self):
+        # Arrange
+        run = self.execute("pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text('done')\n")
+        self.grade(run, {"grader": "independent", "checks": {
+            "complete": {"verdict": "unknown", "evidence": "insufficient evidence"}}})
+        grading = MODULE.read(run / "grading.json")
+        grading["contract_digest"] = "different-scope"
+        (run / "grading.json").write_text(json.dumps(grading))
+        # Act / Assert
+        with self.assertRaisesRegex(ValueError, "contract"):
+            MODULE.load_run(run)
+
+    def test_imported_ungraded_v2_run_requires_a_valid_frozen_contract(self):
+        # Arrange: a self-consistent import manifest alone does not prove a frozen contract.
+        for defect in ("missing", "different-case", "wrong-digest"):
+            with self.subTest(defect=defect):
+                run = self.archive / "runs" / defect; run.mkdir(parents=True)
+                suite = self.contracted_suite()
+                MODULE.write_new(run / "suite.json", suite)
+                if defect != "missing":
+                    packet = MODULE.grading_contract(copy.deepcopy(suite["cases"][0]))
+                    if defect == "different-case":
+                        packet["case"]["id"] = "different-case"
+                    else:
+                        packet["contract_digest"] = "wrong-digest"
+                    MODULE.write_new(run / "grading-contract.json", packet)
+                record = self.run_record("old")
+                record.update(id=run.name, suite=MODULE.digest(suite), checks={},
+                              artifacts=MODULE.artifact_digests(run))
+                MODULE.write_new(run / "run.json", record)
+                MODULE.write_new(run / "run-digest.json", MODULE.digest(record))
+                # Act / Assert
+                with self.assertRaisesRegex(ValueError, "contract"):
+                    MODULE.load_run(run)
+
+    def test_grading_input_cli_exports_the_frozen_packet(self):
+        # Arrange
+        run = self.execute("pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text('done')\n")
+        output = self.root / "anonymous-grading-input.json"
+        # Act: no executor is invoked by this CLI command.
+        result = subprocess.run([sys.executable, str(SCRIPT), "grading-input", "--run", str(run),
+                                 "--output", str(output)], capture_output=True, text=True)
+        # Assert
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(MODULE.read(run / "grading-contract.json"), MODULE.read(output))
+
+    def test_grading_input_export_cannot_invalidate_its_run_archive(self):
+        # Arrange
+        run = self.execute("pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text('done')\n")
+        output = run / "grading-input-copy.json"
+        # Act
+        result = subprocess.run([sys.executable, str(SCRIPT), "grading-input", "--run", str(run),
+                                 "--output", str(output)], capture_output=True, text=True)
+        # Assert
+        self.assertEqual(1, result.returncode)
+        self.assertIn("outside", json.loads(result.stderr)["error"])
+        self.assertFalse(output.exists())
+        self.assertEqual("completed", MODULE.load_run(run)["status"])
+
+    def test_grade_cli_returns_a_validation_error_for_non_object_json(self):
+        # Arrange
+        run = self.execute("pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text('done')\n")
+        supplied = self.root / "invalid-grading.json"
+        for value in (None, [], 7):
+            with self.subTest(value=value):
+                supplied.write_text(json.dumps(value))
+                # Act
+                result = subprocess.run([sys.executable, str(SCRIPT), "grade", "--run", str(run),
+                                         "--grading", str(supplied)], capture_output=True, text=True)
+                # Assert
+                self.assertEqual(1, result.returncode)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertIn("object", json.loads(result.stderr)["error"])
+                self.assertFalse((run / "grading.json").exists())
+
+    def test_published_examples_define_valid_case_contracts(self):
+        # Arrange / Act / Assert: these are schema checks, not checks of instruction meaning.
+        skill = SCRIPT.parent.parent
+        for path in (skill / "examples/suite.json", skill / "examples/practice/suite.json",
+                     skill.parent / "skill-maintenance/examples/campaign.json"):
+            with self.subTest(path=path.name):
+                data = MODULE.read(path)
+                suite = data.get("suite", data)
+                MODULE.validate_suite(suite)
+                self.assertEqual(2, suite["version"])
+
+    def test_new_execution_requires_contract_before_launching_any_subprocess(self):
+        # Arrange
+        ident = MODULE.snapshot(self.archive, self.source, self.metadata())
+        fixture = self.root / "fixture"; fixture.mkdir()
+        # Act / Assert: legacy archives remain readable, but cannot start new uncontracted runs.
+        with patch.object(MODULE.subprocess, "run", side_effect=AssertionError("must not launch")):
+            with self.assertRaisesRegex(ValueError, "contract"):
+                MODULE.execute(self.archive, ident, self.suite(), "small-fix", fixture,
+                               {"model": "test", "reasoning": "low", "context": "test"})
+
+    def grade(self, run, grading):
+        return MODULE.grade(run, {**grading, "contract_digest": MODULE.grading_input(run)["contract_digest"]})
 
     def test_execute_saves_outputs_usage_and_separates_grading(self):
         # Arrange
@@ -166,7 +367,7 @@ class WorkbenchTest(unittest.TestCase):
         (run_path / "answer.txt").write_text("modified")
         # Act / Assert
         with self.assertRaisesRegex(ValueError, "digest"):
-            MODULE.grade(run_path, {"grader": "independent", "checks": {
+            self.grade(run_path, {"grader": "independent", "checks": {
                 "complete": {"verdict": "pass", "evidence": "answer.txt"}}})
 
     def test_report_shows_graded_artifacts_and_escapes_html(self):
@@ -175,7 +376,7 @@ class WorkbenchTest(unittest.TestCase):
         grading = {"grader": "independent", "checks": {
             "complete": {"verdict": "fail", "evidence": "answer.txt contains no requested change"}}}
         # Act
-        MODULE.grade(run_path, grading)
+        self.grade(run_path, grading)
         report = MODULE.report([run_path], {"assessment": "unchanged", "runs": [run_path.name],
                                            "run_digests": {run_path.name: MODULE.digest(MODULE.load_run(run_path))}})
         # Assert
@@ -213,10 +414,10 @@ class WorkbenchTest(unittest.TestCase):
         run_path = self.execute("pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text('done')\n")
         grading = {"grader": "independent", "checks": {
             "complete": {"verdict": "unknown", "evidence": "insufficient evidence"}}}
-        MODULE.grade(run_path, grading)
+        self.grade(run_path, grading)
         # Act / Assert
         with self.assertRaises(FileExistsError):
-            MODULE.grade(run_path, grading)
+            self.grade(run_path, grading)
 
     def test_remember_preserves_graded_training_evidence(self):
         # Arrange
@@ -224,7 +425,7 @@ class WorkbenchTest(unittest.TestCase):
         suite["cases"][0]["split"] = "train"
         self.suite = lambda: suite
         run_path = self.execute("pathlib.Path(sys.argv[sys.argv.index('-o')+1]).write_text('done')\n")
-        MODULE.grade(run_path, {"grader": "independent", "checks": {
+        self.grade(run_path, {"grader": "independent", "checks": {
             "complete": {"verdict": "fail", "evidence": "answer.txt contains no fix"}}})
         note = {"hypothesis": "Forced review delays the fix", "scope": "small fixes", "status": "active",
                 "support": [run_path.name], "counterevidence": [],
@@ -314,7 +515,7 @@ class WorkbenchTest(unittest.TestCase):
         fixture = self.root / "fixture"
         fixture.mkdir()
         # Act
-        run_path = MODULE.execute(self.archive, ident, self.suite(), "small-fix", fixture,
+        run_path = MODULE.execute(self.archive, ident, self.contracted_suite(), "small-fix", fixture,
                                   {"model": "test-model", "reasoning": "low", "context": "test"})
         # Assert
         self.assertEqual("completed", MODULE.load_run(run_path)["status"])

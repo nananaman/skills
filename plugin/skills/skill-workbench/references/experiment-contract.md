@@ -12,6 +12,7 @@ experiment/
   candidates/<sha256>/candidate.json   親・仮説・構造とファイル digest
   candidates/<sha256>/files/           runtime bundle の全ファイル
   runs/<run-id>/suite.json             評価の版
+  runs/<run-id>/grading-contract.json  実行前に保存した採点指示・要件・観測範囲
   runs/<run-id>/environment.json       実行条件
   runs/<run-id>/prompt.txt             実行担当へ渡した入力
   runs/<run-id>/trace.jsonl             Codex の実行イベント
@@ -42,11 +43,11 @@ source と fixture の symlink・特殊ファイルは受け付けない。生�
 `metrics.tokens` は取得できた `turn.completed` の input_tokens + output_tokens の累積で、一度の入力文脈の長さではない。cached_input_tokens と cache_write_input_tokens は input_tokens の内訳、reasoning_output_tokens は output_tokens の内訳なので二重加算しない。途中終了・不完全なtraceでは部分計測になり得るため、実行状態と欠測範囲を併記する。cache読取・書込と非cacheの内訳は非公開traceのusageに基づき、取得できない料金や個別API要求数を推定しない。定義は [Codex Usage型](https://github.com/openai/codex/blob/main/sdk/typescript/src/events.ts) と [Prompt Caching](https://developers.openai.com/api/docs/guides/prompt-caching) を参照する。
 
 - candidate metadata：[candidate.json](../examples/candidate.json)。`parents` は候補 ID の配列、`hypothesis` は今回の仮説、`strategy` は構造を区別する短い説明。任意の `without_skill` は boolean（既定 false）。同じ suite のまま skill なしの比較を明示する。
-- suite：[suite.json](../examples/suite.json)。`version: 1`、`mode: execution | discovery`、`entrypoint` は相対ファイルまたは null、`cases` は空でない配列。
-- case：`id`、`prompt`、`split: train | validation | test`、`checks`。
+- suite：[suite.json](../examples/suite.json)。新規実行は `version: 2`、`mode: execution | discovery`、`entrypoint` は相対ファイルまたは null、`cases` は空でない配列。旧版1は過去の記録の読込・比較・既存形式の採点保存に対応するが、新規実行には使えない。
+- case：`id`、`prompt`、`split: train | validation | test`、`checks`、版2では `contract`。
 - check：`id`、成果を判定する `criterion`、退行を採用不可とする `required: boolean`。
 - config：[config.json](../examples/config.json)。`model`、`reasoning`、`context` は空でない文字列。任意の `disabled_skills` は評価プロセスで無効にする既設 SKILL.md の絶対パス配列（既定は空）。任意の `restricted` は既存 CLI の絶対パス `executable` だけを持つ object。限定経路は[既存認証を使う runner](restricted-runner.md)を読む。
-- grading：[grading.json](../examples/grading.json)。`grader` と、チェック ID ごとの `verdict: pass | fail | unknown`・空でない `evidence`。すべてのチェックに判定が必要。
+- grading：[grading.json](../examples/grading.json)。`grader` と、チェック ID ごとの `verdict: pass | fail | unknown`・空でない `evidence`。版2は凍結済みの採点入力から転記した `contract_digest` も必須。すべてのチェックに判定が必要。
 - diagnosis：[diagnosis.json](../examples/diagnosis.json)。仮説・scope・`status: active | refuted`・support/counterevidence の run ID・directions。各 direction は `operation: add | delete | replace | move`、`layer: metadata | body | reference | script | configuration`、相対 `path`、`reason`。
 
 case/check/run の ID は英数字・`_`・`-`。候補と suite の比較には全体の SHA-256 を使う。ケース追加・分割変更・採点基準変更も suite の別版になる。
@@ -55,6 +56,23 @@ diagnosis は採点済みで正常終了した train 実行だけを根拠にで
 
 agent が書く proposal には親 ID、診断 ID、一度に検証する診断数と変更範囲、対象パス・層・操作・理由、検証すべき仮説を記録する。
 decision には候補 ID、比較レポート、採用・保留・棄却、理由、未確認事項を記録する。これらの意味的判断は CLI が代行しない。
+
+## 再現条件と観測範囲を実行前に固定する
+
+`contract.source_prompt` は秘密と内部IDを除いた元依頼。生ログや秘密値を保存しない。
+`requirements` の各要素へ、元依頼から維持する条件句 `text`、対応するcheck IDの配列 `checks`、適用する `surfaces` を記す。
+条件句は source_prompt と再現用 prompt の両方に逐語的に残す。例えば「実credential」を「credential」へ変えると、登録条件句の欠落として起動前に拒否する。
+観測面は `artifact`、`tool_stdout`、`tool_arguments`、`assistant_message`、`final_answer` から明示する。空欄や曖昧な `trace` は受け付けず、全checkに範囲を割り当てる。同じ条件句と観測面を複数checkで使う場合は、条件句を複製せずchecksへまとめる。
+`tool_arguments` は書込内容を含むコマンドpayload、`tool_stdout` はツールが返した出力、`assistant_message` は途中応答、`final_answer` は最終応答を表す。記録形式でstdout/stderrが統合されている場合は、そのツール応答全体をtool_stdoutとして事前に扱う。実値と合成値などの限定語を、観測面の指定だけで広げない。
+
+ケース準備担当が元依頼・fixture・再現prompt・採点条件の対応を確認し、`reviewed_by` と `review_note` を実行前に記録する。意味の変化が残る場合はケースを準備中とし、実行しない。
+CLIは登録した条件句の保持と構造を検査する。登録し忘れた要求、同じ句を残したまま別文で覆す変更、レビュー担当の実在や判断の正しさは証明しない。原文全体からの条件抽出と意味の照合は担当のレビューに残る。
+
+実行担当へは条件句と観測面だけを同じcontractから生成して渡し、採点用criterion・正解は渡さない。
+採点指示とcase全体はモデル起動前に `grading-contract.json` へ保存する。採点担当には `grading-input` が取り出したその入力を渡し、別の委任文で禁止対象や観測面を追加しない。
+grading-inputの出力先はrun archiveの外に置く。証跡内に新しいファイルを追加してdigestを壊す出力先は拒否する。
+採点時に同じcontract_digestを要求するのは入力の対応確認であり、採点担当が指示を守ったことの証明ではない。曖昧な解釈・証拠不足はunknownに残す。
+結果を見て条件を変える場合は別のsuite・新しい比較にし、過去の結果やunknownを上書きしない。旧版の記録へ事後contractを付与しない。
 
 ## 実行例
 
@@ -70,6 +88,9 @@ python3 /path/to/skill-workbench/scripts/workbench.py run \
   --suite /private/suite.json --case ordinary --fixture /private/fixture \
   --config /private/config.json --repeat 1 --timeout 600
 
+python3 /path/to/skill-workbench/scripts/workbench.py grading-input \
+  --run RUN_PATH --output /private/grading-input.json
+# 採点担当へこの入力と匿名成果物・必要な実行記録を渡す。
 python3 /path/to/skill-workbench/scripts/workbench.py grade \
   --run RUN_PATH --grading /private/grading.json
 
@@ -90,7 +111,7 @@ python3 /path/to/skill-workbench/scripts/workbench.py report \
 run は一ケースずつ実行し、同じ反復番号の対を揃える。候補・ケース・反復を選ぶときの上限と終了条件は[評価と更新の手順](eval-loop.md)に従う。
 run は記録を保存できれば終了コード 0 を返す。評価実行の成功は `run.json` の `status` で判断する。
 `status: completed` は CLI が正常終了し最終応答を取得したという意味だけであり、課題の合格ではない。
-採点担当は run folder を読んで grading を作る。採点の変更は元の grading を消さず、別の評価実験で行う。
+採点担当は凍結済みの採点入力と匿名成果物・実行記録からgradingを作る。採点の変更は元のgradingを消さず、別の評価実験で行う。
 
 ## 比較とレポート
 

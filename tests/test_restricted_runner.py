@@ -79,9 +79,13 @@ class RestrictedRunnerTest(unittest.TestCase):
                 'if "sandbox" in sys.argv: sys.exit(71)\n'
                 'pathlib.Path(' + repr(str(marker)) + ').touch()\n')
             executable.chmod(0o755)
-            suite = {'version': 1, 'mode': 'execution', 'entrypoint': 'SKILL.md', 'cases': [
+            suite = {'version': 2, 'mode': 'execution', 'entrypoint': 'SKILL.md', 'cases': [
                 {'id': 'case', 'split': 'train', 'prompt': 'synthetic task',
                  'checks': [{'id': 'outcome', 'criterion': 'correct', 'required': True}]}]}
+            case = suite['cases'][0]
+            case['contract'] = {'source_prompt': case['prompt'], 'requirements': [
+                {'text': case['prompt'], 'checks': [c['id']], 'surfaces': ['artifact']} for c in case['checks']],
+                'reviewed_by': 'case-owner', 'review_note': 'Synthetic boundary test.'}
             inherited = self.fake_home(root); inherited['CODEX_HOME'] = str(root / 'user/.codex'); inherited['AWS_SECRET_ACCESS_KEY'] = 'synthetic-secret'
             with patch.dict(os.environ, inherited):
                 run = wb.execute(archive, candidate, suite, 'case', fixture,
@@ -126,9 +130,13 @@ class RestrictedRunnerTest(unittest.TestCase):
             (source / 'SKILL.md').write_text('synthetic skill')
             archive = root / 'archive'; fixture = root / 'fixture'; fixture.mkdir()
             candidate = wb.snapshot(archive, source, {'parents': [], 'hypothesis': 'boundary', 'strategy': 'baseline'})
-            suite = {'version': 1, 'mode': 'execution', 'entrypoint': 'SKILL.md', 'cases': [
+            suite = {'version': 2, 'mode': 'execution', 'entrypoint': 'SKILL.md', 'cases': [
                 {'id': 'case', 'split': 'train', 'prompt': 'synthetic task',
                  'checks': [{'id': 'outcome', 'criterion': 'correct', 'required': True}]}]}
+            case = suite['cases'][0]
+            case['contract'] = {'source_prompt': case['prompt'], 'requirements': [
+                {'text': case['prompt'], 'checks': [c['id']], 'surfaces': ['artifact']} for c in case['checks']],
+                'reviewed_by': 'case-owner', 'review_note': 'Synthetic boundary test.'}
             with patch.object(wb.subprocess, 'run') as launch:
                 with self.assertRaisesRegex(ValueError, 'restricted requires'):
                     wb.execute(archive, candidate, suite, 'case', fixture,
