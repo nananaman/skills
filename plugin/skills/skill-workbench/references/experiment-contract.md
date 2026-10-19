@@ -44,7 +44,7 @@ source と fixture の symlink・特殊ファイルは受け付けない。生�
 - suite：[suite.json](../examples/suite.json)。`version: 1`、`mode: execution | discovery`、`entrypoint` は相対ファイルまたは null、`cases` は空でない配列。
 - case：`id`、`prompt`、`split: train | validation | test`、`checks`。
 - check：`id`、成果を判定する `criterion`、退行を採用不可とする `required: boolean`。
-- config：[config.json](../examples/config.json)。`model`、`reasoning`、`context` は空でない文字列。任意の `disabled_skills` は評価プロセスで無効にする既設 SKILL.md の絶対パス配列（既定は空）。
+- config：[config.json](../examples/config.json)。`model`、`reasoning`、`context` は空でない文字列。任意の `disabled_skills` は評価プロセスで無効にする既設 SKILL.md の絶対パス配列（既定は空）。任意の `restricted` は既存 CLI の絶対パス `executable` だけを持つ object。限定経路は[既存認証を使う runner](restricted-runner.md)を読む。
 - grading：[grading.json](../examples/grading.json)。`grader` と、チェック ID ごとの `verdict: pass | fail | unknown`・空でない `evidence`。すべてのチェックに判定が必要。
 - diagnosis：[diagnosis.json](../examples/diagnosis.json)。仮説・scope・`status: active | refuted`・support/counterevidence の run ID・directions。各 direction は `operation: add | delete | replace | move`、`layer: metadata | body | reference | script | configuration`、相対 `path`、`reason`。
 
@@ -109,6 +109,8 @@ HTML は応答・記録・比較結果を表示し、成果物フォルダへの
 出力形式ごとの画像化・Office rendering は行わない。必要な viewer で実物を確認する。
 
 ## 実行環境と限界
+
+以下は既定 adapter。`restricted` 指定時は[名前付き profile と事前拒否試験](restricted-runner.md)を使い、既定 adapter と別環境として記録する。
 
 Codex CLI 0.154.0 のローカル help にある `exec --json --ephemeral --ignore-user-config --skip-git-repo-check` を使用する。
 モデル・推論設定を明示し、`workspace-write` と `approval_policy="never"` で新しいプロセスを起動する。

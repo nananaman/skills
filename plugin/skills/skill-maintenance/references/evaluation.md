@@ -33,7 +33,7 @@ workbench の environment.json の digest を plan.environment へ設定する�
 通常の AGENTS と .agents/skills の検出を使い、起動 prompt に手動の SKILL 読込一覧を追加しない。
 
 新しい会話や ignore-user-config、workspace-write だけではファイルの読取や認証情報の隔離は証明できない。
-CLI の認証用設定を丸ごとコピーしない。既存の sandbox・承認・通信制約を維持し、
+CLI の認証用設定を丸ごとコピーしない。既存の ChatGPT サインインを controller 側へ保持し、コマンド側の読取・環境・通信を絞る[ローカル限定 runner](../../skill-workbench/references/restricted-runner.md)も接続できる。実モデル接続は同じ合成課題の初回失敗と回復試行合格を保持しており、改善効果や日次運用成功とは扱わない。既存の sandbox・承認・通信制約を維持し、
 隔離が成立しないときは比較を保留して、対象・不足条件・必要な上限を返す。
 基盤の mock テストを LLM 改善の代替にしない。
 

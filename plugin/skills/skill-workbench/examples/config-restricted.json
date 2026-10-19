@@ -1,0 +1,9 @@
+{
+  "model": "REPLACE_WITH_EXISTING_MODEL_ID",
+  "reasoning": "high",
+  "context": "Validated local macOS host; existing ChatGPT sign-in; public synthetic fixture and mock tools only; no real external writes. Record CLI, instructions, catalogue and tool versions.",
+  "disabled_skills": [],
+  "restricted": {
+    "executable": "/absolute/path/to/existing/codex"
+  }
+}

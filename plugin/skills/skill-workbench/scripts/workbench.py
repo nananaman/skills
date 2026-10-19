@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import importlib.util
 import html
 import json
 import math
@@ -16,6 +17,12 @@ import sys
 import tempfile
 import time
 import uuid
+
+
+_RESTRICTED_SPEC = importlib.util.spec_from_file_location('workbench_restricted_runner',
+    Path(__file__).with_name('restricted_runner.py'))
+restricted_runner = importlib.util.module_from_spec(_RESTRICTED_SPEC)
+_RESTRICTED_SPEC.loader.exec_module(restricted_runner)
 
 
 def digest(value) -> str:
@@ -206,8 +213,14 @@ def execute(archive, ident, suite, case_id, fixture, config, repeat=1, timeout=6
     require(type(repeat) is int and repeat > 0, "repeat must be positive")
     require(type(timeout) in {int, float} and math.isfinite(timeout) and timeout > 0, "invalid timeout")
     required_config = {"model", "reasoning", "context"}
-    require(required_config <= set(config) <= required_config | {"disabled_skills"}, "invalid config fields")
+    require(required_config <= set(config) <= required_config | {"disabled_skills", "restricted"}, "invalid config fields")
     require(all(isinstance(config[key], str) and config[key].strip() for key in required_config), "config values are required")
+    restricted = config.get("restricted")
+    if "restricted" in config:
+        require(isinstance(restricted, dict) and set(restricted) == {"executable"} and
+                isinstance(restricted["executable"], str) and Path(restricted["executable"]).is_absolute(),
+                "restricted requires an existing absolute executable")
+    cli_program = restricted["executable"] if restricted else "codex"
     disabled = config.get("disabled_skills", [])
     require(isinstance(disabled, list) and all(isinstance(path, str) and Path(path).is_absolute()
                                              and Path(path).name == "SKILL.md" for path in disabled),
@@ -219,9 +232,20 @@ def execute(archive, ident, suite, case_id, fixture, config, repeat=1, timeout=6
     require(fixture.is_dir() and not fixture.is_symlink(), "fixture must be a regular directory")
     require(not archive.resolve().is_relative_to(fixture.resolve()), "archive must be outside fixture")
     fixture_files = file_digests(fixture)
-    cli_version = subprocess.run(["codex", "--version"], capture_output=True, text=True, check=True, timeout=10).stdout.strip()
+    if restricted:
+        with tempfile.TemporaryDirectory(prefix="skill-eval-version-") as version_temp:
+            version_root = Path(version_temp)
+            version_env, _ = restricted_runner.environments(version_root / "workspace", version_root, os.environ)
+            Path(version_env["TMPDIR"]).mkdir()
+            cli_version = subprocess.run([cli_program, "--version"], env=version_env,
+                capture_output=True, text=True, check=True, timeout=10).stdout.strip()
+    else:
+        cli_version = subprocess.run([cli_program, "--version"], capture_output=True, text=True, check=True, timeout=10).stdout.strip()
     environment = {**config, "cli": cli_version, "fixture": fixture_files,
                    "sandbox": "workspace-write", "adapter": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    if restricted:
+        environment["sandbox"] = "workspace-only-named"
+        environment["restricted_adapter"] = hashlib.sha256(Path(restricted_runner.__file__).read_bytes()).hexdigest()
     folder = archive.resolve() / "runs" / uuid.uuid4().hex
     folder.mkdir(parents=True)
     write_new(folder / "suite.json", suite)
@@ -250,22 +274,34 @@ def execute(archive, ident, suite, case_id, fixture, config, repeat=1, timeout=6
             override = "skills.config=[" + ",".join(
                 "{path=" + json.dumps(path) + ",enabled=false}" for path in config["disabled_skills"]) + "]"
             command[2:2] = ["-c", override]
-        write_new(folder / "command.json", command)
         started = time.monotonic()
         status = "error"
         returncode = None
         process = None
         with (folder / "trace.jsonl").open("w") as out, (folder / "stderr.txt").open("w") as err:
             try:
+                process_env = None
+                if restricted:
+                    settings, process_env = restricted_runner.prepare(cli_program, work, folder, os.environ, timeout)
+                    # --sandbox would override the stricter named permission profile.
+                    sandbox_index = command.index("-s")
+                    del command[sandbox_index:sandbox_index + 2]
+                    command[0] = cli_program
+                    command[1:1] = ["--no-daemon"]
+                    command[3:3] = ["--strict-config", *settings]
+                write_new(folder / "command.json", command)
+                remaining = timeout - (time.monotonic() - started)
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(command, timeout)
                 process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=out, stderr=err,
-                                           cwd=work, start_new_session=True)
+                                           cwd=work, start_new_session=True, env=process_env)
                 try:
-                    process.communicate(prompt.encode(), timeout=timeout)
+                    process.communicate(prompt.encode(), timeout=remaining)
                     returncode = process.returncode
                     status = "completed" if returncode == 0 and answer.is_file() else "error"
                 except subprocess.TimeoutExpired:
                     status = "timeout"
-            except OSError as error:
+            except (OSError, ValueError, subprocess.SubprocessError) as error:
                 err.write(str(error))
             finally:
                 if process is not None:
