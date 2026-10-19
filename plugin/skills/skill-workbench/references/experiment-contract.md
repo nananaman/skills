@@ -39,6 +39,7 @@ source と fixture の symlink・特殊ファイルは受け付けない。生�
 ## JSON の契約
 
 入力の構造、ID、重複、列挙値、根拠の必須条件は CLI が検査する。未取得の数値は null とし、ゼロにしない。
+`metrics.tokens` は取得できた `turn.completed` の input_tokens + output_tokens の累積で、一度の入力文脈の長さではない。cached_input_tokens と cache_write_input_tokens は input_tokens の内訳、reasoning_output_tokens は output_tokens の内訳なので二重加算しない。途中終了・不完全なtraceでは部分計測になり得るため、実行状態と欠測範囲を併記する。cache読取・書込と非cacheの内訳は非公開traceのusageに基づき、取得できない料金や個別API要求数を推定しない。定義は [Codex Usage型](https://github.com/openai/codex/blob/main/sdk/typescript/src/events.ts) と [Prompt Caching](https://developers.openai.com/api/docs/guides/prompt-caching) を参照する。
 
 - candidate metadata：[candidate.json](../examples/candidate.json)。`parents` は候補 ID の配列、`hypothesis` は今回の仮説、`strategy` は構造を区別する短い説明。任意の `without_skill` は boolean（既定 false）。同じ suite のまま skill なしの比較を明示する。
 - suite：[suite.json](../examples/suite.json)。`version: 1`、`mode: execution | discovery`、`entrypoint` は相対ファイルまたは null、`cases` は空でない配列。
@@ -123,3 +124,7 @@ ignore-user-config は全 skill・上位指示・環境変数の隔離を保証�
 
 採点用 suite と診断は実行プロンプトへ渡さず、一時 workspace の外に置く。ただし read 権限の分離は保証しない。
 機密の holdout や外部書き込みを伴う課題には、別 OS 環境・専用アカウント等の実行隔離が必要になる。
+
+## 入力を絞った比較
+
+比較対象に必要なskillと連鎖するresourceだけへbundleを絞る場合は、両候補で同じcatalogue・環境情報を使う。通常のAGENTS / .agents/skills検出を保ち、その限定catalogueでの起動確認と明記する。通常の全catalogueでのDiscovery成功へ一般化しない。ファイルを置いた容量と、実際にモデルが読んだ内容・累積tokenを区別する。
