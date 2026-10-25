@@ -109,7 +109,8 @@ def validate_suite(suite: dict):
     require(isinstance(suite["cases"], list) and suite["cases"], "cases are required")
     ids = set()
     for case in suite["cases"]:
-        require(set(case) == {"id", "prompt", "split", "checks"}, "invalid case fields")
+        required = {"id", "prompt", "split", "checks"}
+        require(required <= set(case) <= required | {"failure_replay"}, "invalid case fields")
         identifier(case["id"])
         require(case["id"] not in ids, "duplicate case id")
         ids.add(case["id"])
@@ -124,6 +125,18 @@ def validate_suite(suite: dict):
             checks.add(check["id"])
             require(isinstance(check["criterion"], str) and check["criterion"].strip(), "criterion is required")
             require(type(check["required"]) is bool, "required must be boolean")
+        if "failure_replay" in case:
+            replay = case["failure_replay"]
+            require(isinstance(replay, dict) and set(replay) == {
+                "check", "source", "reference", "conditions", "reconstruction"},
+                "invalid failure_replay fields")
+            require(isinstance(replay["check"], str) and replay["check"] in checks,
+                    "failure_replay check is unknown")
+            require(isinstance(replay["source"], str) and replay["source"] in {"observed", "self_report"},
+                    "invalid replay source")
+            require(all(isinstance(replay[key], str) and replay[key].strip()
+                        for key in ("reference", "conditions")), "replay evidence and conditions are required")
+            require(type(replay["reconstruction"]) is bool, "reconstruction must be boolean")
 
 
 def validate_checks(checks: dict, case: dict):
@@ -164,6 +177,7 @@ def compare(suite: dict, records: list, baseline: str, proposed: str, split: str
         indexed[key] = run
     require(len(environments) <= 1, "environment mismatch")
     rows = []
+    reproduction = []
     counts = dict.fromkeys(("improved", "regressed", "unchanged", "unknown"), 0)
     required_regression = False
     deltas = {"duration_seconds": [], "tokens": []}
@@ -171,6 +185,13 @@ def compare(suite: dict, records: list, baseline: str, proposed: str, split: str
         repeats = sorted({key[2] for key in indexed if key[1] == case_id} or {1})
         for repeat in repeats:
             old, new = (indexed.get((ident, case_id, repeat)) for ident in (baseline, proposed))
+            replay = case.get("failure_replay")
+            if replay:
+                reproduced = (old["checks"].get(replay["check"], {}).get("verdict", "unknown")
+                              if old and old["status"] == "completed" else "unknown")
+                reproduction.append({"case": case_id, "repeat": repeat, **replay,
+                                     "status": {"fail": "reproduced", "pass": "not_reproduced",
+                                                "unknown": "unknown"}[reproduced]})
             for check in case["checks"]:
                 def verdict(run):
                     if not run or run["status"] != "completed":
@@ -189,13 +210,14 @@ def compare(suite: dict, records: list, baseline: str, proposed: str, split: str
                 values = [run["metrics"].get(metric) if run and run["status"] == "completed" else None
                           for run in (old, new)]
                 deltas[metric].append(None if None in values else values[1] - values[0])
-    assessment = ("regressed" if required_regression else "inconclusive" if counts["unknown"] else
+    replay_missing = any(row["status"] != "reproduced" for row in reproduction)
+    assessment = ("regressed" if required_regression else "inconclusive" if counts["unknown"] or replay_missing else
                   "tradeoff" if counts["regressed"] else "improved" if counts["improved"] else "unchanged")
     return {"baseline": baseline, "candidate": proposed, "suite": digest(suite), "split": split,
             "environment": next(iter(environments), None),
             "runs": sorted(run["id"] for run in indexed.values()),
             "run_digests": {run["id"]: digest(run) for run in indexed.values()},
-            "assessment": assessment, "counts": counts, "rows": rows,
+            "assessment": assessment, "counts": counts, "rows": rows, "reproduction": reproduction,
             "metrics": {key + "_delta": None if None in values else sum(values) / len(values)
                         for key, values in deltas.items()}}
 

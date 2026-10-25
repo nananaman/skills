@@ -43,6 +43,7 @@ source と fixture の symlink・特殊ファイルは受け付けない。生�
 - candidate metadata：[candidate.json](../examples/candidate.json)。`parents` は候補 ID の配列、`hypothesis` は今回の仮説、`strategy` は構造を区別する短い説明。任意の `without_skill` は boolean（既定 false）。同じ suite のまま skill なしの比較を明示する。
 - suite：[suite.json](../examples/suite.json)。`version: 1`、`mode: execution | discovery`、`entrypoint` は相対ファイルまたは null、`cases` は空でない配列。
 - case：`id`、`prompt`、`split: train | validation | test`、`checks`。
+- 既知失敗を検証するcaseは任意の `failure_replay` を持てる。`{"check":"check-id","source":"observed|self_report","reference":"private-evidence-ref","conditions":"失敗直前の固定条件と欠落条件","reconstruction":true}`。checkは当該case内のID、sourceは根拠の種類、referenceは私的な出典参照、reconstructionは再構成の有無。診断用のためsolverのpromptへ渡さない。suite全体のdigestに含まれ、後付けの変更は別suiteとなる。
 - check：`id`、成果を判定する `criterion`、退行を採用不可とする `required: boolean`。
 - config：[config.json](../examples/config.json)。`model`、`reasoning`、`context` は空でない文字列。任意の `disabled_skills` は評価プロセスで無効にする既設 SKILL.md の絶対パス配列（既定は空）。
 - grading：[grading.json](../examples/grading.json)。`grader` と、チェック ID ごとの `verdict: pass | fail | unknown`・空でない `evidence`。すべてのチェックに判定が必要。
@@ -94,6 +95,8 @@ run は記録を保存できれば終了コード 0 を返す。評価実行の�
 ## 比較とレポート
 
 比較は同じ suite・environment・case・repeat の対を使う。選択した run ID と採点込みの digest を保存し、レポートでも同じ実行を渡したことを検査する。異なる環境や重複した試行はエラーにする。
+
+`failure_replay` がある場合、比較JSONの `reproduction` は変更前の採用版（baseline）の対象checkがcompletedかつfailなら `reproduced`、passなら `not_reproduced`、実行エラー・欠測・未判定なら `unknown` とする。改善候補（candidate）の失敗を参照する判定ではない。後二者があれば比較全体は `inconclusive`。必須条件の退行は従来どおり `regressed` を優先する。この機械判定は失敗構造の確認であり、直前条件の忠実性や因果は人が確認する。再構成の成功を元のモデル判断・実務品質の改善実証に広げない。
 未実行ケース、対の欠落、実行障害、未採点、unknown は判定不能として残す。
 counts はチェック×反復の観測数であり、タスク成功率や統計的な有意差ではない。ケース別の rows を見る。
 

@@ -78,6 +78,22 @@ class WorkbenchTest(unittest.TestCase):
         self.assertEqual({"improved": 1, "regressed": 0, "unchanged": 0, "unknown": 0}, result["counts"])
         self.assertIsNone(result["metrics"]["tokens_delta"])
 
+    def test_failure_replay_without_baseline_failure_remains_inconclusive(self):
+        # Arrange: 元の失敗を検証する課題だが、この対では現行版も成功した。
+        suite = self.suite()
+        suite["cases"][0]["failure_replay"] = {
+            "check": "complete", "source": "self_report", "reference": "case-evidence:1",
+            "conditions": "判断前の依頼と初期ファイルを保存", "reconstruction": True}
+        records = [self.run_record("old"), self.run_record("new")]
+        for record in records:
+            record["suite"] = MODULE.digest(suite)
+        # Act
+        result = MODULE.compare(suite, records, "old", "new", "validation")
+        # Assert: 同点を、実務の問題なし・改善不要という証拠にしない。
+        self.assertEqual("inconclusive", result["assessment"])
+        self.assertEqual("not_reproduced", result["reproduction"][0]["status"])
+        self.assertTrue(result["reproduction"][0]["reconstruction"])
+
     def test_compare_keeps_execution_errors_and_missing_pairs_unknown(self):
         # Arrange
         records = [self.run_record("old"), self.run_record("new", status="error"),
@@ -87,6 +103,46 @@ class WorkbenchTest(unittest.TestCase):
         # Assert
         self.assertEqual("inconclusive", result["assessment"])
         self.assertEqual(2, result["counts"]["unknown"])
+
+    def test_replay_requires_explicit_baseline_failure_and_keeps_regression_priority(self):
+        suite = self.suite()
+        suite["cases"][0]["failure_replay"] = {
+            "check": "complete", "source": "self_report", "reference": "evidence:1",
+            "conditions": "original decision context retained", "reconstruction": True}
+        for before, after, status, assessment, reproduction in [
+                ("fail", "pass", "completed", "improved", "reproduced"),
+                ("fail", "fail", "completed", "unchanged", "reproduced"),
+                ("pass", "fail", "completed", "regressed", "not_reproduced"),
+                ("fail", "pass", "error", "inconclusive", "unknown"),
+                ("unknown", "pass", "completed", "inconclusive", "unknown")]:
+            with self.subTest(before=before, after=after, status=status):
+                records = [self.run_record("old", before, status), self.run_record("new", after)]
+                for record in records:
+                    record["suite"] = MODULE.digest(suite)
+                result = MODULE.compare(suite, records, "old", "new", "validation")
+                self.assertEqual(assessment, result["assessment"])
+                self.assertEqual(reproduction, result["reproduction"][0]["status"])
+
+    def test_replay_metadata_rejects_malformed_source_and_check(self):
+        suite = self.suite()
+        replay = {"check": "complete", "source": "observed", "reference": "evidence:1",
+                  "conditions": "initial state", "reconstruction": False}
+        for key, value in [("check", []), ("source", []), ("reference", ""),
+                           ("conditions", None), ("reconstruction", "true"), ("check", "missing")]:
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                suite["cases"][0]["failure_replay"] = {**replay, key: value}
+                MODULE.validate_suite(suite)
+
+    def test_replay_diagnostic_conditions_are_not_sent_to_solver(self):
+        suite = self.suite()
+        suite["cases"][0]["failure_replay"] = {
+            "check": "complete", "source": "self_report", "reference": "private-evidence-reference",
+            "conditions": "private-diagnostic-condition", "reconstruction": True}
+        with patch.object(self, "suite", return_value=suite):
+            ident = self.execute("sys.stdin.read(); print(json.dumps({'type':'thread.started'}))\n")
+        prompt = (self.archive / "runs" / ident / "prompt.txt").read_text()
+        self.assertNotIn("private-diagnostic-condition", prompt)
+        self.assertNotIn("private-evidence-reference", prompt)
 
     def test_compare_blocks_required_regression_despite_other_improvement(self):
         # Arrange
