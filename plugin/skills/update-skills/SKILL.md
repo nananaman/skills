@@ -14,7 +14,7 @@ skill 本文の編集・品質改善は対象外。
 
 1. ユーザー指定と manifest を照合して対象を決める。グローバルでは `~/.apm/apm.yml` の実体を確認する。scope が会話から確定しない場合は確認する。
 2. `git status --short` で既存変更を把握し、他者の変更を保護する。今回の変更と判明している差分について所有者を再確認しない。
-3. 依存関係を GitHub 参照とローカル path に分け、同じ repository の取得をまとめる。
+3. 依存関係を GitHub 参照とローカル path に分け、同じ repository の取得をまとめる。pstack移行の旧client互換用24件は固定対象として除外する。対象名はdotfilesの`agent-plugins.toml`の`codex_routing.legacy_apm_skills`で確認し、通常の一括更新でrefを進めない。互換viewの更新が明示依頼された場合だけ、参照先の全pathが存在し、他clientの契約を保つことを確認して進める。
 4. 以下の規則で更新し、変更前後の commit と更新できない理由を記録する。
 5. manifest の差分と参照先・scope・target を確認し、変更リスクに応じて `skill-workbench` の差分レビューを使う。配布に影響する未解決の指摘があれば install を保留する。保留対象を含む manifest は一括で展開しない。対象を除外して安全に install できると確認できなければ、その manifest 全体の install を保留する。
 6. install 不要の指定がなければグローバルは `apm install -g`、project は repository 直下で `apm install` を実行し、展開先への反映を確認する。`nananaman/skills` の確認では必要に応じて [apm-usage の照合手順](../apm-usage/references/deployment-audit.md) を使う。取得・検証に失敗した対象は更新済みとして扱わず、前項の install 保留規則に従う。

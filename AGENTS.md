@@ -1,36 +1,32 @@
 # AGENTS.md
 
-このリポジトリは nananaman の個人用 agent skills の source of truth です。
+このrepositoryはnananamanのpstack補完規約と専門skillの正本です。
 
 ## 正本と配置
 
-- `plugin/` がインストール可能なプラグインの正本。
-- 全 skill は `plugin/skills/<name>/SKILL.md` と、その配下の references・scripts・assets 等に置く。frontmatter の `name:` とディレクトリ名を一致させる。
-- 日本語で書いてよい。provider・product の名前は `sakura-cloud-eventbus` のように skill 名へ含める。
-- 用途別の分類は README の Engineering / Meta / Personal / Productivity / Sakura Cloud / Writing の一覧で示す。旧カテゴリパスにコピーや互換 symlink を追加しない。
-- 各 skill は APM から `nananaman/skills/plugin/skills/<name>#<full-sha>` でも参照できる。
-- セキュリティ上公開できない内容はこのリポジトリに置かない。私的な state・実務記録・認証情報はrepo外に置く。
+- 配布正本は `plugin/skills/<name>/SKILL.md` と配下の資材。frontmatter名とdirectory名を揃える。
+- 汎用の計画・実装・設計・TDD・レビュー・PR・振り返りはpstackを使い、独立した旧入口を再追加しない。
+- 日本語規約、repo固有の要求、許可境界を優先する。必要な契約コメントと検証を削らない。
+- `tools/skill-maintenance/`は非配布の保管用tool。履歴や日次振り返りを自動起動しない。
+- 秘密、私的state、実務履歴、認証情報はrepo外に保管する。
 
-## 更新手順
+## 更新と配布
 
-1. 正本の skill・resource を編集する。
-2. 追加・削除・rename の場合は root と plugin の README の一覧・導線も更新する。
-3. `skill-workbench` で変更に必要な差分レビューを行う。実行コードは `implement` の検証・独立レビューも行う。
-4. actionable finding がなく、ユーザーが明示依頼した場合だけ commit / push する。
-5. dotfiles の `home/.apm/apm.yml` の参照更新・APM install はユーザーが依頼した場合だけ行う。path / full SHA の方式を保ち、配置変更はpathと対応するcommitを照合する。
+1. 正本を編集し、追加・削除・renameではrootとpluginのREADMEを同期する。
+2. pstackのauthoring・レビュー手順を使い、補完規約の評価が必要なら明示的にskill-workbenchへ渡す。
+3. inventory、リンク、資材、公開内容、対応条件、固定依存を確認する。
+4. actionable findingがなく、ユーザーが明示依頼した場合だけcommit・pushする。
+5. APM manifest更新・install・hook信頼・global切替は、今回許可された操作だけを行う。
 
-## 配布
-
-- `plugin/plugin.json` と `.agents/plugins/marketplace.json` を直接管理する。plugin を生成するコピー工程は設けない。
-- ZIP が必要なときだけ、追跡済みの plugin 正本を `git archive` で固める。ZIP はGit管理外へ保存する。
-- 配布版の更新時はmanifest versionと全件inventory・resource・リンク・公開内容・対応条件を確認する。
-- marketplace追加、実アカウントの導入、cloud / 公開directoryへの公開は別操作。commit・push・ZIP作成を導入成功と扱わない。
-- 通常のAGENTS/skill検出を使い、起動promptへ手動のSKILL読取リストを追加しない。
+`plugin/plugin.json`と`.agents/plugins/marketplace.json`を直接管理し、生成copy工程は作らない。
+配布版を戻す際は移行手順のbaseline commitを使い、旧skillの互換copyやsymlinkを追加しない。
+通常のAGENTS・skill検出を使い、起動promptに手動のSKILL読取リストを追加しない。
 
 ## 検証
 
 ```sh
 python3 scripts/check-skill-inventory.py
 python3 -m unittest discover -s tests
-python3 -m unittest discover -s plugin/skills/review-diff-code/tests
 ```
+
+第三者pstackのinstall・実行が承認待ちなら、そのRuntime確認だけを保留し、安全な正本編集と静的検査は続ける。

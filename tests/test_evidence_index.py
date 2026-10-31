@@ -8,7 +8,7 @@ import sys
 from unittest.mock import patch
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "plugin/skills/skill-maintenance/scripts/evidence_index.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "tools/skill-maintenance/scripts/evidence_index.py"
 SPEC = importlib.util.spec_from_file_location("evidence_index", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)

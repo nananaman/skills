@@ -6,13 +6,15 @@ description: APM で agent skill を管理または更新するときに使う�
 # APM の運用
 
 APM の manifest、参照方式、展開先を確認するときに使う。
-依存関係の最新化は [update-skills](../update-skills/SKILL.md)、skill 本文の編集は `implement` と `skill-workbench` が担当する。
+依存関係の最新化は [update-skills](../update-skills/SKILL.md)、skill 本文の編集は pstack の authoring 手順を使い、本人管理の補完規約の評価には `skill-workbench` を使う。
 
 ## 正本と scope
 
 - 再利用可能な自作 skill 本体は `nananaman/skills` を正本とする。project 固有 skill はその project に置く。
 - グローバルの依存一覧は dotfiles の `home/.apm/apm.yml`。グローバルの `apm.lock.yaml` と `apm_modules/` は commit しない。
 - 正本 repository をローカルに置く場合は path 参照、置かない場合は full SHA pin を使う。
+- pstack移行中の本人skill 24件は例外で、Claude等が使う旧版viewとしてAPM manifestのfull SHAを維持する。Codex用の現行補完packageとは版を分けるため、現在のlocal正本へ付け替えない。`agent-plugins.toml`の`codex_routing.legacy_apm_skills`が対象名を示す。
+- CodexではAPMの旧24件を明示的なrouting taskでdiscoveryから除き、native pstackと補完pluginを使う。APM installだけでこの切替が完了したとは扱わない。Claude等のAPM target・skillはそのまま維持する。
 
 | scope | manifest | install | 展開先 |
 |---|---|---|---|

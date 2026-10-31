@@ -1,0 +1,47 @@
+{
+  "repository": "https://github.com/michael-denyer/pstack-claude",
+  "version": "0.9.114",
+  "commit": "5851c89613e2ddc3a6b7f4af02a42363b30ef8d3",
+  "native_plugin": "pstack@pstack-claude",
+  "owned_baseline": {
+    "version": "0.2.0",
+    "commit": "d25aec07e3fd2695165e274330afa7d183ba3e6a"
+  },
+  "supplement": {
+    "name": "nananaman-pstack-supplement",
+    "version": "0.3.0",
+    "skills": [
+      "apm-usage",
+      "apple-container",
+      "chouge-changelog",
+      "chouge-git",
+      "chouge-writing",
+      "excalidraw",
+      "nono-sandbox-maintenance",
+      "sakura-cloud-eventbus",
+      "sakura-cloud-webaccel",
+      "sakura-cloud-workflows",
+      "skill-workbench",
+      "test-writing-style",
+      "update-skills"
+    ]
+  },
+  "retired_discovery_entries": [
+    "create-plan",
+    "create-pr",
+    "draft-design-doc",
+    "draft-prd",
+    "grilling",
+    "handoff",
+    "implement",
+    "polish-design-doc",
+    "polish-prd",
+    "prototype",
+    "review-diff-code",
+    "review-plan",
+    "skill-maintenance",
+    "task-breakdown",
+    "tdd"
+  ],
+  "purpose": "Compatibility snapshot for the owned supplement; native installation source of truth is dotfiles agent-plugins.toml."
+}
