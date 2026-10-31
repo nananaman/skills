@@ -38,8 +38,8 @@ Codexでpstackを標準の開発フローとして使うための日本語規約
 ## 導入条件
 
 このpackageはpstack本体を含みません。
-Claude/Pi等の旧APM viewは固定commitで維持し、今回のCodex移行から他clientのpstack化を推測しません。
-pstackのnative pluginと同じ環境で使用し、global切替は検証・承認後に行います。
+旧汎用APM依存は除き、各利用環境でpstackの名前・資材・モデル・hookの対応を確認します。
+pstackと同じ環境で使用します。通常導入はdotfilesのAPM manifestを使い、native配布形式は必須にしません。global切替は検証・承認後に行います。
 未導入時に旧汎用フローへ自動fallbackしません。
 [移行手順](../docs/pstack-migration.md)と[固定版](../pstack.lock.json)はrepository rootにあります。
 ZIPでこのpluginだけを受け取った場合、これらはrepositoryの同じ版を参照してください。

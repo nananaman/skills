@@ -2,7 +2,6 @@
   "repository": "https://github.com/michael-denyer/pstack-claude",
   "version": "0.9.114",
   "commit": "5851c89613e2ddc3a6b7f4af02a42363b30ef8d3",
-  "native_plugin": "pstack@pstack-claude",
   "owned_baseline": {
     "version": "0.2.0",
     "commit": "d25aec07e3fd2695165e274330afa7d183ba3e6a"
@@ -43,5 +42,6 @@
     "task-breakdown",
     "tdd"
   ],
-  "purpose": "Compatibility snapshot for the owned supplement; native installation source of truth is dotfiles agent-plugins.toml."
+  "purpose": "Compatibility snapshot; active dependencies and fixed refs are declared in dotfiles home/.apm/apm.yml.",
+  "apm_reference": "michael-denyer/pstack-claude/plugins/pstack#5851c89613e2ddc3a6b7f4af02a42363b30ef8d3"
 }

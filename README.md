@@ -46,8 +46,8 @@ marketplace登録、第三者codeの実行、hook信頼、global切替、既存�
 cacheを編集せず、通常のAGENTSとskill検出を使います。
 
 APMの参照は `nananaman/skills/plugin/skills/<name>#<full-sha>` または正本へのpathを使います。
-Claude/Pi等は旧24件の固定commitをAPMで使い、従来の入口を維持します。
-切替承認後、まず互換APM manifest・installを同期してから本人source0.3.0へ切り替え、旧パスの互換symlinkは追加しません。
+pstackと補完13件はdotfilesのAPM manifestで管理します。旧汎用依存はmanifestから除き、通常のAPM同期で残存配置を照合します。
+旧native登録の無効化と個別skill設定の整理は初回切替で行い、旧パスの互換symlinkは追加しません。
 
 ## 評価と保管
 
