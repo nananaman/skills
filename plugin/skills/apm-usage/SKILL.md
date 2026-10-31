@@ -6,23 +6,20 @@ description: APM で agent skill を管理または更新するときに使う�
 # APM の運用
 
 APM の manifest、参照方式、展開先を確認するときに使う。
-依存関係の最新化は [update-skills](../update-skills/SKILL.md)、skill 本文の編集は pstack の authoring 手順を使い、本人管理の補完規約の評価には `skill-workbench` を使う。
+依存関係の最新化は [update-skills](../update-skills/SKILL.md)、skill 本文の作成・改善・評価は `skill-workbench` が担当する。
 
 ## 正本と scope
 
 - 再利用可能な自作 skill 本体は `nananaman/skills` を正本とする。project 固有 skill はその project に置く。
 - グローバルの依存一覧は dotfiles の `home/.apm/apm.yml`。グローバルの `apm.lock.yaml` と `apm_modules/` は commit しない。
 - 正本 repository をローカルに置く場合は path 参照、置かない場合は full SHA pin を使う。
-- pstackと本人の補完は同じAPM manifestで管理する。第三者pstackは承認したfull SHA、ローカルの本人skillは正本pathを使う。廃止した旧汎用依存を互換viewとして残さない。
-- APM外のnative plugin登録や個別skill無効化設定はAPM installでは変わらない。初回切替で対象分だけ確認・整理し、通常の依存同期と区別する。
 
 | scope | manifest | install | 展開先 |
 |---|---|---|---|
 | グローバル | `~/.apm/apm.yml`（dotfiles の `home/.apm/apm.yml` へのリンク） | `apm install -g` | `~/.claude/skills`, `~/.agents/skills` |
 | project | repository 直下の `apm.yml` | repository 直下で `apm install` | `.claude/skills`, `.agents/skills` |
 
-dotfiles管理下のグローバル同期はdotfiles rootで `mise run apm-sync` を使う。APM full install後に、固定pstackの移設hookへrootを補う。直接APMを実行した場合も補正を行い、失敗したままsessionを開始しない。補正はhook信頼・実行を許可しない。
-
+環境に同期taskが宣言されている場合はそのtaskを使い、宣言がなければ表のAPM CLIを使う。
 既存 manifest の形式と target を維持し、形式やオプションが不明ならインストール済みの `apm install --help` で確認する。
 project の target 上書きは依頼がある場合にだけ行う。
 

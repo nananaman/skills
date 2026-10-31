@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "nananaman-pstack-supplement",
+  "name": "nananaman-skills",
   "version": "0.3.0",
-  "description": "Japanese preferences, service knowledge and evaluation tools that supplement pstack.",
+  "description": "Personal writing, engineering, agent skill authoring and service operation skills.",
   "author": {
     "name": "nananaman",
     "url": "https://github.com/nananaman"
@@ -10,22 +10,22 @@
   "homepage": "https://github.com/nananaman/skills",
   "repository": "https://github.com/nananaman/skills",
   "keywords": [
-    "pstack",
     "japanese",
-    "domain-knowledge",
+    "engineering",
+    "writing",
     "skills"
   ],
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "nananaman pstack supplement",
-        "shortDescription": "pstackに日本語規約と専門知識を補う",
-        "longDescription": "pstackを標準の開発フローとして使うための補完スキル。日本語、Gitとテストの個人規約、サービス固有手順、本人管理skillの評価を提供します。汎用の計画・実装・レビュー・TDDや履歴の自動収集は含みません。",
+        "displayName": "nananaman skills",
+        "shortDescription": "日本語の文書作成、開発規約、サービス操作のskills",
+        "longDescription": "日本語の文書作成、Gitとテストの個人規約、agent skillの作成・評価、サービス固有の操作手順を提供します。各skillの用途と必要条件に従って利用できます。",
         "developerName": "nananaman",
         "category": "Productivity",
         "websiteURL": "https://github.com/nananaman/skills",
         "defaultPrompt": [
-          "pstackの作業フローに、このプラグインの日本語規約と専門知識を適用して。"
+          "この作業に合うskillを選び、日本語の規約と必要な操作手順を適用して。"
         ]
       }
     }

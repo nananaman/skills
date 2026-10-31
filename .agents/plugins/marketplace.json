@@ -1,11 +1,11 @@
 {
   "name": "nananaman-skills",
   "interface": {
-    "displayName": "nananaman pstack supplement"
+    "displayName": "nananaman skills"
   },
   "plugins": [
     {
-      "name": "nananaman-pstack-supplement",
+      "name": "nananaman-skills",
       "source": {
         "source": "local",
         "path": "./plugin"
