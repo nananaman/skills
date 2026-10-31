@@ -6,7 +6,7 @@ description: APM で agent skill を管理または更新するときに使う�
 # APM の運用
 
 APM の manifest、参照方式、展開先を確認するときに使う。
-依存関係の最新化は [update-skills](../update-skills/SKILL.md)、skill 本文の編集は `implement` と `skill-workbench` が担当する。
+依存関係の最新化は [update-skills](../update-skills/SKILL.md)、skill 本文の作成・改善・評価は `skill-workbench` が担当する。
 
 ## 正本と scope
 
@@ -19,6 +19,7 @@ APM の manifest、参照方式、展開先を確認するときに使う。
 | グローバル | `~/.apm/apm.yml`（dotfiles の `home/.apm/apm.yml` へのリンク） | `apm install -g` | `~/.claude/skills`, `~/.agents/skills` |
 | project | repository 直下の `apm.yml` | repository 直下で `apm install` | `.claude/skills`, `.agents/skills` |
 
+環境に同期taskが宣言されている場合はそのtaskを使い、宣言がなければ表のAPM CLIを使う。
 既存 manifest の形式と target を維持し、形式やオプションが不明ならインストール済みの `apm install --help` で確認する。
 project の target 上書きは依頼がある場合にだけ行う。
 

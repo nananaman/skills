@@ -10,7 +10,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'plugin/skills/skill-maintenance/scripts/render_report.py'
+SCRIPT = Path(__file__).resolve().parents[1] / 'tools/skill-maintenance/scripts/render_report.py'
 spec = importlib.util.spec_from_file_location('render_report', SCRIPT)
 renderer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(renderer)

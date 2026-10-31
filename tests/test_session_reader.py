@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'plugin/skills/skill-maintenance/scripts/session_reader.py'
+SCRIPT = Path(__file__).resolve().parents[1] / 'tools/skill-maintenance/scripts/session_reader.py'
 
 
 class SessionReaderTest(unittest.TestCase):

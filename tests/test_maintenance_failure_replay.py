@@ -6,11 +6,11 @@ import unittest
 import sys
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "plugin/skills/skill-maintenance/scripts/evidence_index.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "tools/skill-maintenance/scripts/evidence_index.py"
 SPEC = importlib.util.spec_from_file_location("replay_index", SCRIPT)
 INDEX = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(INDEX)
-BENCH_SCRIPT = SCRIPT.parents[2] / "skill-workbench/scripts/workbench.py"
+BENCH_SCRIPT = Path(__file__).resolve().parents[1] / "plugin/skills/skill-workbench/scripts/workbench.py"
 BENCH_SPEC = importlib.util.spec_from_file_location("replay_workbench", BENCH_SCRIPT)
 BENCH = importlib.util.module_from_spec(BENCH_SPEC)
 sys.modules[BENCH_SPEC.name] = BENCH

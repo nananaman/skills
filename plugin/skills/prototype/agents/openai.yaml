@@ -1,4 +1,0 @@
-interface:
-  display_name: "Prototype"
-  short_description: "throwaway artifactや単一spikeで設計上の問いを検証する"
-  default_prompt: "Use $prototype to test a design question with the smallest useful spike or a comparison of structurally different options."

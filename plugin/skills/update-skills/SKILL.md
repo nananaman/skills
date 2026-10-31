@@ -17,7 +17,7 @@ skill 本文の編集・品質改善は対象外。
 3. 依存関係を GitHub 参照とローカル path に分け、同じ repository の取得をまとめる。
 4. 以下の規則で更新し、変更前後の commit と更新できない理由を記録する。
 5. manifest の差分と参照先・scope・target を確認し、変更リスクに応じて `skill-workbench` の差分レビューを使う。配布に影響する未解決の指摘があれば install を保留する。保留対象を含む manifest は一括で展開しない。対象を除外して安全に install できると確認できなければ、その manifest 全体の install を保留する。
-6. install 不要の指定がなければグローバルは `apm install -g`、project は repository 直下で `apm install` を実行し、展開先への反映を確認する。`nananaman/skills` の確認では必要に応じて [apm-usage の照合手順](../apm-usage/references/deployment-audit.md) を使う。取得・検証に失敗した対象は更新済みとして扱わず、前項の install 保留規則に従う。
+6. install 不要の指定がなければ環境に宣言された同期taskを使う。宣言がなければグローバルは `apm install -g`、project は repository 直下で `apm install` を実行し、展開先への反映を確認する。`nananaman/skills` の確認では必要に応じて [apm-usage の照合手順](../apm-usage/references/deployment-audit.md) を使う。取得・検証に失敗した対象は更新済みとして扱わず、前項の install 保留規則に従う。
 
 ### GitHub 参照
 

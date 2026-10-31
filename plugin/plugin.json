@@ -1,25 +1,32 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "nananaman-skills",
-  "version": "0.2.0",
-  "description": "Japanese workflows for engineering, writing, skill maintenance, Git and Sakura Cloud.",
+  "version": "0.3.0",
+  "description": "Personal writing, engineering, agent skill authoring and service operation skills.",
   "author": {
     "name": "nananaman",
     "url": "https://github.com/nananaman"
   },
   "homepage": "https://github.com/nananaman/skills",
   "repository": "https://github.com/nananaman/skills",
-  "keywords": ["engineering", "writing", "japanese", "skills"],
+  "keywords": [
+    "japanese",
+    "engineering",
+    "writing",
+    "skills"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "nananaman skills",
-        "shortDescription": "開発・文章・スキル保守の日本語ワークフロー",
-        "longDescription": "nananaman/skills の全スキルをまとめたプラグイン。個人の Git 規約とさくらのクラウド手順も含みます。CLI・端末・接続権限が必要な手順があります。Apple container と Codex 履歴取得は Mac 前提です。",
+        "shortDescription": "日本語の文書作成、開発規約、サービス操作のskills",
+        "longDescription": "日本語の文書作成、Gitとテストの個人規約、agent skillの作成・評価、サービス固有の操作手順を提供します。各skillの用途と必要条件に従って利用できます。",
         "developerName": "nananaman",
         "category": "Productivity",
         "websiteURL": "https://github.com/nananaman/skills",
-        "defaultPrompt": ["このプラグインの文章作成手順で、読者と目的に合う文書を作成して。"]
+        "defaultPrompt": [
+          "この作業に合うskillを選び、日本語の規約と必要な操作手順を適用して。"
+        ]
       }
     }
   }
