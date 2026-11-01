@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "nananaman-skills",
   "version": "0.3.0",
-  "description": "Personal writing, engineering, agent skill authoring and service operation skills.",
+  "description": "Personal writing, engineering, agent skill authoring and maintenance, and service operation skills.",
   "author": {
     "name": "nananaman",
     "url": "https://github.com/nananaman"
@@ -20,7 +20,7 @@
       "interface": {
         "displayName": "nananaman skills",
         "shortDescription": "日本語の文書作成、開発規約、サービス操作のskills",
-        "longDescription": "日本語の文書作成、Gitとテストの個人規約、agent skillの作成・評価、サービス固有の操作手順を提供します。各skillの用途と必要条件に従って利用できます。",
+        "longDescription": "日本語の文書作成、Gitとテストの個人規約、agent skillの作成・評価と実務に基づく定期保守、サービス固有の操作手順を提供します。各skillの用途と必要条件に従って利用できます。",
         "developerName": "nananaman",
         "category": "Productivity",
         "websiteURL": "https://github.com/nananaman/skills",

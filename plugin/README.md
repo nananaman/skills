@@ -14,6 +14,7 @@
 ## Meta
 
 - [apm-usage](./skills/apm-usage/SKILL.md)
+- [skill-maintenance](./skills/skill-maintenance/SKILL.md)
 - [skill-workbench](./skills/skill-workbench/SKILL.md)
 - [update-skills](./skills/update-skills/SKILL.md)
 
@@ -31,6 +32,8 @@
 
 - [chouge-changelog](./skills/chouge-changelog/SKILL.md)
 - [chouge-writing](./skills/chouge-writing/SKILL.md)
+
+PRDとDesign Docのテンプレートと使い方は [chouge-writing](./skills/chouge-writing/references/doctypes/prd-and-design-doc.md) に収録しています。
 
 ## 配布
 

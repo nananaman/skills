@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "source_id": "work-host-example",
+  "requested_tasks": [
+    {
+      "task_id": "task-a",
+      "status": "received"
+    }
+  ],
+  "reports": [
+    {
+      "task_id": "task-a",
+      "report_id": "report-task-a",
+      "revision": 1,
+      "source_repo": "example/app",
+      "information_scope": "public",
+      "kind": "work",
+      "completed_at": "2026-01-02T12:00:00Z",
+      "received_at": "2026-01-02T13:00:00Z",
+      "claims": [
+        {
+          "summary": "A synthetic check passed.",
+          "evidence_refs": [
+            "opaque:check-1"
+          ],
+          "unknowns": [
+            "Independent outcome unverified."
+          ]
+        }
+      ]
+    }
+  ],
+  "window": {
+    "since": "2026-01-02T00:00:00Z",
+    "cutoff": "2026-01-03T00:00:00Z"
+  },
+  "enumeration_complete": true
+}
