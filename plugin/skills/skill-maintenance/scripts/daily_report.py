@@ -3,11 +3,12 @@ from datetime import date
 import hashlib
 import html
 import json
+import math
 import os
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from common import SENSITIVE, require, text_id
+from common import SENSITIVE, instant, require, text_id
 from maintenance import private_path, same_path
 from work_retrospectives import fields, read_envelope, safe_strings
 
@@ -29,8 +30,9 @@ def text(value):
 
 
 def render(document):
-    fields(document, 'version report_date timezone information_scope period summary sessions candidates next_actions')
-    require(type(document['version']) is int and document['version'] == 1, 'unsupported daily report version')
+    require(type(document.get('version')) is int and document['version'] in {1, 2}, 'unsupported daily report version')
+    fields(document, 'version report_date timezone information_scope period summary sessions candidates next_actions' +
+           (' execution' if document['version'] == 2 else ''))
     day, zone = text(document['report_date']), text(document['timezone'])
     try:
         require(date.fromisoformat(document['report_date']).isoformat() == document['report_date'], 'invalid report date')
@@ -39,6 +41,8 @@ def render(document):
         raise ValueError('invalid daily report date/timezone') from None
     lines = [f'# スキル振り返り {day}', '', f'日付基準: {zone}', '',
              '対象期間: ' + text(document['period']), '', text(document['summary']), '', '## 対象の実務', '']
+    if document['version'] == 2:
+        lines[8:8] = execution_lines(document['execution'])
     require(isinstance(document['sessions'], list), 'report sessions must be a list')
     for session in document['sessions']:
         fields(session, 'label work source evidence_basis status reason next_action')
@@ -70,6 +74,31 @@ def render(document):
     require(isinstance(document['next_actions'], list), 'next actions must be a list')
     lines += ['## 次の対応', ''] + ['- ' + text(action) for action in document['next_actions']]
     return '\n'.join(lines) + '\n'
+
+
+def execution_lines(execution):
+    fields(execution, 'started_at finished_at final_confirmation_at primary_reports evaluation_candidates evaluation_runs regression_tests tokens cost')
+    started = instant(execution['started_at'])
+    ended = instant(execution['finished_at']) if execution['finished_at'] is not None else None
+    confirmed = instant(execution['final_confirmation_at']) if execution['final_confirmation_at'] is not None else None
+    require(ended is None or ended >= started, 'execution end precedes start')
+    require(confirmed is None or ended is not None and confirmed >= ended, 'confirmation precedes fixed end')
+    for name in ('primary_reports', 'evaluation_candidates', 'evaluation_runs', 'regression_tests', 'tokens'):
+        require(execution[name] is None or type(execution[name]) is int and execution[name] >= 0, 'invalid execution count')
+    cost = execution['cost']
+    require(cost is None or type(cost) is int and cost >= 0 or
+            type(cost) is float and math.isfinite(cost) and cost >= 0, 'invalid measured cost')
+    def count(name):
+        return str(execution[name]) if execution[name] is not None else '未計測'
+    elapsed = f'{(ended - started).total_seconds():g}秒' if ended else '未確定'
+    return ['## 実行結果', '', '開始: ' + text(execution['started_at']),
+            '固定終了: ' + (text(execution['finished_at']) if ended else '未確定'),
+            '所要時間: ' + elapsed,
+            '追補確認: ' + (text(execution['final_confirmation_at']) if confirmed else '未確認'),
+            f"一次振り返り: {count('primary_reports')}件",
+            f"比較評価: 候補{count('evaluation_candidates')}件・{count('evaluation_runs')}実行",
+            f"回帰テスト: {count('regression_tests')}件",
+            f"トークン: {count('tokens')}", '金額: ' + ('未計測' if cost is None else str(cost)), '']
 
 
 def outside_repo(path, repo):
@@ -123,12 +152,21 @@ def daily_report(args):
         outside_repo(path, args.repo)
         require(not any(same_path(path, protected) for protected in (args.input, args.config)),
                 'daily report must not overwrite protected inputs')
-        require(not path.exists(), 'daily report output already exists; use a new revision path')
     parts = [dict(order=n, path=str(path), sha256=hashlib.sha256(piece).hexdigest())
              for n, (path, piece) in enumerate(zip(outputs, pieces), 1)]
     handoff = dict(version=1, report_date=document['report_date'], timezone=document['timezone'],
                    information_scope=scope, destination=destination, parts=parts, remaining_parts=0,
                    delivery_status='host-handoff-pending', reason='host-delivery-and-readback-unverified')
+    result = dict(report=str(outputs[0]), parts=parts, sha256=hashlib.sha256(content).hexdigest(),
+                  handoff=str(handoff_path), delivery_status='host-handoff-pending', checkpoint_written=False)
+    if getattr(args, 'reuse_identical', False) and handoff_path.exists():
+        require(read_envelope(handoff_path) == handoff, 'existing handoff differs; retain and reconcile')
+        for path, piece in zip(outputs, pieces):
+            require(path.exists() and path.read_bytes() == piece, 'existing report differs; retain human edits')
+        require(len(pieces) == 1 or not args.output.exists(), 'unexpected unpartitioned report exists')
+        return dict(result, reused=True)
+    require(not any(path.exists() for path in [args.output, *outputs, handoff_path]),
+            'daily report output already exists; use a new revision path')
     manifest = (json.dumps(handoff, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
     created = []
     try:
@@ -144,5 +182,4 @@ def daily_report(args):
         for path in created:
             path.unlink()
         raise
-    return dict(report=str(outputs[0]), parts=parts, sha256=hashlib.sha256(content).hexdigest(),
-                handoff=str(handoff_path), delivery_status='host-handoff-pending', checkpoint_written=False)
+    return dict(result, reused=False)
