@@ -20,6 +20,20 @@ hostが安定した`source_id`と元の`task_id`を付け、依頼したIDごと
 
 ## 日次起動から Mac への最小 handoff
 
+### 応答ごとの保存と事前検査
+
+hostは各応答が完了するたびに、構造化されたfile書込みまたはfilesystem APIで専用の非公開通常fileへ保存する。本文をshell command、二重引用符付き引数、here-documentの展開対象へ補間しない。並行read全件の終了まで応答をメモリだけに溜めない。既に渡されたfileの事前検査は次の入口を使う。
+
+```sh
+python3 <skill-root>/scripts/maintenance.py stage-retrospectives \
+  --input <private/response.json> --response-id <host-stable-response-id> \
+  --repo <skill-checkout> --output <private/response-journal>
+```
+
+単一writerで応答ごとに呼ぶ。取得範囲や通信上限を変更する入口ではなく、追加のsend/readを行わない。hostの応答IDは同じ応答の再送で維持し、本文からtask/report IDを推測しない。8 MiB以下の元bytesを先に保存し、その後v2 envelopeをtask単位で正規validatorへ渡す。正常分を個別envelopeへ、不正・重複・未知identityをreceiptのheldへ分離する。元bytesは不変で残し、held本文の一次分析は評価予算と切り離して続ける。分割envelopeの列挙完了はfalseとし、元の列挙終端確認はhostの回収記録で保持する。
+
+receiptの`envelopes`を順に通常のintakeへ渡す。scope・管理主体・turn binding・旧stateとの整合はintakeで引き続き検査するため、事前検査成功を許可・受信記録の成功へ読み替えない。あるenvelopeが拒否されても、独立した残りの検証を止めない。同じ応答ID・bytesの再処理は保存結果を再利用し、変更bytesでは元を上書きせず停止する。保存後・事前検査前の中断も同じIDと入力から再開する。receiptの保存byte数・処理時計はローカル処理の実測であり、hostの累積通信量・5分枠・費用の証明ではない。欠測通信量はnullのまま残し、再開で取得予算をリセットしない。
+
 日次のskill実行を受けたhostがsend/read・許可task選定を担当し、Macのintakeは受信後の検査だけを担当する。スケジュールpromptへ送信・振り返りの実装を複製しない。hostに必要な能力がなければWorkはunsupportedとして終え、Macから私的APIを探さない。既知taskへのsend/read成功は、その二件についての接続証拠であり、期間内のtask列挙成功ではない。
 
 1. hostはMac側の既存stateと最新自己申告batchから、source/task/report/revision、状態、元window、pending_requests、登録済み・明示除外rootを読む。非公開pathや最小JSONで引き渡し、本文を公開先へ出さない。Workにはnative checkpointがない。旧v1 windowは出所記録として維持するが、時刻不明は新しい差分選定のblockerにしない。旧v1未受信要求にturn bindingがなければlegacy_unbound_requestsとして保留し、元v1入力で解消してから移行する。v2未受信要求をv1入力で解消・上書きすることも拒否する。

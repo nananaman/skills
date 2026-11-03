@@ -24,6 +24,12 @@ callerの非公開設定は[report-config JSON例](../examples/report-config.jso
 
 ## PCで再現できる生成とhandoff
 
+分析中の中間稿は非公開に保ち、一次分析・受信状態・採否・検証を照合した一つの確定summaryから本文を生成する。一次振り返りを評価件数で切らない。新しい事実や人の修正がなければ全文の別版を作らず、同じ入力・設定・出力pathへ`--reuse-identical`を付けて再送する。この指定では全partとhandoffの完全一致を検査して既存fileを再利用する。本文・保存先・partが異なる場合は上書きせず停止し、人の編集を保持して追補を組み立てる。既定の上書き拒否は維持する。再利用でもSpace保存・全文読戻し済みとは主張しない。
+
+確定した件数・時計にはversion 2を使い、従来のsummaryへ`execution`を一つ追加する。fieldは`started_at / finished_at / final_confirmation_at / primary_reports / evaluation_candidates / evaluation_runs / regression_tests / tokens / cost`。時計はtimezone付きISO 8601、終了・追補確認が未確定ならnull。件数は非負整数または未計測のnull。`cost`は計測した金額またはnullで、通貨・計測範囲はsummaryで明示する。比較評価の候補数・実行数と通常の回帰テスト数を分離し、文字数からtokenや費用を埋めない。所要時間は開始・固定終了から算出する。
+
+最初の全part保存と全文読戻しを確認した時計で全工程の終了を一度固定する。hostの確認後は、元本文の対応箇所を人の編集を保持して直すか、固定終了・所要時間・保存確認の短い追補を渡す。追補の検証時計は`final_confirmation_at`へ分離し、検証するたびに全工程の終了時計を更新し続けない。未完・保存不能でも事実から本文を残し、未来の成功を確定値へ入れない。
+
 skill担当は非公開の取得結果・Work batch・採否台帳・検証結果・実際のPR結果を照合し、[匿名JSON例](../examples/daily-report.json)と同じfieldを持つsanitized inputを作る。内部台帳や生exportをそのまま渡さない。`sessions`は全対象の状態、`candidates`は抽出した候補、`checks`は検証とその限界を列挙する。既存の未変更保留も必要ならその理由を示すが、評価を再実行したと扱わない。未知fieldは拒否する。状態は次の語彙を使う。
 
 - session: `acquired / empty / excluded / failed / held / unsupported / self-report`

@@ -27,12 +27,64 @@ class DailyReportTest(unittest.TestCase):
                                                      information_scope='personal:example'))
         self.document = json.loads((ROOT / 'plugin/skills/skill-maintenance/examples/daily-report.json').read_text())
 
-    def run_report(self, output=None):
-        self.input.write_text(json.dumps(self.document))
+    def run_report(self, output=None, extra=(), input_text=None):
+        self.input.write_text(json.dumps(self.document) if input_text is None else input_text)
         self.config.write_text(json.dumps(self.settings))
         return subprocess.run([sys.executable, str(SCRIPT), 'daily-report', '--input', str(self.input),
-                               '--config', str(self.config), '--repo', str(self.repo), '--output', str(output or self.output)],
+                               '--config', str(self.config), '--repo', str(self.repo), '--output', str(output or self.output), *extra],
                               capture_output=True, text=True, timeout=3)
+
+    def test_identical_retry_reuses_verified_parts_without_creating_a_new_revision(self):
+        first = self.run_report(extra=('--reuse-identical',))
+        self.assertEqual(0, first.returncode, first.stderr)
+        before = self.output.stat().st_mtime_ns
+        second = self.run_report(extra=('--reuse-identical',))
+        self.assertEqual(0, second.returncode, second.stderr)
+        self.assertTrue(json.loads(second.stdout)['reused'])
+        self.assertEqual(before, self.output.stat().st_mtime_ns)
+
+    def test_reuse_refuses_human_edits_and_changed_destinations(self):
+        self.assertEqual(0, self.run_report().returncode)
+        self.output.write_text(self.output.read_text() + '\n人が追加した内容\n')
+        before = self.output.read_bytes()
+        result = self.run_report(extra=('--reuse-identical',))
+        self.assertEqual(2, result.returncode)
+        self.assertEqual(before, self.output.read_bytes())
+
+    def test_finalized_run_renders_counts_and_fixed_clock_without_inventing_missing_metrics(self):
+        self.document['version'] = 2
+        self.document['execution'] = dict(started_at='2026-01-02T18:00:00Z', finished_at='2026-01-02T18:10:00Z',
+                                         final_confirmation_at='2026-01-02T18:11:00Z', primary_reports=4,
+                                         evaluation_candidates=1, evaluation_runs=12, regression_tests=31,
+                                         tokens=None, cost=None)
+        result = self.run_report()
+        self.assertEqual(0, result.returncode, result.stderr)
+        content = self.output.read_text()
+        self.assertIn('600秒', content)
+        self.assertIn('比較評価: 候補1件・12実行', content)
+        self.assertIn('回帰テスト: 31件', content)
+        self.assertIn('トークン: 未計測', content)
+        self.assertIn('金額: 未計測', content)
+
+    def test_reversed_clock_and_boolean_counts_block_output(self):
+        self.document['version'] = 2
+        self.document['execution'] = dict(started_at='2026-01-02T18:10:00Z', finished_at='2026-01-02T18:00:00Z',
+                                         final_confirmation_at=None, primary_reports=True,
+                                         evaluation_candidates=0, evaluation_runs=0, regression_tests=1,
+                                         tokens=None, cost=None)
+        self.assertEqual(2, self.run_report().returncode)
+        self.assertFalse(self.output.exists())
+
+    def test_infinite_cost_is_rejected_instead_of_reported_as_a_measurement(self):
+        self.document['version'] = 2
+        self.document['execution'] = dict(started_at='2026-01-02T18:00:00Z', finished_at=None,
+                                         final_confirmation_at=None, primary_reports=1,
+                                         evaluation_candidates=0, evaluation_runs=0, regression_tests=1,
+                                         tokens=None, cost=1)
+        # 有効なJSON数値がdecode後にinfへ溢れる条件を渡す。Infinity定数の拒否とは別。
+        raw = json.dumps(self.document).replace('"cost": 1', '"cost": 1e309')
+        self.assertEqual(2, self.run_report(input_text=raw).returncode)
+        self.assertFalse(self.output.exists())
 
     def test_report_is_portable_and_separates_self_report_failure_and_candidate_hold(self):
         self.document['candidates'][0]['pr_urls'] = ['https://github.com/example/skills/pull/7']

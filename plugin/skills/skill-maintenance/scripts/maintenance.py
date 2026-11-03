@@ -507,12 +507,20 @@ def main():
     daily_parser = commands.add_parser('daily-report')
     for name in ('input', 'config', 'repo', 'output'):
         daily_parser.add_argument('--' + name, type=Path, required=True)
+    daily_parser.add_argument('--reuse-identical', action='store_true')
+    stage_parser = commands.add_parser('stage-retrospectives')
+    for name in ('input', 'repo', 'output'):
+        stage_parser.add_argument('--' + name, type=Path, required=True)
+    stage_parser.add_argument('--response-id', required=True)
     record_parser = commands.add_parser("record")
     for name in ("batch", "result", "state", "repo"):
         record_parser.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args()
     try:
-        if args.command in {'intake-retrospectives', 'select-retrospectives'}:
+        if args.command == 'stage-retrospectives':
+            from work_staging import stage
+            result = stage(args)
+        elif args.command in {'intake-retrospectives', 'select-retrospectives'}:
             from work_retrospectives import intake, select
             result = intake(args) if args.command == 'intake-retrospectives' else select(args)
         elif args.command == 'daily-report':
