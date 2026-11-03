@@ -14,13 +14,46 @@ description: テストの追加・修正・レビューで、命名、Arrange/Ac
 Goでは [references/go.md](references/go.md) も参照する。
 
 - テスト名は、条件と期待結果が分かる仕様文にする。
-- 各テスト定義の直前に、ケースの意図を短いコメントで書く（例「正常系: 投稿日時順に結果が得られる」）。説明はプロジェクトに別指定がなければ日本語にする。
+- 各テスト定義の直前に、ケースの意図を短いコメントで書く。説明はプロジェクトに別指定がなければ日本語にする。
 - 正常系と異常系は別のテストにし、境界条件も独立して識別できるケースにする。一つの振る舞いをassertionの数だけに分割しない。
 - テスト本体は各段階の先頭に `Arrange` / `Act` / `Assert` の区切りコメントを明示する。短いテストでも省略せず、複雑な準備や副作用の理由は対応するコメントに補足する。
-- `Assert` 内では、検証観点ごとの意味のまとまりの直前にコメントを書く（例「投稿日時順に並んでいる」「お気に入り登録している」）。各assertion一行ごとの説明は繰り返さない。
+- `Assert` 内では、検証観点ごとの意味のまとまりの直前にコメントを書く。各assertion一行ごとの説明は繰り返さない。
 - Actは一つの振る舞いを実行する単位にする。区切りコメントのために処理を分割したり、helperを増やしたりしない。
 - 入出力で表せる処理はparameterized / table-driven testを検討する。各ケースの意図はケース定義のコメントに置き、AAAと検証観点のコメントは共通のテスト本体に書く。複雑な副作用を無理に共通helperへ押し込まない。
 - 後続の検証に必要な前提はfatal assertionで確かめ、独立した値はまとめて確認できるようにする。
+
+### コメントの例
+
+商品小計8,000円以上は送料無料、合計は小計と送料の和、という架空の仕様を例にする。`CalculateOrder` は商品の単価・数量から `Subtotal`・`Shipping`・`Total`（円）を返す。
+
+```go
+// 正常系: 送料無料の条件を満たす注文の合計を計算する。
+func TestCalculateOrder_FreeShipping(t *testing.T) {
+	// Arrange
+	// 小計8,000円で8,000円以上の送料無料条件を満たす。
+	items := []OrderItem{
+		{UnitPrice: 3000, Quantity: 2},
+		{UnitPrice: 2000, Quantity: 1},
+	}
+
+	// Act
+	got := CalculateOrder(items)
+
+	// Assert
+	// 単価と数量から商品小計を計算している。
+	if got.Subtotal != 8000 {
+		t.Errorf("Subtotal = %d, want 8000", got.Subtotal)
+	}
+
+	// 送料無料が適用され、合計は小計のみになる。
+	if got.Shipping != 0 {
+		t.Errorf("Shipping = %d, want 0", got.Shipping)
+	}
+	if got.Total != 8000 {
+		t.Errorf("Total = %d, want 8000", got.Total)
+	}
+}
+```
 
 ## 外から見える契約を検証する
 
