@@ -129,6 +129,8 @@ python3 <skill-root>/scripts/maintenance.py report \
 
 `--new-evidence-only`による保留caseは新規turn・証拠revisionで再開する。評価環境・fixture・許可が新しく整った場合の通常collectによる再開は、その変化と操作範囲を確認する。毎日の起動でflagを外して同じ入力を再評価しない。未記録の中断とapplyingの照合は契約に従う。
 
+保留候補にfixtureや評価環境が不足する場合は、[振り返り手順](retrospective.md#保留を次の検証へ進める)で次の作業を具体化する。許可範囲内の準備を進め、整った条件を記録してから上記の通常collectによる再開を判断する。新証拠が来るまで何もできないと決めつけず、既存予算や取得境界は維持する。
+
 契約の判断状態に合わせたdecision JSONを作り、次で記録する。
 
 ```sh
