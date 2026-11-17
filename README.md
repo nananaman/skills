@@ -13,6 +13,7 @@
 
 ## Meta
 
+- [create-verification-skill](./plugin/skills/create-verification-skill/SKILL.md)
 - [apm-usage](./plugin/skills/apm-usage/SKILL.md)
 - [skill-maintenance](./plugin/skills/skill-maintenance/SKILL.md)
 - [skill-workbench](./plugin/skills/skill-workbench/SKILL.md)
