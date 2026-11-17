@@ -26,6 +26,8 @@ marketplace登録、実アカウントへの導入、公開directoryへの公開
 
 ## 検証
 
+コードの追加・修正・レビューでは [no-comments](plugin/skills/no-comments/SKILL.md) に従い、説明コメントに頼らず意図と制約を表す。
+
 ```sh
 python3 scripts/check-skill-inventory.py
 python3 -m unittest discover -s tests
