@@ -2,12 +2,13 @@
 
 日本語の文書作成、Gitやテストの個人規約、agent skillの作成・評価と実務に基づく定期保守、サービス操作のためのskillsです。
 各skillの用途と必要条件に従って、利用するものを選びます。
-配布packageは `nananaman-skills` version `0.3.0` です。
+配布packageは `nananaman-skills` version `0.4.0` です。
 
 ## Engineering
 
 - [apple-container](./plugin/skills/apple-container/SKILL.md)
 - [excalidraw](./plugin/skills/excalidraw/SKILL.md)
+- [no-comments](./plugin/skills/no-comments/SKILL.md)
 - [nono-sandbox-maintenance](./plugin/skills/nono-sandbox-maintenance/SKILL.md)
 - [test-writing-style](./plugin/skills/test-writing-style/SKILL.md)
 
